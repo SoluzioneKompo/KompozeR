@@ -42,7 +42,7 @@ function requireUserId(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
-export function buildNotificationsRouter(deps: NotificationsRouterDeps): Router {
+export function buildNotificationsRouter(deps: NotificationsRouterDeps): ReturnType<typeof Router> {
   const router = Router();
 
   router.get(
