@@ -4,7 +4,12 @@ import type { AuthResponse, AuthUser, GuestAuthResponse, LoginRequest, RegisterR
 
 export const authService = {
   login(data: LoginRequest): Promise<AuthResponse> {
-    return http.post<AuthResponse>('/auth/login', data);
+    const identifier = data.identifier.trim();
+    return http.post<AuthResponse>('/auth/login', {
+      identifier,
+      username: data.username ?? identifier,
+      password: data.password,
+    });
   },
 
   register(data: RegisterRequest): Promise<AuthResponse> {

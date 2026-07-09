@@ -114,4 +114,27 @@ describe('CheckoutCart', () => {
     expect(result.total).toBe(2090);
     expect(orderClient.calls[0].items[0].unitPrice).toBe(2090);
   });
+
+  it('accepts checkout when deliveryNotes is omitted', async () => {
+    const repo = new FakeCartRepository();
+    const catalog = new FakeCatalogSnapshotProvider();
+    const orderClient = new FakeOrderServiceClient();
+    const upsert = new UpsertCartItem(repo);
+    const checkout = new CheckoutCart(repo, catalog, orderClient);
+
+    await upsert.execute({
+      userId: 'usr_1',
+      sku: 'SKU-001',
+      name: 'Ripiano',
+      unitPrice: 1990,
+      quantity: 1,
+    });
+
+    catalog.set({ sku: 'SKU-001', unitPrice: 1990, isAvailable: true });
+
+    const { deliveryNotes: _deliveryNotes, ...withoutNotes } = expeditionInfo;
+    const result = await checkout.execute({ userId: 'usr_1', expeditionInfo: withoutNotes });
+
+    expect(result.status).toBe('SUBMITTED');
+  });
 });

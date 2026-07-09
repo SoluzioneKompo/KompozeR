@@ -57,7 +57,7 @@ describe('GetCurrentUser', () => {
       password: 'Password123!',
     });
 
-    const loginResult = await login.execute({ username: 'alice', password: 'Password123!' });
+    const loginResult = await login.execute({ identifier: 'alice', password: 'Password123!' });
 
     const profile = await getMe.execute({
       userId: user.id,

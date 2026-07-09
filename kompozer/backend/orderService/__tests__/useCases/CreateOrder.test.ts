@@ -62,4 +62,35 @@ describe('CreateOrder', () => {
       }),
     ).rejects.toBeInstanceOf(ValidationError);
   });
+
+  it('creates an order when deliveryNotes is omitted', async () => {
+    const repo = new FakeOrderRepository();
+    const createOrder = new CreateOrder(repo);
+
+    const result = await createOrder.execute({
+      userId: 'usr_1',
+      expeditionInfo: {
+        name: 'Mario',
+        surname: 'Rossi',
+        mail: 'mario.rossi@example.com',
+        nation: 'Italia',
+        city: 'Milano',
+        cap: '20100',
+        address: 'Via Roma 10',
+        phone: '+390212345678',
+      },
+      items: [
+        {
+          sku: 'SKU-001',
+          name: 'Ripiano',
+          unitPrice: 1990,
+          quantity: 2,
+        },
+      ],
+      total: 3980,
+    });
+
+    expect(result.status).toBe('SUBMITTED');
+    expect(result.expeditionInfo.deliveryNotes).toBeUndefined();
+  });
 });

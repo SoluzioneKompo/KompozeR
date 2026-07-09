@@ -30,7 +30,7 @@ export interface RegisterUserOutput {
 // ── LoginUser ─────────────────────────────────────────────────────────────────
 
 export interface LoginUserInput {
-  username: string;
+  identifier: string;
   password: string;
 }
 

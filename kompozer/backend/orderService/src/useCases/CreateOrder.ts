@@ -60,7 +60,7 @@ export class CreateOrder {
     const cap = this.requireTrimmed(input.cap, 'expeditionInfo.cap', 10);
     const address = this.requireTrimmed(input.address, 'expeditionInfo.address', MAX_ADDRESS_LENGTH);
     const phone = this.requireTrimmed(input.phone, 'expeditionInfo.phone', MAX_PHONE_LENGTH);
-    const deliveryNotes = this.requireTrimmed(
+    const deliveryNotes = this.optionalTrimmed(
       input.deliveryNotes,
       'expeditionInfo.deliveryNotes',
       MAX_DELIVERY_NOTES_LENGTH,
@@ -82,7 +82,7 @@ export class CreateOrder {
       cap,
       address,
       phone,
-      deliveryNotes,
+      ...(deliveryNotes ? { deliveryNotes } : {}),
     };
   }
 
@@ -92,6 +92,26 @@ export class CreateOrder {
     }
 
     const normalized = value.trim();
+    if (normalized.length > maxLength) {
+      throw new ValidationError(`${field} must be at most ${maxLength} characters`);
+    }
+
+    return normalized;
+  }
+
+  private optionalTrimmed(value: string | undefined, field: string, maxLength: number): string | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (typeof value !== 'string') {
+      throw new ValidationError(`${field} must be a string`);
+    }
+
+    const normalized = value.trim();
+    if (!normalized) {
+      return undefined;
+    }
+
     if (normalized.length > maxLength) {
       throw new ValidationError(`${field} must be at most ${maxLength} characters`);
     }

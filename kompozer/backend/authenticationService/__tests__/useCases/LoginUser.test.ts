@@ -58,7 +58,7 @@ describe('LoginUser', () => {
       password: 'Password123!',
     });
 
-    const result = await login.execute({ username: 'valerio', password: 'Password123!' });
+    const result = await login.execute({ identifier: 'valerio', password: 'Password123!' });
 
     expect(result.token).toBeDefined();
     expect(result.user.username).toBe('valerio');
@@ -78,7 +78,7 @@ describe('LoginUser', () => {
       password: 'Password123!',
     });
 
-    const result = await login.execute({ username: 'valerio', password: 'Password123!' });
+    const result = await login.execute({ identifier: 'valerio', password: 'Password123!' });
 
     const expectedExpiry = new Date(clock.now().getTime() + SESSION_TTL_MS);
     expect(result.session.expiresAt).toEqual(expectedExpiry);
@@ -96,7 +96,7 @@ describe('LoginUser', () => {
     });
 
     await expect(
-      login.execute({ username: 'valerio', password: 'WrongPassword!' }),
+      login.execute({ identifier: 'valerio', password: 'WrongPassword!' }),
     ).rejects.toThrow(InvalidPasswordError);
   });
 
@@ -104,7 +104,7 @@ describe('LoginUser', () => {
     const { login } = makeUseCase();
 
     await expect(
-      login.execute({ username: 'ghost', password: 'Password123!' }),
+      login.execute({ identifier: 'ghost', password: 'Password123!' }),
     ).rejects.toThrow(InvalidCredentialsError);
   });
 
@@ -118,7 +118,7 @@ describe('LoginUser', () => {
       email: 'valerio@example.com',
       password: 'Password123!',
     });
-    const result = await login.execute({ username: 'valerio', password: 'Password123!' });
+    const result = await login.execute({ identifier: 'valerio', password: 'Password123!' });
 
     const saved = await sessionRepo.findById(result.session.id);
     expect(saved).not.toBeNull();
@@ -137,9 +137,28 @@ describe('LoginUser', () => {
       password: 'Password123!',
     });
 
-    const r1 = await login.execute({ username: 'valerio', password: 'Password123!' });
-    const r2 = await login.execute({ username: 'valerio', password: 'Password123!' });
+    const r1 = await login.execute({ identifier: 'valerio', password: 'Password123!' });
+    const r2 = await login.execute({ identifier: 'valerio', password: 'Password123!' });
 
     expect(r1.session.tokenId).not.toBe(r2.session.tokenId);
+  });
+
+  it('accepts email as login identifier', async () => {
+    const { register, login } = makeUseCase();
+
+    await register.execute({
+      username: 'valerio',
+      name: 'Valerio',
+      surname: 'Rossi',
+      email: 'valerio@example.com',
+      password: 'Password123!',
+    });
+
+    const result = await login.execute({
+      identifier: 'valerio@example.com',
+      password: 'Password123!',
+    });
+
+    expect(result.user.username).toBe('valerio');
   });
 });

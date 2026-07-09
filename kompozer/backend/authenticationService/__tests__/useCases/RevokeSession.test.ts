@@ -63,7 +63,7 @@ describe('RevokeSession', () => {
       email: 'a@e.com',
       password: 'Password123!',
     });
-    const loginResult = await login.execute({ username: 'alice', password: 'Password123!' });
+    const loginResult = await login.execute({ identifier: 'alice', password: 'Password123!' });
 
     await revoke.execute({
       requestingUserId: loginResult.user.id,
@@ -100,7 +100,7 @@ describe('RevokeSession', () => {
       email: 'a@e.com',
       password: 'Password123!',
     });
-    const aliceLogin = await login.execute({ username: 'alice', password: 'Password123!' });
+    const aliceLogin = await login.execute({ identifier: 'alice', password: 'Password123!' });
 
     // Manually promote an admin user
     const admin: User = {
@@ -143,8 +143,8 @@ describe('RevokeSession', () => {
       password: 'Password123!',
     });
 
-    const aliceLogin = await login.execute({ username: 'alice', password: 'Password123!' });
-    const bobLogin = await login.execute({ username: 'bob', password: 'Password123!' });
+    const aliceLogin = await login.execute({ identifier: 'alice', password: 'Password123!' });
+    const bobLogin = await login.execute({ identifier: 'bob', password: 'Password123!' });
 
     await expect(
       revoke.execute({
@@ -166,8 +166,8 @@ describe('ListUserSessions', () => {
       email: 'a@e.com',
       password: 'Password123!',
     });
-    const r1 = await login.execute({ username: 'alice', password: 'Password123!' });
-    const r2 = await login.execute({ username: 'alice', password: 'Password123!' });
+    const r1 = await login.execute({ identifier: 'alice', password: 'Password123!' });
+    const r2 = await login.execute({ identifier: 'alice', password: 'Password123!' });
 
     const { sessions } = await listSessions.execute({ userId: r1.user.id });
 

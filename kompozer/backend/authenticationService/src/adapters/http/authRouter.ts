@@ -61,8 +61,13 @@ export function buildAuthRouter(deps: AuthRouterDeps) {
   router.post(
     '/login',
     wrap(async (req, res) => {
-      const { username, password } = req.body as { username: string; password: string };
-      const result = await deps.loginUser.execute({ username, password });
+      const body = (req.body ?? {}) as {
+        identifier?: string;
+        username?: string;
+        password: string;
+      };
+      const identifier = body.identifier ?? body.username ?? '';
+      const result = await deps.loginUser.execute({ identifier, password: body.password });
       res.status(200).json(result);
     }),
   );

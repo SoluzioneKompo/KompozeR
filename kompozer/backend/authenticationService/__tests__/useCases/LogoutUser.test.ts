@@ -55,7 +55,7 @@ describe('LogoutUser', () => {
       email: 'v@example.com',
       password: 'Password123!',
     });
-    const loginResult = await login.execute({ username: 'valerio', password: 'Password123!' });
+    const loginResult = await login.execute({ identifier: 'valerio', password: 'Password123!' });
 
     await logout.execute({
       userId: loginResult.user.id,
@@ -76,7 +76,7 @@ describe('LogoutUser', () => {
       email: 'v@example.com',
       password: 'Password123!',
     });
-    const loginResult = await login.execute({ username: 'valerio', password: 'Password123!' });
+    const loginResult = await login.execute({ identifier: 'valerio', password: 'Password123!' });
 
     await expect(
       logout.execute({ userId: loginResult.user.id, sessionId: 'non-existent' }),
@@ -101,8 +101,8 @@ describe('LogoutUser', () => {
       password: 'Password123!',
     });
 
-    const aliceLogin = await login.execute({ username: 'alice', password: 'Password123!' });
-    const bobLogin = await login.execute({ username: 'bob', password: 'Password123!' });
+    const aliceLogin = await login.execute({ identifier: 'alice', password: 'Password123!' });
+    const bobLogin = await login.execute({ identifier: 'bob', password: 'Password123!' });
 
     await expect(
       logout.execute({ userId: bobLogin.user.id, sessionId: aliceLogin.session.id }),
@@ -119,7 +119,10 @@ describe('LogoutUser', () => {
       email: 'gateway@example.com',
       password: 'Password123!',
     });
-    const loginResult = await login.execute({ username: 'gateway-user', password: 'Password123!' });
+    const loginResult = await login.execute({
+      identifier: 'gateway-user',
+      password: 'Password123!',
+    });
 
     // Simulates gateway-injected X-Session-Id: tokenId, not session.id.
     await logout.execute({

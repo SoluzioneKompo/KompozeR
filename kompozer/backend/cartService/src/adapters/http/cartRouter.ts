@@ -115,7 +115,7 @@ export function buildCartRouter(deps: CartRouterDeps) {
           cap: string;
           address: string;
           phone: string;
-          deliveryNotes: string;
+          deliveryNotes?: string;
         };
       };
       const result = await deps.checkoutCart.execute({

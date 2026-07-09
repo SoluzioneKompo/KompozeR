@@ -26,9 +26,12 @@ export class LoginUser {
   ) {}
 
   async execute(input: LoginUserInput): Promise<LoginUserOutput> {
-    const user = await this.userRepo.findByUsername(input.username);
+    const identifier = input.identifier.trim();
+    const user =
+      (await this.userRepo.findByUsername(identifier)) ??
+      (await this.userRepo.findByEmail(identifier));
 
-    // Do not expose whether the username exists.
+    // Do not expose whether the identifier exists.
     if (!user) throw new InvalidCredentialsError();
 
     const passwordValid = await this.hasher.compare(input.password, user.passwordHash);

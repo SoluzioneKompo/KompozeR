@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { cartService } from '@/services/cartService';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useCartStore } from '@/store/cartStore';
-import type { Cart, CartItem } from '@/types/cart';
+import type { Cart, CartItem, ExpeditionInfo } from '@/types/cart';
 import { ApiError } from '@/types/api';
 
 export function useCart() {
@@ -51,16 +51,17 @@ export function useCart() {
   }
 
   /** Submits cart as order, clears badge, and reloads cart state. */
-  async function checkout(): Promise<void> {
+  async function checkout(expeditionInfo: ExpeditionInfo): Promise<void> {
     checkoutLoading.value = true;
     try {
-      const result = await cartService.checkout();
+      const result = await cartService.checkout(expeditionInfo);
       cartStore.clearCount();
       notifications.addToast('success', `Ordine ${result.orderId} creato con successo`);
       await load();
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Errore durante checkout';
       notifications.addToast('error', msg);
+      throw e;
     } finally {
       checkoutLoading.value = false;
     }

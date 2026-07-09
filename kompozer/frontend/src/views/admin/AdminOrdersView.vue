@@ -70,7 +70,7 @@ async function markDone(order: Order): Promise<void> {
   try {
     const updated = await orderService.markDone(order.id);
     items.value = items.value.map((current) => (current.id === updated.id ? updated : current));
-    notifications.addToast('success', `Ordine ${order.id} marcato come DONE`);
+    notifications.addToast('success', 'Ordine marcato come DONE');
     orderToConfirmDone.value = null;
   } catch (e) {
     const msg = e instanceof ApiError ? e.message : 'Errore aggiornamento stato ordine';
@@ -86,7 +86,7 @@ async function markCancelled(order: Order): Promise<void> {
   try {
     const updated = await orderService.markCancelled(order.id);
     items.value = items.value.map((current) => (current.id === updated.id ? updated : current));
-    notifications.addToast('success', `Ordine ${order.id} marcato come CANCELLED`);
+    notifications.addToast('success', 'Ordine marcato come CANCELLED');
   } catch (e) {
     const msg = e instanceof ApiError ? e.message : 'Errore aggiornamento stato ordine';
     notifications.addToast('error', msg);
@@ -126,7 +126,7 @@ function closeBlockedActionModal(): void {
 /** Guards DONE transition requests to submitted orders only. */
 function requestMarkDone(order: Order): void {
   if (order.status !== 'SUBMITTED') {
-    blockedActionMessage.value = `Operazione non consentita: l'ordine ${order.id} e' in stato ${order.status}.`;
+    blockedActionMessage.value = `Operazione non consentita: ordine in stato ${order.status}.`;
     return;
   }
   openDoneConfirmation(order);
@@ -135,7 +135,7 @@ function requestMarkDone(order: Order): void {
 /** Guards CANCELLED transition requests to submitted orders only. */
 function requestMarkCancelled(order: Order): void {
   if (order.status !== 'SUBMITTED') {
-    blockedActionMessage.value = `Operazione non consentita: l'ordine ${order.id} e' in stato ${order.status}.`;
+    blockedActionMessage.value = `Operazione non consentita: ordine in stato ${order.status}.`;
     return;
   }
   void markCancelled(order);
@@ -207,8 +207,7 @@ function requestMarkCancelled(order: Order): void {
       <article class="order" v-for="order in filteredItems" :key="order.id">
         <div class="order__top">
           <div>
-            <h2>{{ order.id }}</h2>
-            <p class="meta">Utente: {{ order.userId }}</p>
+            <h2>Ordine</h2>
           </div>
           <span :class="['status', order.status.toLowerCase()]">{{ order.status }}</span>
         </div>
@@ -229,6 +228,23 @@ function requestMarkCancelled(order: Order): void {
           <div>
             <span class="label">Completato</span>
             <strong>{{ formatDate(order.doneAt) }}</strong>
+          </div>
+        </div>
+
+        <div class="order__expedition" v-if="order.expeditionInfo">
+          <p class="items-title">Dati spedizione</p>
+          <div class="order__expedition-grid">
+            <p><strong>Nome:</strong> {{ order.expeditionInfo.name }} {{ order.expeditionInfo.surname }}</p>
+            <p><strong>Email:</strong> {{ order.expeditionInfo.mail }}</p>
+            <p><strong>Telefono:</strong> {{ order.expeditionInfo.phone }}</p>
+            <p><strong>Nazione:</strong> {{ order.expeditionInfo.nation }}</p>
+            <p><strong>Citta:</strong> {{ order.expeditionInfo.city }}</p>
+            <p><strong>CAP:</strong> {{ order.expeditionInfo.cap }}</p>
+            <p class="order__expedition-address"><strong>Indirizzo:</strong> {{ order.expeditionInfo.address }}</p>
+            <p class="order__expedition-address">
+              <strong>Note consegna:</strong>
+              {{ order.expeditionInfo.deliveryNotes?.trim() ? order.expeditionInfo.deliveryNotes : '-' }}
+            </p>
           </div>
         </div>
 
@@ -263,7 +279,7 @@ function requestMarkCancelled(order: Order): void {
     <div v-if="orderToConfirmDone" class="modal-backdrop" role="presentation">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="done-confirm-title">
         <h2 id="done-confirm-title" class="modal__title">Conferma aggiornamento</h2>
-        <p class="modal__text">Vuoi segnare l'ordine {{ orderToConfirmDone.id }} come DONE?</p>
+        <p class="modal__text">Vuoi segnare questo ordine come DONE?</p>
         <div class="modal__actions">
           <button class="btn btn--light" type="button" @click="closeDoneConfirmation">Annulla</button>
           <button class="btn btn--primary" type="button" :disabled="updatingOrderId === orderToConfirmDone.id" @click="confirmMarkDone">
@@ -377,12 +393,6 @@ function requestMarkCancelled(order: Order): void {
   gap: var(--space-4);
 }
 
-.meta {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  margin-top: 2px;
-}
-
 .status {
   font-size: var(--font-size-xs);
   border-radius: var(--radius-full);
@@ -420,6 +430,26 @@ function requestMarkCancelled(order: Order): void {
 
 .order__items {
   margin-top: var(--space-3);
+}
+
+.order__expedition {
+  margin-top: var(--space-3);
+}
+
+.order__expedition-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.order__expedition-grid p {
+  margin: 0;
+}
+
+.order__expedition-address {
+  grid-column: 1 / -1;
 }
 
 .items-title {
@@ -519,6 +549,10 @@ function requestMarkCancelled(order: Order): void {
 
 @media (max-width: 640px) {
   .order__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .order__expedition-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /** Cart view for quantity updates, totals review, and checkout actions. */
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useCart } from '@/composables/useCart';
-import type { CartItem } from '@/types/cart';
+import type { CartItem, ExpeditionInfo } from '@/types/cart';
 
 const { cart, loading, checkoutLoading, clearLoading, error, load, setQuantity, clearCart, checkout } = useCart();
 
@@ -13,6 +13,19 @@ onMounted(() => {
 
 const items = computed(() => cart.value?.items ?? []);
 const total = computed(() => cart.value?.total ?? 0);
+const showCheckoutModal = ref(false);
+const checkoutError = ref('');
+const checkoutForm = reactive<ExpeditionInfo>({
+  name: '',
+  surname: '',
+  mail: '',
+  nation: '',
+  city: '',
+  cap: '',
+  address: '',
+  phone: '',
+  deliveryNotes: '',
+});
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('it-IT', {
@@ -27,6 +40,46 @@ function increment(item: CartItem): void {
 
 function decrement(item: CartItem): void {
   void setQuantity(item, item.quantity - 1);
+}
+
+function openCheckoutModal(): void {
+  checkoutError.value = '';
+  showCheckoutModal.value = true;
+}
+
+function closeCheckoutModal(): void {
+  showCheckoutModal.value = false;
+  checkoutError.value = '';
+}
+
+async function submitCheckout(): Promise<void> {
+  checkoutError.value = '';
+
+  if (
+    !checkoutForm.name.trim() ||
+    !checkoutForm.surname.trim() ||
+    !checkoutForm.mail.trim() ||
+    !checkoutForm.nation.trim() ||
+    !checkoutForm.city.trim() ||
+    !checkoutForm.cap.trim() ||
+    !checkoutForm.address.trim() ||
+    !checkoutForm.phone.trim()
+  ) {
+    checkoutError.value = 'Compila tutti i campi obbligatori.';
+    return;
+  }
+
+  const payload: ExpeditionInfo = {
+    ...checkoutForm,
+    deliveryNotes: checkoutForm.deliveryNotes?.trim() || undefined,
+  };
+
+  try {
+    await checkout(payload);
+    closeCheckoutModal();
+  } catch {
+    checkoutError.value = 'Impossibile completare il checkout. Verifica i dati e riprova.';
+  }
 }
 </script>
 
@@ -81,10 +134,68 @@ function decrement(item: CartItem): void {
         <button class="btn btn--danger summary-btn-secondary" :disabled="clearLoading" @click="clearCart">
           {{ clearLoading ? 'Svuotamento in corso...' : 'Svuota carrello' }}
         </button>
-        <button class="btn btn--primary summary-btn" :disabled="checkoutLoading || clearLoading" @click="checkout">
+        <button
+          class="btn btn--primary summary-btn"
+          :disabled="checkoutLoading || clearLoading"
+          @click="openCheckoutModal"
+        >
           {{ checkoutLoading ? 'Checkout in corso...' : 'Procedi al checkout' }}
         </button>
       </aside>
+    </div>
+
+    <div v-if="showCheckoutModal" class="checkout-modal-backdrop" role="presentation">
+      <div class="checkout-modal" role="dialog" aria-modal="true" aria-labelledby="checkout-modal-title">
+        <h2 id="checkout-modal-title" class="checkout-modal__title">Dati spedizione</h2>
+
+        <form class="checkout-form" @submit.prevent="submitCheckout">
+          <label class="field">
+            <span class="field__label">Nome</span>
+            <input v-model="checkoutForm.name" class="field__input" type="text" required />
+          </label>
+          <label class="field">
+            <span class="field__label">Cognome</span>
+            <input v-model="checkoutForm.surname" class="field__input" type="text" required />
+          </label>
+          <label class="field">
+            <span class="field__label">Email</span>
+            <input v-model="checkoutForm.mail" class="field__input" type="email" required />
+          </label>
+          <label class="field">
+            <span class="field__label">Nazione</span>
+            <input v-model="checkoutForm.nation" class="field__input" type="text" required />
+          </label>
+          <label class="field">
+            <span class="field__label">Citta</span>
+            <input v-model="checkoutForm.city" class="field__input" type="text" required />
+          </label>
+          <label class="field">
+            <span class="field__label">CAP</span>
+            <input v-model="checkoutForm.cap" class="field__input" type="text" required />
+          </label>
+          <label class="field field--full">
+            <span class="field__label">Indirizzo</span>
+            <input v-model="checkoutForm.address" class="field__input" type="text" required />
+          </label>
+          <label class="field">
+            <span class="field__label">Telefono</span>
+            <input v-model="checkoutForm.phone" class="field__input" type="text" required />
+          </label>
+          <label class="field field--full">
+            <span class="field__label">Note consegna (opzionale)</span>
+            <textarea v-model="checkoutForm.deliveryNotes" class="field__textarea" rows="3" />
+          </label>
+
+          <p v-if="checkoutError" class="error" role="alert" aria-live="assertive">{{ checkoutError }}</p>
+
+          <div class="checkout-modal__actions">
+            <button class="btn btn--light" type="button" @click="closeCheckoutModal">Annulla</button>
+            <button class="btn btn--primary" type="submit" :disabled="checkoutLoading">
+              {{ checkoutLoading ? 'Checkout in corso...' : 'Conferma checkout' }}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 </template>
@@ -239,6 +350,76 @@ function decrement(item: CartItem): void {
   border: 1px solid var(--color-border);
 }
 
+.checkout-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgb(15 23 42 / 0.45);
+  z-index: 120;
+}
+
+.checkout-modal {
+  width: min(760px, 100%);
+  max-height: calc(100dvh - var(--space-8));
+  overflow: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-md);
+}
+
+.checkout-modal__title {
+  margin: 0 0 var(--space-4);
+}
+
+.checkout-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field--full {
+  grid-column: 1 / -1;
+}
+
+.field__label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.field__input,
+.field__textarea {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-base);
+}
+
+.field__textarea {
+  resize: vertical;
+}
+
+.checkout-modal__actions {
+  grid-column: 1 / -1;
+  margin-top: var(--space-2);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
 @media (max-width: 1100px) {
   .layout {
     grid-template-columns: 1fr;
@@ -263,6 +444,10 @@ function decrement(item: CartItem): void {
 
   .cart-header {
     flex-direction: column;
+  }
+
+  .checkout-form {
+    grid-template-columns: 1fr;
   }
 }
 </style>

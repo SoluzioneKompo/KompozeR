@@ -125,7 +125,7 @@ export class CheckoutCart {
       MAX_ADDRESS_LENGTH,
     );
     const phone = this.requireTrimmed(input.expeditionInfo.phone, 'expeditionInfo.phone', MAX_PHONE_LENGTH);
-    const deliveryNotes = this.requireTrimmed(
+    const deliveryNotes = this.optionalTrimmed(
       input.expeditionInfo.deliveryNotes,
       'expeditionInfo.deliveryNotes',
       MAX_DELIVERY_NOTES_LENGTH,
@@ -148,7 +148,7 @@ export class CheckoutCart {
       cap,
       address,
       phone,
-      deliveryNotes,
+      ...(deliveryNotes ? { deliveryNotes } : {}),
     };
   }
 
@@ -158,6 +158,26 @@ export class CheckoutCart {
     }
 
     const normalized = value.trim();
+    if (normalized.length > maxLength) {
+      throw new ValidationError(`${field} must be at most ${maxLength} characters`);
+    }
+
+    return normalized;
+  }
+
+  private optionalTrimmed(value: string | undefined, field: string, maxLength: number): string | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (typeof value !== 'string') {
+      throw new ValidationError(`${field} must be a string`);
+    }
+
+    const normalized = value.trim();
+    if (!normalized) {
+      return undefined;
+    }
+
     if (normalized.length > maxLength) {
       throw new ValidationError(`${field} must be at most ${maxLength} characters`);
     }

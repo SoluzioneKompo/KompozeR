@@ -15,7 +15,7 @@ export type OrderDoc = {
     cap: string;
     address: string;
     phone: string;
-    deliveryNotes: string;
+    deliveryNotes?: string;
   };
   items: Array<{
     sku: string;
@@ -50,7 +50,7 @@ const expeditionInfoSchema = new Schema(
     cap: { type: String, required: true },
     address: { type: String, required: true },
     phone: { type: String, required: true },
-    deliveryNotes: { type: String, required: true },
+    deliveryNotes: { type: String, required: false },
   },
   { _id: false },
 );

@@ -15,8 +15,8 @@ const error = ref('');
 const loading = ref(false);
 const showRegistrationSuccess = ref(false);
 
-const login = reactive({ username: '', password: '' });
-const register = reactive({ username: '', email: '', password: '' });
+const login = reactive({ identifier: '', password: '' });
+const register = reactive({ username: '', name: '', surname: '', email: '', password: '' });
 
 /** Maps login API failures to user-facing localized messages. */
 function mapLoginError(err: unknown): string {
@@ -32,7 +32,7 @@ function mapLoginError(err: unknown): string {
     return 'Password Errata';
   }
 
-  return 'Invalid username or password';
+  return 'Credenziali non valide';
 }
 
 /** Maps registration failures and surfaces password validation details when available. */
@@ -62,7 +62,7 @@ async function handleLogin(): Promise<void> {
   error.value = '';
   loading.value = true;
   try {
-    await auth.login(login.username, login.password);
+    await auth.login(login.identifier, login.password);
     await router.push({ name: auth.homeRouteName });
   } catch (e) {
     error.value = mapLoginError(e);
@@ -76,9 +76,15 @@ async function handleRegister(): Promise<void> {
   error.value = '';
   loading.value = true;
   try {
-    await auth.register(register.username, register.email, register.password);
+    await auth.register(
+      register.username,
+      register.name,
+      register.surname,
+      register.email,
+      register.password,
+    );
     auth.logout();
-    login.username = register.username;
+    login.identifier = register.username;
     login.password = '';
     register.password = '';
     mode.value = 'login';
@@ -125,8 +131,14 @@ async function handleGuest(): Promise<void> {
 
       <form v-if="mode === 'login'" class="auth-form" @submit.prevent="handleLogin">
         <label class="field">
-          <span class="field__label">Username</span>
-          <input v-model="login.username" class="field__input" type="text" required autocomplete="username" />
+          <span class="field__label">Username o Email</span>
+          <input
+            v-model="login.identifier"
+            class="field__input"
+            type="text"
+            required
+            autocomplete="username"
+          />
         </label>
         <label class="field">
           <span class="field__label">Password</span>
@@ -142,6 +154,14 @@ async function handleGuest(): Promise<void> {
         <label class="field">
           <span class="field__label">Username</span>
           <input v-model="register.username" class="field__input" type="text" required autocomplete="username" />
+        </label>
+        <label class="field">
+          <span class="field__label">Nome</span>
+          <input v-model="register.name" class="field__input" type="text" required autocomplete="given-name" />
+        </label>
+        <label class="field">
+          <span class="field__label">Cognome</span>
+          <input v-model="register.surname" class="field__input" type="text" required autocomplete="family-name" />
         </label>
         <label class="field">
           <span class="field__label">Email</span>

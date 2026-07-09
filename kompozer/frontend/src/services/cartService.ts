@@ -1,6 +1,6 @@
 /** Cart API client for cart mutation, retrieval, and checkout operations. */
 import { http } from './httpClient';
-import type { Cart, CheckoutResult } from '@/types/cart';
+import type { Cart, CheckoutResult, ExpeditionInfo } from '@/types/cart';
 
 export const cartService = {
   get(): Promise<Cart> {
@@ -19,7 +19,7 @@ export const cartService = {
     return http.delete<void>('/cart');
   },
 
-  checkout(): Promise<CheckoutResult> {
-    return http.post<CheckoutResult>('/cart/checkout');
+  checkout(expeditionInfo: ExpeditionInfo): Promise<CheckoutResult> {
+    return http.post<CheckoutResult>('/cart/checkout', { expeditionInfo });
   },
 };

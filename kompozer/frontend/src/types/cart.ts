@@ -14,6 +14,18 @@ export interface Cart {
   updatedAt: string;
 }
 
+export interface ExpeditionInfo {
+  name: string;
+  surname: string;
+  mail: string;
+  nation: string;
+  city: string;
+  cap: string;
+  address: string;
+  phone: string;
+  deliveryNotes?: string;
+}
+
 export interface CheckoutResult {
   orderId: string;
   status: 'SUBMITTED';

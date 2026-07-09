@@ -19,7 +19,7 @@ export interface ExpeditionInfo {
   cap: string;
   address: string;
   phone: string;
-  deliveryNotes: string;
+  deliveryNotes?: string;
 }
 
 export interface Order {

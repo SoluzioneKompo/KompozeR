@@ -73,7 +73,7 @@ export function buildOrderRouter(deps: OrderRouterDeps) {
           cap: string;
           address: string;
           phone: string;
-          deliveryNotes: string;
+          deliveryNotes?: string;
         };
         items?: Array<{ sku: string; name: string; unitPrice: number; quantity: number }>;
         total?: number;

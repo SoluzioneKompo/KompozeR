@@ -82,16 +82,27 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /** Authenticates with credentials, persisting token and user on success. */
-  async function login(username: string, password: string): Promise<void> {
-    const res = await authService.login({ username, password });
+  async function login(identifier: string, password: string): Promise<void> {
+    const normalizedIdentifier = identifier.trim();
+    const res = await authService.login({
+      identifier: normalizedIdentifier,
+      username: normalizedIdentifier,
+      password,
+    });
     persistToken(res.token);
     persistUser(res.user);
     persistGuest(false);
   }
 
   /** Registers a new user and immediately persists the resulting session. */
-  async function register(username: string, email: string, password: string): Promise<void> {
-    const res = await authService.register({ username, email, password });
+  async function register(
+    username: string,
+    name: string,
+    surname: string,
+    email: string,
+    password: string,
+  ): Promise<void> {
+    const res = await authService.register({ username, name, surname, email, password });
     persistToken(res.token);
     persistUser(res.user);
     persistGuest(false);

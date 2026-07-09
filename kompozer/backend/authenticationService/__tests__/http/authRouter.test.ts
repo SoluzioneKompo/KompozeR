@@ -24,7 +24,7 @@ async function registerAndLogin(
     email,
     password,
   });
-  const res = await request(app).post('/auth/login').send({ username, password });
+  const res = await request(app).post('/auth/login').send({ identifier: username, password });
   return res.body as { token: string; session: { id: string }; user: { id: string } };
 }
 
@@ -125,7 +125,7 @@ describe('POST /auth/login', () => {
 
     const res = await request(app)
       .post('/auth/login')
-      .send({ username: 'eve', password: 'Password123!' });
+      .send({ identifier: 'eve', password: 'Password123!' });
 
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();
@@ -146,7 +146,7 @@ describe('POST /auth/login', () => {
 
     const res = await request(app)
       .post('/auth/login')
-      .send({ username: 'frank', password: 'wrong!' });
+      .send({ identifier: 'frank', password: 'wrong!' });
 
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe('INVALID_CREDENTIALS');
@@ -155,9 +155,28 @@ describe('POST /auth/login', () => {
   it('returns 401 when user does not exist', async () => {
     const res = await request(app)
       .post('/auth/login')
-      .send({ username: 'ghost', password: 'Password123!' });
+      .send({ identifier: 'ghost', password: 'Password123!' });
 
     expect(res.status).toBe(401);
+  });
+
+  it('returns 200 when identifier is an email', async () => {
+    await request(app)
+      .post('/auth/register')
+      .send({
+        username: 'email_login_user',
+        name: 'Email',
+        surname: 'Login',
+        email: 'email_login_user@example.com',
+        password: 'Password123!',
+      });
+
+    const res = await request(app)
+      .post('/auth/login')
+      .send({ identifier: 'email_login_user@example.com', password: 'Password123!' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.username).toBe('email_login_user');
   });
 });
 
@@ -254,7 +273,7 @@ describe('GET /auth/sessions', () => {
     // A second login creates a second session.
     await request(app)
       .post('/auth/login')
-      .send({ username: 'sessions_user', password: 'Password123!' });
+      .send({ identifier: 'sessions_user', password: 'Password123!' });
 
     const res = await request(app)
       .get('/auth/sessions')
