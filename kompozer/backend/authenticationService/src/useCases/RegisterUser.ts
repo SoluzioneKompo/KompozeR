@@ -18,6 +18,7 @@ import { RegisterUserInput, RegisterUserOutput } from './types';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
+const MAX_NAME_LENGTH = 100;
 
 export class RegisterUser {
   constructor(
@@ -42,6 +43,8 @@ export class RegisterUser {
     const user = {
       id: this.idGen.generate(),
       username: input.username,
+      name: input.name.trim(),
+      surname: input.surname.trim(),
       email: input.email,
       passwordHash: await this.hasher.hash(input.password),
       role: UserRole.BASE,
@@ -56,6 +59,8 @@ export class RegisterUser {
       user: {
         id: user.id,
         username: user.username,
+        name: user.name,
+        surname: user.surname,
         email: user.email,
         role: user.role,
       },
@@ -67,6 +72,18 @@ export class RegisterUser {
 
     if (!input.username || input.username.trim() === '') {
       errors.push({ field: 'username', reason: 'Username is required' });
+    }
+
+    if (!input.name || input.name.trim() === '') {
+      errors.push({ field: 'name', reason: 'Name is required' });
+    } else if (input.name.trim().length > MAX_NAME_LENGTH) {
+      errors.push({ field: 'name', reason: `Name must be at most ${MAX_NAME_LENGTH} characters` });
+    }
+
+    if (!input.surname || input.surname.trim() === '') {
+      errors.push({ field: 'surname', reason: 'Surname is required' });
+    } else if (input.surname.trim().length > MAX_NAME_LENGTH) {
+      errors.push({ field: 'surname', reason: `Surname must be at most ${MAX_NAME_LENGTH} characters` });
     }
 
     if (!input.email || !EMAIL_RE.test(input.email)) {

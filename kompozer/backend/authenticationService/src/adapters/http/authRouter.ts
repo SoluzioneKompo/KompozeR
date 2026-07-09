@@ -33,7 +33,7 @@ export interface AuthRouterDeps {
  * API gateway after JWT verification. Routes that require authentication rely
  * exclusively on those headers — never on the raw JWT.
  */
-export function buildAuthRouter(deps: AuthRouterDeps): Router {
+export function buildAuthRouter(deps: AuthRouterDeps) {
   const router = Router();
 
   const wrap =
@@ -45,12 +45,14 @@ export function buildAuthRouter(deps: AuthRouterDeps): Router {
   router.post(
     '/register',
     wrap(async (req, res) => {
-      const { username, email, password } = req.body as {
+      const { username, name, surname, email, password } = req.body as {
         username: string;
+        name: string;
+        surname: string;
         email: string;
         password: string;
       };
-      const result = await deps.registerUser.execute({ username, email, password });
+      const result = await deps.registerUser.execute({ username, name, surname, email, password });
       res.status(201).json(result);
     }),
   );

@@ -6,6 +6,17 @@ import { Schema, model } from 'mongoose';
 export type OrderDoc = {
   _id: string;
   userId: string;
+  expeditionInfo: {
+    name: string;
+    surname: string;
+    mail: string;
+    nation: string;
+    city: string;
+    cap: string;
+    address: string;
+    phone: string;
+    deliveryNotes: string;
+  };
   items: Array<{
     sku: string;
     name: string;
@@ -29,10 +40,26 @@ const orderItemSchema = new Schema(
   { _id: false },
 );
 
+const expeditionInfoSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    surname: { type: String, required: true },
+    mail: { type: String, required: true },
+    nation: { type: String, required: true },
+    city: { type: String, required: true },
+    cap: { type: String, required: true },
+    address: { type: String, required: true },
+    phone: { type: String, required: true },
+    deliveryNotes: { type: String, required: true },
+  },
+  { _id: false },
+);
+
 const orderSchema = new Schema<OrderDoc>(
   {
     _id: { type: String, required: true },
     userId: { type: String, required: true, index: true },
+    expeditionInfo: { type: expeditionInfoSchema, required: true },
     items: { type: [orderItemSchema], required: true },
     total: { type: Number, required: true },
     status: { type: String, required: true, enum: ['SUBMITTED', 'DONE', 'CANCELLED'] },

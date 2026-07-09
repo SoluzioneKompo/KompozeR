@@ -7,6 +7,7 @@
  */
 import { LoginUser } from '../../src/useCases/LoginUser';
 import { RegisterUser } from '../../src/useCases/RegisterUser';
+import { describe, expect, it } from '@jest/globals';
 import {
   FakeUserRepository,
   FakeSessionRepository,
@@ -51,6 +52,8 @@ describe('LoginUser', () => {
 
     await register.execute({
       username: 'valerio',
+      name: 'Valerio',
+      surname: 'Rossi',
       email: 'valerio@example.com',
       password: 'Password123!',
     });
@@ -69,6 +72,8 @@ describe('LoginUser', () => {
 
     await register.execute({
       username: 'valerio',
+      name: 'Valerio',
+      surname: 'Rossi',
       email: 'valerio@example.com',
       password: 'Password123!',
     });
@@ -84,6 +89,8 @@ describe('LoginUser', () => {
 
     await register.execute({
       username: 'valerio',
+      name: 'Valerio',
+      surname: 'Rossi',
       email: 'valerio@example.com',
       password: 'Password123!',
     });
@@ -106,6 +113,8 @@ describe('LoginUser', () => {
 
     await register.execute({
       username: 'valerio',
+      name: 'Valerio',
+      surname: 'Rossi',
       email: 'valerio@example.com',
       password: 'Password123!',
     });
@@ -122,6 +131,8 @@ describe('LoginUser', () => {
 
     await register.execute({
       username: 'valerio',
+      name: 'Valerio',
+      surname: 'Rossi',
       email: 'valerio@example.com',
       password: 'Password123!',
     });

@@ -6,6 +6,7 @@
  * and guest_ username prefix in the response.
  */
 import { GenerateGuestSession } from '../../src/useCases/GenerateGuestSession';
+import { describe, expect, it } from '@jest/globals';
 import {
   FakeSessionRepository,
   FakeTokenSigner,

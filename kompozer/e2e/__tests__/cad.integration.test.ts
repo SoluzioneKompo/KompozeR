@@ -68,7 +68,13 @@ beforeAll(async () => {
   await fetch(`${BASE}/auth/register`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ username: suffix, email: `${suffix}@test.com`, password: 'password123' }),
+    body:    JSON.stringify({
+      username: suffix,
+      name: 'Cad',
+      surname: 'User',
+      email: `${suffix}@test.com`,
+      password: 'password123',
+    }),
   });
   const userRes = await fetch(`${BASE}/auth/login`, {
     method:  'POST',
@@ -81,7 +87,13 @@ beforeAll(async () => {
   await fetch(`${BASE}/auth/register`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ username: otherSuffix, email: `${otherSuffix}@test.com`, password: 'password123' }),
+    body:    JSON.stringify({
+      username: otherSuffix,
+      name: 'Cad',
+      surname: 'Other',
+      email: `${otherSuffix}@test.com`,
+      password: 'password123',
+    }),
   });
   const otherUserRes = await fetch(`${BASE}/auth/login`, {
     method:  'POST',

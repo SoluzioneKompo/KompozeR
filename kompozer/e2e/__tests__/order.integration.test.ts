@@ -14,6 +14,18 @@ let otherUserToken = '';
 let createdOrderId = '';
 let createdOrderToCancelId = '';
 
+const expeditionInfo = {
+  name: 'Mario',
+  surname: 'Rossi',
+  mail: 'mario.rossi@example.com',
+  nation: 'Italia',
+  city: 'Milano',
+  cap: '20100',
+  address: 'Via Roma 10',
+  phone: '+390212345678',
+  deliveryNotes: 'Citofono Rossi',
+};
+
 async function parseJson<T = Record<string, unknown>>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
@@ -33,7 +45,13 @@ beforeAll(async () => {
   await fetch(`${BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, email: `${username}@test.com`, password: 'password123' }),
+    body: JSON.stringify({
+      username,
+      name: 'Order',
+      surname: 'User',
+      email: `${username}@test.com`,
+      password: 'password123',
+    }),
   });
 
   const userRes = await fetch(`${BASE}/auth/login`, {
@@ -50,7 +68,13 @@ beforeAll(async () => {
   await fetch(`${BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: otherUsername, email: `${otherUsername}@test.com`, password: 'password123' }),
+    body: JSON.stringify({
+      username: otherUsername,
+      name: 'Order',
+      surname: 'Other',
+      email: `${otherUsername}@test.com`,
+      password: 'password123',
+    }),
   });
 
   const otherUserRes = await fetch(`${BASE}/auth/login`, {
@@ -102,7 +126,8 @@ describe('[INT] Order — checkout from cart', () => {
 
     const checkout = await fetch(`${BASE}/cart/checkout`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${userToken}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
+      body: JSON.stringify({ expeditionInfo }),
     });
 
     expect(checkout.status).toBe(200);
@@ -164,7 +189,8 @@ describe('[INT] Order — checkout from cart', () => {
 
     const checkout = await fetch(`${BASE}/cart/checkout`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${userToken}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
+      body: JSON.stringify({ expeditionInfo }),
     });
 
     expect(checkout.status).toBe(200);

@@ -11,6 +11,8 @@ import { UserRole } from '../../../domain/entities/UserRole';
 type UserDocType = {
   _id: string;
   username: string;
+  name: string;
+  surname: string;
   passwordHash: string;
   email: string;
   role: UserRole;
@@ -23,6 +25,8 @@ const userSchema = new Schema<UserDocType>(
   {
     _id: { type: String, required: true },
     username: { type: String, required: true, unique: true, index: true },
+    name: { type: String, required: true },
+    surname: { type: String, required: true },
     passwordHash: { type: String, required: true },
     email: { type: String, required: true, unique: true, index: true },
     role: { type: String, enum: Object.values(UserRole), required: true },

@@ -9,6 +9,8 @@ import { UserRole } from './UserRole';
 export interface User {
   id: string;
   username: string;
+  name: string;
+  surname: string;
   passwordHash: string;
   email: string;
   role: UserRole;

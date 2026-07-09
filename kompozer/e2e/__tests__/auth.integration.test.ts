@@ -17,6 +17,8 @@ const SUFFIX = Date.now();
 
 const testUser = {
   username: `tester_${SUFFIX}`,
+  name: `Name_${SUFFIX}`,
+  surname: `Surname_${SUFFIX}`,
   email:    `tester_${SUFFIX}@test.com`,
   password: 'password123',
 };
@@ -37,6 +39,8 @@ describe('[INT] Auth — registrazione', () => {
     const body = await res.json() as Record<string, unknown>;
     const user = body['user'] as Record<string, unknown>;
     expect(user['username']).toBe(testUser.username);
+    expect(user['name']).toBe(testUser.name);
+    expect(user['surname']).toBe(testUser.surname);
     expect(user['role']).toBe('BASE');
     // → Compass: authdb.users — documento appena creato con role=BASE, isActive=true
   });
@@ -112,6 +116,8 @@ describe('[INT] Auth — sessione attiva', () => {
 
     const body = await res.json() as Record<string, unknown>;
     expect(body['username']).toBe(testUser.username);
+    expect(body['name']).toBe(testUser.name);
+    expect(body['surname']).toBe(testUser.surname);
     expect(body['role']).toBe('BASE');
   });
 

@@ -26,6 +26,7 @@ export class HttpOrderServiceClient implements OrderServiceClient {
   async submitOrder(input: SubmitOrderInput): Promise<SubmitOrderOutput> {
     const url = new URL('/orders', this.orderBaseUrl);
     const payload = JSON.stringify({
+      expeditionInfo: input.expeditionInfo,
       items: input.items,
       total: input.total,
     });

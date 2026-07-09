@@ -10,6 +10,7 @@ export class MongoOrderRepository implements OrderRepository {
     await OrderModel.create({
       _id: order.id,
       userId: order.userId,
+      expeditionInfo: { ...order.expeditionInfo },
       items: order.items.map((item) => ({ ...item })),
       total: order.total,
       status: order.status,
@@ -28,6 +29,7 @@ export class MongoOrderRepository implements OrderRepository {
     return {
       id: doc._id,
       userId: doc.userId,
+      expeditionInfo: { ...doc.expeditionInfo },
       items: doc.items.map((item) => ({ ...item })),
       total: doc.total,
       status: doc.status,
@@ -42,6 +44,7 @@ export class MongoOrderRepository implements OrderRepository {
     return docs.map((doc) => ({
       id: doc._id,
       userId: doc.userId,
+      expeditionInfo: { ...doc.expeditionInfo },
       items: doc.items.map((item) => ({ ...item })),
       total: doc.total,
       status: doc.status,
@@ -56,6 +59,7 @@ export class MongoOrderRepository implements OrderRepository {
     return docs.map((doc) => ({
       id: doc._id,
       userId: doc.userId,
+      expeditionInfo: { ...doc.expeditionInfo },
       items: doc.items.map((item) => ({ ...item })),
       total: doc.total,
       status: doc.status,
@@ -68,6 +72,7 @@ export class MongoOrderRepository implements OrderRepository {
   async update(order: Order): Promise<void> {
     await OrderModel.findByIdAndUpdate(order.id, {
       userId: order.userId,
+      expeditionInfo: { ...order.expeditionInfo },
       items: order.items.map((item) => ({ ...item })),
       total: order.total,
       status: order.status,

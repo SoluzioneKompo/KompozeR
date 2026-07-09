@@ -37,10 +37,10 @@ function requireUserId(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
-export function buildCartRouter(deps: CartRouterDeps): Router {
+export function buildCartRouter(deps: CartRouterDeps) {
   const router = Router();
 
-  router.get('/health', (_req, res) => {
+  router.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok' });
   });
 
@@ -105,7 +105,23 @@ export function buildCartRouter(deps: CartRouterDeps): Router {
     requireUserId,
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
-      const result = await deps.checkoutCart.execute({ userId });
+      const body = (req.body ?? {}) as {
+        expeditionInfo: {
+          name: string;
+          surname: string;
+          mail: string;
+          nation: string;
+          city: string;
+          cap: string;
+          address: string;
+          phone: string;
+          deliveryNotes: string;
+        };
+      };
+      const result = await deps.checkoutCart.execute({
+        userId,
+        expeditionInfo: body.expeditionInfo,
+      });
       res.status(200).json(result);
     }),
   );

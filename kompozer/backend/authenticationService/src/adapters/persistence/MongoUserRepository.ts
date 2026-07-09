@@ -15,6 +15,8 @@ export class MongoUserRepository implements UserRepository {
     await UserModel.create({
       _id: user.id,
       username: user.username,
+      name: user.name,
+      surname: user.surname,
       passwordHash: user.passwordHash,
       email: user.email,
       role: user.role,
@@ -42,6 +44,8 @@ export class MongoUserRepository implements UserRepository {
   async update(user: User): Promise<void> {
     await UserModel.findByIdAndUpdate(user.id, {
       username: user.username,
+      name: user.name,
+      surname: user.surname,
       passwordHash: user.passwordHash,
       email: user.email,
       role: user.role,
@@ -53,6 +57,8 @@ export class MongoUserRepository implements UserRepository {
   private toEntity(doc: {
     _id: string;
     username: string;
+    name: string;
+    surname: string;
     passwordHash: string;
     email: string;
     role: string;
@@ -63,6 +69,8 @@ export class MongoUserRepository implements UserRepository {
     return {
       id: doc._id,
       username: doc.username,
+      name: doc.name,
+      surname: doc.surname,
       passwordHash: doc.passwordHash,
       email: doc.email,
       role: doc.role as UserRole,

@@ -7,6 +7,7 @@
 import { GetCurrentUser } from '../../src/useCases/GetCurrentUser';
 import { RegisterUser } from '../../src/useCases/RegisterUser';
 import { LoginUser } from '../../src/useCases/LoginUser';
+import { describe, expect, it } from '@jest/globals';
 import {
   FakeUserRepository,
   FakeSessionRepository,
@@ -50,6 +51,8 @@ describe('GetCurrentUser', () => {
 
     const { user } = await register.execute({
       username: 'alice',
+      name: 'Alice',
+      surname: 'Rossi',
       email: 'alice@e.com',
       password: 'Password123!',
     });
@@ -62,6 +65,8 @@ describe('GetCurrentUser', () => {
     });
 
     expect(profile.username).toBe('alice');
+    expect(profile.name).toBe('Alice');
+    expect(profile.surname).toBe('Rossi');
     expect(profile.email).toBe('alice@e.com');
     expect(profile.role).toBe(UserRole.BASE);
     expect(profile.id).toBe(user.id);
@@ -72,6 +77,8 @@ describe('GetCurrentUser', () => {
 
     const { user } = await register.execute({
       username: 'bob',
+      name: 'Bob',
+      surname: 'Verdi',
       email: 'bob@e.com',
       password: 'Password123!',
     });

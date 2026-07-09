@@ -35,8 +35,21 @@ export interface SyncCartInput {
   userId: string;
 }
 
+export interface ExpeditionInfo {
+  name: string;
+  surname: string;
+  mail: string;
+  nation: string;
+  city: string;
+  cap: string;
+  address: string;
+  phone: string;
+  deliveryNotes: string;
+}
+
 export interface CheckoutCartInput {
   userId: string;
+  expeditionInfo: ExpeditionInfo;
 }
 
 export interface CheckoutCartOutput {

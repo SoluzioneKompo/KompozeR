@@ -12,6 +12,18 @@ import { ClearCart } from '../../src/useCases/ClearCart';
 import { CheckoutCart } from '../../src/useCases/CheckoutCart';
 import { FakeCartRepository, FakeCatalogSnapshotProvider, FakeOrderServiceClient } from '../helpers/fakes';
 
+const expeditionInfo = {
+  name: 'Mario',
+  surname: 'Rossi',
+  mail: 'mario.rossi@example.com',
+  nation: 'Italia',
+  city: 'Milano',
+  cap: '20100',
+  address: 'Via Roma 10',
+  phone: '+390212345678',
+  deliveryNotes: 'Citofono Rossi',
+};
+
 function buildTestApp() {
   const repo = new FakeCartRepository();
   const catalog = new FakeCatalogSnapshotProvider();
@@ -145,7 +157,8 @@ describe('cartRouter', () => {
 
     const res = await request(app)
       .post('/cart/checkout')
-      .set('x-user-id', 'usr_1');
+      .set('x-user-id', 'usr_1')
+      .send({ expeditionInfo });
 
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('CART_EMPTY');
@@ -163,7 +176,8 @@ describe('cartRouter', () => {
 
     const res = await request(app)
       .post('/cart/checkout')
-      .set('x-user-id', 'usr_1');
+      .set('x-user-id', 'usr_1')
+      .send({ expeditionInfo });
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('SUBMITTED');
@@ -187,7 +201,8 @@ describe('cartRouter', () => {
 
     const res = await request(app)
       .post('/cart/checkout')
-      .set('x-user-id', 'usr_1');
+      .set('x-user-id', 'usr_1')
+      .send({ expeditionInfo });
 
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('ITEM_UNAVAILABLE');
@@ -205,7 +220,8 @@ describe('cartRouter', () => {
 
     const res = await request(app)
       .post('/cart/checkout')
-      .set('x-user-id', 'usr_1');
+      .set('x-user-id', 'usr_1')
+      .send({ expeditionInfo });
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('SUBMITTED');

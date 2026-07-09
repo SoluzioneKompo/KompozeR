@@ -12,6 +12,18 @@ import { ListOrders } from '../../src/useCases/ListOrders';
 import { UpdateOrderStatus } from '../../src/useCases/UpdateOrderStatus';
 import { FakeOrderRepository } from '../helpers/fakes';
 
+const expeditionInfo = {
+  name: 'Mario',
+  surname: 'Rossi',
+  mail: 'mario.rossi@example.com',
+  nation: 'Italia',
+  city: 'Milano',
+  cap: '20100',
+  address: 'Via Roma 10',
+  phone: '+390212345678',
+  deliveryNotes: 'Citofono Rossi',
+};
+
 function buildTestApp() {
   const repo = new FakeOrderRepository();
 
@@ -46,6 +58,7 @@ describe('orderRouter', () => {
       .post('/orders')
       .set('x-user-id', 'usr_1')
       .send({
+        expeditionInfo,
         items: [
           {
             sku: 'SKU-001',
@@ -84,6 +97,7 @@ describe('orderRouter', () => {
       .post('/orders')
       .set('x-user-id', 'usr_1')
       .send({
+        expeditionInfo,
         items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
         total: 1990,
       });
@@ -92,6 +106,7 @@ describe('orderRouter', () => {
       .post('/orders')
       .set('x-user-id', 'usr_2')
       .send({
+        expeditionInfo,
         items: [{ sku: 'SKU-002', name: 'Montante', unitPrice: 990, quantity: 2 }],
         total: 1980,
       });
@@ -114,6 +129,7 @@ describe('orderRouter', () => {
       .post('/orders')
       .set('x-user-id', 'usr_1')
       .send({
+        expeditionInfo,
         items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
         total: 1990,
       });
@@ -137,6 +153,7 @@ describe('orderRouter', () => {
       .post('/orders')
       .set('x-user-id', 'usr_1')
       .send({
+        expeditionInfo,
         items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
         total: 1990,
       });
@@ -161,6 +178,7 @@ describe('orderRouter', () => {
       .post('/orders')
       .set('x-user-id', 'usr_1')
       .send({
+        expeditionInfo,
         items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
         total: 1990,
       });
@@ -184,6 +202,7 @@ describe('orderRouter', () => {
       .post('/orders')
       .set('x-user-id', 'usr_1')
       .send({
+        expeditionInfo,
         items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
         total: 1990,
       });

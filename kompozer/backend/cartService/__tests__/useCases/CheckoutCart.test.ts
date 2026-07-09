@@ -14,6 +14,18 @@ import {
   FakeOrderServiceClient,
 } from '../helpers/fakes';
 
+const expeditionInfo = {
+  name: 'Mario',
+  surname: 'Rossi',
+  mail: 'mario.rossi@example.com',
+  nation: 'Italia',
+  city: 'Milano',
+  cap: '20100',
+  address: 'Via Roma 10',
+  phone: '+390212345678',
+  deliveryNotes: 'Citofono Rossi',
+};
+
 describe('CheckoutCart', () => {
   it('confirms checkout when catalog snapshot matches cart', async () => {
     const repo = new FakeCartRepository();
@@ -33,7 +45,7 @@ describe('CheckoutCart', () => {
 
     catalog.set({ sku: 'SKU-001', unitPrice: 1990, isAvailable: true });
 
-    const result = await checkout.execute({ userId: 'usr_1' });
+    const result = await checkout.execute({ userId: 'usr_1', expeditionInfo });
     expect(result.status).toBe('SUBMITTED');
     expect(result.orderId).toBe('ord_1');
     expect(result.total).toBe(3980);
@@ -53,7 +65,9 @@ describe('CheckoutCart', () => {
     const orderClient = new FakeOrderServiceClient();
     const checkout = new CheckoutCart(repo, catalog, orderClient);
 
-    await expect(checkout.execute({ userId: 'usr_1' })).rejects.toBeInstanceOf(CartEmptyError);
+    await expect(checkout.execute({ userId: 'usr_1', expeditionInfo })).rejects.toBeInstanceOf(
+      CartEmptyError,
+    );
   });
 
   it('throws CartItemUnavailableError when item is unavailable', async () => {
@@ -73,7 +87,9 @@ describe('CheckoutCart', () => {
 
     catalog.set({ sku: 'SKU-001', unitPrice: 1990, isAvailable: false });
 
-    await expect(checkout.execute({ userId: 'usr_1' })).rejects.toBeInstanceOf(CartItemUnavailableError);
+    await expect(checkout.execute({ userId: 'usr_1', expeditionInfo })).rejects.toBeInstanceOf(
+      CartItemUnavailableError,
+    );
   });
 
   it('auto-updates price at checkout when catalog price changed and proceeds to order', async () => {
@@ -93,7 +109,7 @@ describe('CheckoutCart', () => {
 
     catalog.set({ sku: 'SKU-001', unitPrice: 2090, isAvailable: true });
 
-    const result = await checkout.execute({ userId: 'usr_1' });
+    const result = await checkout.execute({ userId: 'usr_1', expeditionInfo });
     expect(result.status).toBe('SUBMITTED');
     expect(result.total).toBe(2090);
     expect(orderClient.calls[0].items[0].unitPrice).toBe(2090);

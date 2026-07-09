@@ -26,6 +26,8 @@ const DEVUSER_PATH = path.resolve(__dirname, '..', 'DEVUSER.json');
 
 interface DevUserConfig {
   username: string;
+  name: string;
+  surname: string;
   password: string;
   email: string;
   role: string;
@@ -59,6 +61,8 @@ async function seed(): Promise<void> {
 
   if (existing) {
     await UserModel.findByIdAndUpdate(existing._id, {
+      name: config.name,
+      surname: config.surname,
       passwordHash,
       email: config.email,
       role,
@@ -69,6 +73,8 @@ async function seed(): Promise<void> {
     await UserModel.create({
       _id: uuidv4(),
       username: config.username,
+      name: config.name,
+      surname: config.surname,
       passwordHash,
       email: config.email,
       role,

@@ -12,6 +12,7 @@ import { RevokeSession } from '../../src/useCases/RevokeSession';
 import { ListUserSessions } from '../../src/useCases/ListUserSessions';
 import { LoginUser } from '../../src/useCases/LoginUser';
 import { RegisterUser } from '../../src/useCases/RegisterUser';
+import { describe, expect, it } from '@jest/globals';
 import {
   FakeUserRepository,
   FakeSessionRepository,
@@ -55,7 +56,13 @@ describe('RevokeSession', () => {
   it('marks the session as revoked', async () => {
     const { register, login, revoke, sessionRepo } = makeUseCases();
 
-    await register.execute({ username: 'alice', email: 'a@e.com', password: 'Password123!' });
+    await register.execute({
+      username: 'alice',
+      name: 'Alice',
+      surname: 'Rossi',
+      email: 'a@e.com',
+      password: 'Password123!',
+    });
     const loginResult = await login.execute({ username: 'alice', password: 'Password123!' });
 
     await revoke.execute({
@@ -70,7 +77,13 @@ describe('RevokeSession', () => {
   it('throws SessionNotFoundError when session does not exist', async () => {
     const { register, revoke } = makeUseCases();
 
-    await register.execute({ username: 'alice', email: 'a@e.com', password: 'Password123!' });
+    await register.execute({
+      username: 'alice',
+      name: 'Alice',
+      surname: 'Rossi',
+      email: 'a@e.com',
+      password: 'Password123!',
+    });
 
     await expect(
       revoke.execute({ requestingUserId: 'usr_001', sessionId: 'non-existent' }),
@@ -80,13 +93,21 @@ describe('RevokeSession', () => {
   it('admin can revoke any session', async () => {
     const { register, login, revoke, userRepo, sessionRepo } = makeUseCases();
 
-    await register.execute({ username: 'alice', email: 'a@e.com', password: 'Password123!' });
+    await register.execute({
+      username: 'alice',
+      name: 'Alice',
+      surname: 'Rossi',
+      email: 'a@e.com',
+      password: 'Password123!',
+    });
     const aliceLogin = await login.execute({ username: 'alice', password: 'Password123!' });
 
     // Manually promote an admin user
     const admin: User = {
       id: 'admin_001',
       username: 'admin',
+      name: 'Admin',
+      surname: 'Root',
       passwordHash: 'hashed:admin',
       email: 'admin@e.com',
       role: UserRole.ADMIN,
@@ -107,8 +128,20 @@ describe('RevokeSession', () => {
   it('throws ForbiddenError when a BASE user tries to revoke another user session', async () => {
     const { register, login, revoke } = makeUseCases();
 
-    await register.execute({ username: 'alice', email: 'alice@e.com', password: 'Password123!' });
-    await register.execute({ username: 'bob', email: 'bob@e.com', password: 'Password123!' });
+    await register.execute({
+      username: 'alice',
+      name: 'Alice',
+      surname: 'Rossi',
+      email: 'alice@e.com',
+      password: 'Password123!',
+    });
+    await register.execute({
+      username: 'bob',
+      name: 'Bob',
+      surname: 'Verdi',
+      email: 'bob@e.com',
+      password: 'Password123!',
+    });
 
     const aliceLogin = await login.execute({ username: 'alice', password: 'Password123!' });
     const bobLogin = await login.execute({ username: 'bob', password: 'Password123!' });
@@ -126,7 +159,13 @@ describe('ListUserSessions', () => {
   it('returns all sessions for a user', async () => {
     const { register, login, listSessions } = makeUseCases();
 
-    await register.execute({ username: 'alice', email: 'a@e.com', password: 'Password123!' });
+    await register.execute({
+      username: 'alice',
+      name: 'Alice',
+      surname: 'Rossi',
+      email: 'a@e.com',
+      password: 'Password123!',
+    });
     const r1 = await login.execute({ username: 'alice', password: 'Password123!' });
     const r2 = await login.execute({ username: 'alice', password: 'Password123!' });
 

@@ -44,6 +44,8 @@ beforeAll(async () => {
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({
       username: `base_${suffix}`,
+      name: 'Base',
+      surname: 'User',
       email:    `base_${suffix}@test.com`,
       password: 'password123',
     }),

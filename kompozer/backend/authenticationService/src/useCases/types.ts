@@ -10,6 +10,8 @@ import { UserRole } from '../domain/entities/UserRole';
 
 export interface RegisterUserInput {
   username: string;
+  name: string;
+  surname: string;
   email: string;
   password: string;
 }
@@ -18,6 +20,8 @@ export interface RegisterUserOutput {
   user: {
     id: string;
     username: string;
+    name: string;
+    surname: string;
     email: string;
     role: UserRole;
   };
@@ -72,6 +76,8 @@ export interface GetCurrentUserInput {
 export interface GetCurrentUserOutput {
   id: string;
   username: string;
+  name: string;
+  surname: string;
   email: string;
   role: UserRole;
 }

@@ -39,6 +39,18 @@ let otherUserToken = '';
 let componentId = '';
 let checkoutBlockedByPrice = false;
 
+const expeditionInfo = {
+  name: 'Mario',
+  surname: 'Rossi',
+  mail: 'mario.rossi@example.com',
+  nation: 'Italia',
+  city: 'Milano',
+  cap: '20100',
+  address: 'Via Roma 10',
+  phone: '+390212345678',
+  deliveryNotes: 'Citofono Rossi',
+};
+
 async function json<T = Record<string, unknown>>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
@@ -62,7 +74,13 @@ beforeAll(async () => {
   await fetch(`${BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: suffix, email: `${suffix}@test.com`, password: 'password123' }),
+    body: JSON.stringify({
+      username: suffix,
+      name: 'Notif',
+      surname: 'User',
+      email: `${suffix}@test.com`,
+      password: 'password123',
+    }),
   });
 
   const userRes = await fetch(`${BASE}/auth/login`, {
@@ -81,7 +99,13 @@ beforeAll(async () => {
   await fetch(`${BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: otherSuffix, email: `${otherSuffix}@test.com`, password: 'password123' }),
+    body: JSON.stringify({
+      username: otherSuffix,
+      name: 'Notif',
+      surname: 'Other',
+      email: `${otherSuffix}@test.com`,
+      password: 'password123',
+    }),
   });
 
   const otherUserRes = await fetch(`${BASE}/auth/login`, {
@@ -179,7 +203,8 @@ describe('[INT] Cart — checkout bloccato da prezzo stale', () => {
   it('POST /cart/checkout gestisce disallineamento prezzo (PRICE_CHANGED o checkout riuscito con sync)', async () => {
     const res = await fetch(`${BASE}/cart/checkout`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${userToken}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
+      body: JSON.stringify({ expeditionInfo }),
     });
 
     const body = await json<Record<string, unknown>>(res);

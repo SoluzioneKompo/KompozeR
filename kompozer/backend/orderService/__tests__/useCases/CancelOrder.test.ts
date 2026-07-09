@@ -10,6 +10,18 @@ import {
 } from '../../src/domain/entities/errors';
 import { FakeOrderRepository } from '../helpers/fakes';
 
+const expeditionInfo = {
+  name: 'Mario',
+  surname: 'Rossi',
+  mail: 'mario.rossi@example.com',
+  nation: 'Italia',
+  city: 'Milano',
+  cap: '20100',
+  address: 'Via Roma 10',
+  phone: '+390212345678',
+  deliveryNotes: 'Citofono Rossi',
+};
+
 describe('CancelOrder', () => {
   it('allows owner to cancel own SUBMITTED order', async () => {
     const repo = new FakeOrderRepository();
@@ -18,6 +30,7 @@ describe('CancelOrder', () => {
 
     const created = await createOrder.execute({
       userId: 'usr_1',
+      expeditionInfo,
       items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
       total: 1990,
     });
@@ -38,6 +51,7 @@ describe('CancelOrder', () => {
 
     const created = await createOrder.execute({
       userId: 'usr_1',
+      expeditionInfo,
       items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
       total: 1990,
     });
@@ -58,6 +72,7 @@ describe('CancelOrder', () => {
 
     const created = await createOrder.execute({
       userId: 'usr_1',
+      expeditionInfo,
       items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
       total: 1990,
     });
@@ -79,6 +94,7 @@ describe('CancelOrder', () => {
 
     const created = await createOrder.execute({
       userId: 'usr_1',
+      expeditionInfo,
       items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
       total: 1990,
     });
@@ -97,6 +113,7 @@ describe('CancelOrder', () => {
 
     const created = await createOrder.execute({
       userId: 'usr_1',
+      expeditionInfo,
       items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
       total: 1990,
     });

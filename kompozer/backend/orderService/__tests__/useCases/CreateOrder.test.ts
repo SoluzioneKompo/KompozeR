@@ -12,6 +12,17 @@ describe('CreateOrder', () => {
 
     const result = await createOrder.execute({
       userId: 'usr_1',
+      expeditionInfo: {
+        name: 'Mario',
+        surname: 'Rossi',
+        mail: 'mario.rossi@example.com',
+        nation: 'Italia',
+        city: 'Milano',
+        cap: '20100',
+        address: 'Via Roma 10',
+        phone: '+390212345678',
+        deliveryNotes: 'Citofono Rossi',
+      },
       items: [
         {
           sku: 'SKU-001',
@@ -35,6 +46,17 @@ describe('CreateOrder', () => {
     await expect(
       createOrder.execute({
         userId: 'usr_1',
+        expeditionInfo: {
+          name: 'Mario',
+          surname: 'Rossi',
+          mail: 'mario.rossi@example.com',
+          nation: 'Italia',
+          city: 'Milano',
+          cap: '20100',
+          address: 'Via Roma 10',
+          phone: '+390212345678',
+          deliveryNotes: 'Citofono Rossi',
+        },
         items: [],
         total: 1000,
       }),

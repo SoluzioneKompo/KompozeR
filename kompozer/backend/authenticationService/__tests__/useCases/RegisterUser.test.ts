@@ -5,6 +5,7 @@
  * duplicate username/email errors, validation errors, and assigned ID uniqueness.
  */
 import { RegisterUser } from '../../src/useCases/RegisterUser';
+import { describe, expect, it } from '@jest/globals';
 import {
   FakeUserRepository,
   FakePasswordHasher,
@@ -33,11 +34,15 @@ describe('RegisterUser', () => {
 
     const result = await useCase.execute({
       username: 'valerio',
+      name: 'Valerio',
+      surname: 'Rossi',
       email: 'valerio@example.com',
       password: 'Password123!',
     });
 
     expect(result.user.username).toBe('valerio');
+    expect(result.user.name).toBe('Valerio');
+    expect(result.user.surname).toBe('Rossi');
     expect(result.user.email).toBe('valerio@example.com');
     expect(result.user.role).toBe(UserRole.BASE);
     expect(result.user.id).toBeDefined();
@@ -53,6 +58,8 @@ describe('RegisterUser', () => {
 
     await useCase.execute({
       username: 'valerio',
+      name: 'Valerio',
+      surname: 'Rossi',
       email: 'first@example.com',
       password: 'Password123!',
     });
@@ -60,6 +67,8 @@ describe('RegisterUser', () => {
     await expect(
       useCase.execute({
         username: 'valerio',
+        name: 'Valerio',
+        surname: 'Rossi',
         email: 'second@example.com',
         password: 'Password123!',
       }),
@@ -71,6 +80,8 @@ describe('RegisterUser', () => {
 
     await useCase.execute({
       username: 'first',
+      name: 'First',
+      surname: 'User',
       email: 'shared@example.com',
       password: 'Password123!',
     });
@@ -78,6 +89,8 @@ describe('RegisterUser', () => {
     await expect(
       useCase.execute({
         username: 'second',
+        name: 'Second',
+        surname: 'User',
         email: 'shared@example.com',
         password: 'Password123!',
       }),
@@ -88,7 +101,13 @@ describe('RegisterUser', () => {
     const { useCase } = makeUseCase();
 
     await expect(
-      useCase.execute({ username: '', email: 'a@b.com', password: 'Password123!' }),
+      useCase.execute({
+        username: '',
+        name: 'Test',
+        surname: 'User',
+        email: 'a@b.com',
+        password: 'Password123!',
+      }),
     ).rejects.toThrow(ValidationError);
   });
 
@@ -96,7 +115,13 @@ describe('RegisterUser', () => {
     const { useCase } = makeUseCase();
 
     await expect(
-      useCase.execute({ username: 'user', email: 'not-an-email', password: 'Password123!' }),
+      useCase.execute({
+        username: 'user',
+        name: 'Test',
+        surname: 'User',
+        email: 'not-an-email',
+        password: 'Password123!',
+      }),
     ).rejects.toThrow(ValidationError);
   });
 
@@ -104,7 +129,13 @@ describe('RegisterUser', () => {
     const { useCase } = makeUseCase();
 
     await expect(
-      useCase.execute({ username: 'user', email: 'a@b.com', password: 'short' }),
+      useCase.execute({
+        username: 'user',
+        name: 'Test',
+        surname: 'User',
+        email: 'a@b.com',
+        password: 'short',
+      }),
     ).rejects.toThrow(ValidationError);
   });
 
@@ -113,11 +144,15 @@ describe('RegisterUser', () => {
 
     const r1 = await useCase.execute({
       username: 'user1',
+      name: 'User',
+      surname: 'One',
       email: 'u1@example.com',
       password: 'Password123!',
     });
     const r2 = await useCase.execute({
       username: 'user2',
+      name: 'User',
+      surname: 'Two',
       email: 'u2@example.com',
       password: 'Password123!',
     });

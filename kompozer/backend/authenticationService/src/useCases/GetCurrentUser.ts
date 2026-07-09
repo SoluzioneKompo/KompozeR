@@ -41,6 +41,8 @@ export class GetCurrentUser {
     return {
       id: user.id,
       username: user.username,
+      name: user.name,
+      surname: user.surname,
       email: user.email,
       role: user.role,
     };

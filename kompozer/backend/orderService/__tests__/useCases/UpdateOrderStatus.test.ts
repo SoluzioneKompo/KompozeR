@@ -9,6 +9,18 @@ import {
 } from '../../src/domain/entities/errors';
 import { FakeOrderRepository } from '../helpers/fakes';
 
+const expeditionInfo = {
+  name: 'Mario',
+  surname: 'Rossi',
+  mail: 'mario.rossi@example.com',
+  nation: 'Italia',
+  city: 'Milano',
+  cap: '20100',
+  address: 'Via Roma 10',
+  phone: '+390212345678',
+  deliveryNotes: 'Citofono Rossi',
+};
+
 describe('UpdateOrderStatus', () => {
   it('transitions order from SUBMITTED to DONE', async () => {
     const repo = new FakeOrderRepository();
@@ -17,6 +29,7 @@ describe('UpdateOrderStatus', () => {
 
     const created = await createOrder.execute({
       userId: 'usr_1',
+      expeditionInfo,
       items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
       total: 1990,
     });
@@ -37,6 +50,7 @@ describe('UpdateOrderStatus', () => {
 
     const created = await createOrder.execute({
       userId: 'usr_1',
+      expeditionInfo,
       items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
       total: 1990,
     });
@@ -55,6 +69,7 @@ describe('UpdateOrderStatus', () => {
 
     const created = await createOrder.execute({
       userId: 'usr_1',
+      expeditionInfo,
       items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
       total: 1990,
     });

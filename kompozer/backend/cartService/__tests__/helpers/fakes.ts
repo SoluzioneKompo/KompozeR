@@ -77,6 +77,7 @@ export class FakeOrderServiceClient implements OrderServiceClient {
   async submitOrder(input: SubmitOrderInput): Promise<SubmitOrderOutput> {
     this.calls.push({
       userId: input.userId,
+      expeditionInfo: { ...input.expeditionInfo },
       items: input.items.map((item) => ({ ...item })),
       total: input.total,
     });

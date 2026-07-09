@@ -10,6 +10,7 @@ export class FakeOrderRepository implements OrderRepository {
   async create(order: Order): Promise<void> {
     this.orders.set(order.id, {
       ...order,
+      expeditionInfo: { ...order.expeditionInfo },
       items: order.items.map((item) => ({ ...item })),
     });
   }
@@ -21,6 +22,7 @@ export class FakeOrderRepository implements OrderRepository {
     }
     return {
       ...order,
+      expeditionInfo: { ...order.expeditionInfo },
       items: order.items.map((item) => ({ ...item })),
     };
   }
@@ -31,6 +33,7 @@ export class FakeOrderRepository implements OrderRepository {
       .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime())
       .map((order) => ({
         ...order,
+        expeditionInfo: { ...order.expeditionInfo },
         items: order.items.map((item) => ({ ...item })),
       }));
   }
@@ -40,6 +43,7 @@ export class FakeOrderRepository implements OrderRepository {
       .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime())
       .map((order) => ({
         ...order,
+        expeditionInfo: { ...order.expeditionInfo },
         items: order.items.map((item) => ({ ...item })),
       }));
   }
@@ -47,6 +51,7 @@ export class FakeOrderRepository implements OrderRepository {
   async update(order: Order): Promise<void> {
     this.orders.set(order.id, {
       ...order,
+      expeditionInfo: { ...order.expeditionInfo },
       items: order.items.map((item) => ({ ...item })),
     });
   }

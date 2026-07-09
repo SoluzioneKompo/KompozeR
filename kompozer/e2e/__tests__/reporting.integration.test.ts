@@ -12,6 +12,18 @@ let userToken = '';
 let guestToken = '';
 let createdOrderId = '';
 
+const expeditionInfo = {
+  name: 'Mario',
+  surname: 'Rossi',
+  mail: 'mario.rossi@example.com',
+  nation: 'Italia',
+  city: 'Milano',
+  cap: '20100',
+  address: 'Via Roma 10',
+  phone: '+390212345678',
+  deliveryNotes: 'Citofono Rossi',
+};
+
 async function timedFetch(input: string, init?: RequestInit): Promise<Response> {
   return fetch(input, {
     ...init,
@@ -39,7 +51,13 @@ beforeAll(async () => {
   await timedFetch(`${BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, email: `${username}@test.com`, password: 'password123' }),
+    body: JSON.stringify({
+      username,
+      name: 'Reporting',
+      surname: 'User',
+      email: `${username}@test.com`,
+      password: 'password123',
+    }),
   });
 
   const userRes = await timedFetch(`${BASE}/auth/login`, {
@@ -63,7 +81,8 @@ beforeAll(async () => {
 
   const checkout = await timedFetch(`${BASE}/cart/checkout`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${guestToken}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${guestToken}` },
+    body: JSON.stringify({ expeditionInfo }),
   });
 
   if (checkout.status === 200) {

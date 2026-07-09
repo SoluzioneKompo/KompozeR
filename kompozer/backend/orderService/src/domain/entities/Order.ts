@@ -10,9 +10,22 @@ export interface OrderItem {
   quantity: number;
 }
 
+export interface ExpeditionInfo {
+  name: string;
+  surname: string;
+  mail: string;
+  nation: string;
+  city: string;
+  cap: string;
+  address: string;
+  phone: string;
+  deliveryNotes: string;
+}
+
 export interface Order {
   id: string;
   userId: string;
+  expeditionInfo: ExpeditionInfo;
   items: OrderItem[];
   total: number;
   status: OrderStatus;

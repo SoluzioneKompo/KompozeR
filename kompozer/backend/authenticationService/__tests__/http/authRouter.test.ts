@@ -7,6 +7,7 @@
  * POST /logout, DELETE /sessions/:id.
  */
 import request from 'supertest';
+import { describe, expect, it } from '@jest/globals';
 import { buildTestApp } from '../helpers/buildTestApp';
 
 const app = buildTestApp();
@@ -16,7 +17,13 @@ async function registerAndLogin(
   email = 'valerio@example.com',
   password = 'Password123!',
 ) {
-  await request(app).post('/auth/register').send({ username, email, password });
+  await request(app).post('/auth/register').send({
+    username,
+    name: 'Test',
+    surname: 'User',
+    email,
+    password,
+  });
   const res = await request(app).post('/auth/login').send({ username, password });
   return res.body as { token: string; session: { id: string }; user: { id: string } };
 }
@@ -27,7 +34,13 @@ describe('POST /auth/register', () => {
   it('returns 201 with user on success', async () => {
     const res = await request(app)
       .post('/auth/register')
-      .send({ username: 'alice', email: 'alice@example.com', password: 'Password123!' });
+      .send({
+        username: 'alice',
+        name: 'Alice',
+        surname: 'Rossi',
+        email: 'alice@example.com',
+        password: 'Password123!',
+      });
 
     expect(res.status).toBe(201);
     expect(res.body.user.username).toBe('alice');
@@ -38,11 +51,23 @@ describe('POST /auth/register', () => {
   it('returns 409 on duplicate username', async () => {
     await request(app)
       .post('/auth/register')
-      .send({ username: 'bob', email: 'bob@example.com', password: 'Password123!' });
+      .send({
+        username: 'bob',
+        name: 'Bob',
+        surname: 'Rossi',
+        email: 'bob@example.com',
+        password: 'Password123!',
+      });
 
     const res = await request(app)
       .post('/auth/register')
-      .send({ username: 'bob', email: 'bob2@example.com', password: 'Password123!' });
+      .send({
+        username: 'bob',
+        name: 'Bob',
+        surname: 'Verdi',
+        email: 'bob2@example.com',
+        password: 'Password123!',
+      });
 
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('DUPLICATE_USERNAME');
@@ -51,11 +76,23 @@ describe('POST /auth/register', () => {
   it('returns 409 on duplicate email', async () => {
     await request(app)
       .post('/auth/register')
-      .send({ username: 'charlie', email: 'shared@example.com', password: 'Password123!' });
+      .send({
+        username: 'charlie',
+        name: 'Charlie',
+        surname: 'Rossi',
+        email: 'shared@example.com',
+        password: 'Password123!',
+      });
 
     const res = await request(app)
       .post('/auth/register')
-      .send({ username: 'dave', email: 'shared@example.com', password: 'Password123!' });
+      .send({
+        username: 'dave',
+        name: 'Dave',
+        surname: 'Verdi',
+        email: 'shared@example.com',
+        password: 'Password123!',
+      });
 
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('DUPLICATE_EMAIL');
@@ -64,7 +101,7 @@ describe('POST /auth/register', () => {
   it('returns 422 on validation failure', async () => {
     const res = await request(app)
       .post('/auth/register')
-      .send({ username: '', email: 'bad', password: '12' });
+      .send({ username: '', name: '', surname: '', email: 'bad', password: '12' });
 
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
@@ -78,7 +115,13 @@ describe('POST /auth/login', () => {
   it('returns 200 with token and session on valid credentials', async () => {
     await request(app)
       .post('/auth/register')
-      .send({ username: 'eve', email: 'eve@example.com', password: 'Password123!' });
+      .send({
+        username: 'eve',
+        name: 'Eve',
+        surname: 'Rossi',
+        email: 'eve@example.com',
+        password: 'Password123!',
+      });
 
     const res = await request(app)
       .post('/auth/login')
@@ -93,7 +136,13 @@ describe('POST /auth/login', () => {
   it('returns 401 on wrong password', async () => {
     await request(app)
       .post('/auth/register')
-      .send({ username: 'frank', email: 'frank@example.com', password: 'Password123!' });
+      .send({
+        username: 'frank',
+        name: 'Frank',
+        surname: 'Rossi',
+        email: 'frank@example.com',
+        password: 'Password123!',
+      });
 
     const res = await request(app)
       .post('/auth/login')
@@ -180,6 +229,8 @@ describe('GET /auth/me', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.username).toBe('me_user');
+    expect(res.body.name).toBe('Test');
+    expect(res.body.surname).toBe('User');
     expect(res.body.email).toBe('meuser@example.com');
   });
 

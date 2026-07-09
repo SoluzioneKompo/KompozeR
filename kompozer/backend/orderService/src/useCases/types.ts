@@ -6,6 +6,7 @@ import { Order, OrderItem, OrderStatus } from '../domain/entities/Order';
 export interface OrderDto {
   id: string;
   userId: string;
+  expeditionInfo: Order['expeditionInfo'];
   items: OrderItem[];
   total: number;
   status: OrderStatus;
@@ -16,6 +17,7 @@ export interface OrderDto {
 
 export interface CreateOrderInput {
   userId: string;
+  expeditionInfo: Order['expeditionInfo'];
   items: OrderItem[];
   total: number;
 }
@@ -45,6 +47,7 @@ export function toOrderDto(order: Order): OrderDto {
   return {
     id: order.id,
     userId: order.userId,
+    expeditionInfo: { ...order.expeditionInfo },
     items: order.items.map((item) => ({ ...item })),
     total: order.total,
     status: order.status,
