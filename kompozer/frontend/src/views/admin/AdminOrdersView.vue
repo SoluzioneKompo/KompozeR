@@ -140,6 +140,18 @@ function requestMarkCancelled(order: Order): void {
   }
   void markCancelled(order);
 }
+
+function formatExpeditionValue(value?: string): string {
+  const normalized = value?.trim();
+  return normalized ? normalized : '-';
+}
+
+function formatExpeditionName(order: Order): string {
+  const name = order.expeditionInfo?.name?.trim() ?? '';
+  const surname = order.expeditionInfo?.surname?.trim() ?? '';
+  const fullName = `${name} ${surname}`.trim();
+  return fullName || '-';
+}
 </script>
 
 <template>
@@ -231,19 +243,22 @@ function requestMarkCancelled(order: Order): void {
           </div>
         </div>
 
-        <div class="order__expedition" v-if="order.expeditionInfo">
+        <div class="order__expedition">
           <p class="items-title">Dati spedizione</p>
           <div class="order__expedition-grid">
-            <p><strong>Nome:</strong> {{ order.expeditionInfo.name }} {{ order.expeditionInfo.surname }}</p>
-            <p><strong>Email:</strong> {{ order.expeditionInfo.mail }}</p>
-            <p><strong>Telefono:</strong> {{ order.expeditionInfo.phone }}</p>
-            <p><strong>Nazione:</strong> {{ order.expeditionInfo.nation }}</p>
-            <p><strong>Citta:</strong> {{ order.expeditionInfo.city }}</p>
-            <p><strong>CAP:</strong> {{ order.expeditionInfo.cap }}</p>
-            <p class="order__expedition-address"><strong>Indirizzo:</strong> {{ order.expeditionInfo.address }}</p>
+            <p><strong>Nome:</strong> {{ formatExpeditionName(order) }}</p>
+            <p><strong>Email:</strong> {{ formatExpeditionValue(order.expeditionInfo?.mail) }}</p>
+            <p><strong>Telefono:</strong> {{ formatExpeditionValue(order.expeditionInfo?.phone) }}</p>
+            <p><strong>Nazione:</strong> {{ formatExpeditionValue(order.expeditionInfo?.nation) }}</p>
+            <p><strong>Citta:</strong> {{ formatExpeditionValue(order.expeditionInfo?.city) }}</p>
+            <p><strong>CAP:</strong> {{ formatExpeditionValue(order.expeditionInfo?.cap) }}</p>
+            <p class="order__expedition-address">
+              <strong>Indirizzo:</strong>
+              {{ formatExpeditionValue(order.expeditionInfo?.address) }}
+            </p>
             <p class="order__expedition-address">
               <strong>Note consegna:</strong>
-              {{ order.expeditionInfo.deliveryNotes?.trim() ? order.expeditionInfo.deliveryNotes : '-' }}
+              {{ formatExpeditionValue(order.expeditionInfo?.deliveryNotes) }}
             </p>
           </div>
         </div>
