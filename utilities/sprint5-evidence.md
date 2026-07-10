@@ -33,12 +33,19 @@ Legenda esito:
 | 2026-06-21 | E2E Runtime | npm test -- --runInBand __tests__/cart.integration.test.ts | PASS | 4/4 verdi dopo fix |
 | 2026-06-21 | E2E Full Run | npm test -- --runInBand (run #1) | PASS | 8 suite, 69/69 test verdi |
 | 2026-06-21 | E2E Full Run | npm test -- --runInBand (run #2) | PASS | 8 suite, 69/69 test verdi |
+| 2026-07-10 | E2E Full Run | npm.cmd --prefix e2e test (run #1) | PASS | 8 suite, 73/73 test verdi |
+| 2026-07-10 | E2E Full Run | npm.cmd --prefix e2e test (run #2) | PASS | 8 suite, 73/73 test verdi |
+| 2026-07-10 | Frontend Build | npm.cmd --prefix frontend run build | PASS | vue-tsc + vite build completati |
+| 2026-07-10 | Smoke UI Desktop | frontend preview + verifica navigazione guest/admin | PASS | Percorsi verificati: login/guest -> cad/cart/chatbot, login admin -> admin orders/admin catalog/admin reports |
+| 2026-07-10 | Smoke UI Mobile Base | viewport 390x844 su preview frontend | PASS | Percorsi verificati: admin orders, admin catalog, chatbot |
+| 2026-07-10 | Accessibility Minimum Check | verifica statica frontend (role=alert, aria-live, focus-visible) | PASS | Presenza confermata su viste core e stile focus globale |
 
 ## Checklist Evidenze Finali (da completare)
 
-- [ ] E2E security-first (auth/catalog/cad/order/notifications/chatbot/reporting)
 - [x] E2E security-first (auth/catalog/cad/order/notifications/chatbot/reporting)
 - [x] E2E full sprint run stabile (2 run consecutivi)
-- [ ] Build frontend
+- [x] Build frontend
 - [ ] Smoke manuale desktop/mobile
-- [ ] Verifica accessibilita minima (error role alert + keyboard path)
+- [x] Smoke manuale desktop (user path + admin path, nessun blocker)
+- [x] Smoke manuale mobile (base)
+- [x] Verifica accessibilita minima (focus visibile + form label + role alert/aria-live)

@@ -1,382 +1,209 @@
-# KompozeR - Checklist 100% Completion
+# KompozeR - Checklist Finale Esame
 
-Obiettivo: completare il progetto in modo verificabile rispetto ai requisiti ASW e DS.
+Obiettivo: chiudere il progetto in modo dimostrabile, con priorita su consegna esame e rischio tecnico sotto controllo.
 
-Stato di partenza (aggiornato):
-- auth-service, catalog-service, cart-service, cad-service e api-gateway funzionanti e testati.
-- notification-service, chatbot-service, order-service e reporting-service implementati e validati lato backend.
-- endpoint reporting admin trend ordini disponibile (`GET /reports/trends/orders`).
-- frontend Sprint 4 in stato avanzato: flussi principali utente/admin implementati, restano rifinitura CAD visuale e NFR UX/accessibilita.
+Stato snapshot (aggiornato ad oggi, marcato solo su evidenze verificate):
 
----
-
-## Fase 0 - Stabilizzazione baseline (P0)
-
-### 0.1 Allineamento architetturale
-- [x] Uniformare convenzioni tra servizi (error model, naming route, header identity, logging).
-- [x] Verificare che tutte le route protette usino solo header identity iniettati dal gateway.
-- [x] Aggiungere health endpoint coerente in ogni servizio (`/health` o prefisso servizio + `/health`).
-
-### 0.2 Hardening CI locale
-- [x] Script root per test rapidi dei servizi implementati.
-- [x] Script root per e2e selettivi (auth/catalog/cart).
-- [x] Report unico di pass/fail (backend + e2e).
-
-DoD Fase 0:
-- Tutti i test correnti verdi in sequenza unica.
-- Nessun warning bloccante TypeScript nei servizi attivi.
+- [x] Allineamento categoria INTELLIGENTE tra servizi principali (catalog + cad + frontend).
+- [x] Test e2e mirati INTELLIGENTE (catalog + cad) verdi dopo rebuild container.
+- [x] Predisposizione backend Step4 a famiglie logiche (STANDARD/KUBE/INTELLIGENTE) con gate esplicito.
+- [ ] Implementazione logica costruttiva reale KUBE.
+- [ ] Implementazione logica costruttiva reale INTELLIGENTE.
+- [ ] Chiusura Sprint 6 DS.
+- [ ] Integrazione chatbot con API LLM.
 
 ---
 
-## Fase 1 - ASW Core Backend (priorita massima)
+## 1) Criteri di completamento
 
-### 1.1 Cart service completamento funzionale
-- [ ] Integrare cart con catalog per validare SKU/prezzo correnti lato server.
-- [ ] Gestire ricalcolo prezzi da catalog al checkout/cart refresh.
-- [x] Eventi minimi cart (item aggiunto/rimosso, carrello svuotato).
+Il progetto e considerato pronto quando tutti i punti seguenti sono veri.
 
-### 1.2 CAD service (configuratore backend)
-- [ ] Modello configurazione scaffalatura (sessione, celle/moduli, categoria selezionata).
-- [ ] Regole compatibilita categoria (no mix TONDO/QUADRO/KUBE).
-- [ ] API CRUD configurazione bozza.
-- [ ] API finalize configurazione -> output componenti compatibili con carrello.
-- [ ] Persistenza Mongo dedicata.
-
-### 1.3 Integrazione CAD -> Cart
-- [ ] Endpoint/applicazione use case: genera carrello da configurazione finalizzata.
-- [ ] Deduplicazione SKU e quantita aggregate.
-- [ ] Test di integrazione tra servizi.
-
-DoD Fase 1:
-- Un utente autenticato crea/modifica/finalizza configurazione e ottiene carrello coerente.
-- Vincolo compatibilita categorie rispettato server-side con test.
+- [ ] Requisiti ASW coperti da test ed evidenze.
+- [ ] Requisiti DS previsti per Sprint 6 e Sprint 7 coperti da test ed evidenze.
+- [ ] Logica costruttiva KUBE e INTELLIGENTE implementata end-to-end (CAD + catalog + frontend + e2e).
+- [ ] Chatbot con integrazione LLM funzionante con fallback robusto.
+- [ ] Demo completa eseguibile solo da UI e script ripetibili da README.
+- [ ] Tracciabilita requisito -> componente -> test -> evidenza aggiornata.
 
 ---
 
-## Fase 2 - ASW Funzionalita utente/amministratore
+## 2) Ordine esecutivo raccomandato
 
-### 2.1 Salvataggio e ripresa configurazioni
-- [ ] Endpoint lista configurazioni utente.
-- [ ] Endpoint salvataggio bozza.
-- [ ] Endpoint riapertura/modifica bozza.
-- [ ] Versioning minimo della bozza.
+Ordine scelto per massimizzare probabilita di consegna nei tempi:
 
-### 2.2 Notifiche realtime (ASW)
-- [ ] notification-service con persistenza notifiche per utente.
-- [ ] Sottoscrizione eventi catalog (price/availability changed).
-- [ ] API read/mark-as-read notifiche.
-- [ ] Canale realtime (Socket.io) per push notifiche.
+- [x] Sprint 5 (chiusura qualita ASW)
+- [ ] Sprint 6 (obiettivi DS principali)
+- [ ] Logica costruttiva KUBE/INTELLIGENTE
+- [ ] Sprint 7 (resilienza DS e delivery finale)
+- [ ] Chatbot LLM (ultimo blocco, con fallback)
 
-### 2.3 Chatbot contestuale
-- [ ] chatbot-service con endpoint domanda/risposta contestuale su prezzi/catalogo.
-- [ ] Integrazione realtime nel flusso configuratore.
-- [ ] Fallback testuale in assenza websocket.
-
-### 2.4 Reporting amministrativo base
-- [ ] reporting-service con metriche minime (componenti piu usati, configurazioni finalizzate, trend ordini simulati).
-- [ ] Endpoint report filtrabili per periodo.
-
-DoD Fase 2:
-- Utente riceve notifica per variazione prezzo/disponibilita su configurazione salvata.
-- Admin consulta almeno un report operativo.
+Nota: il chatbot LLM e intenzionalmente ultimo perche introduce rischio esterno (latency, costi, rate limit, qualita risposta).
 
 ---
 
-## Fase 3 - Frontend ASW completo
+## 3) Sprint 5 - Chiusura ASW
 
-### 3.1 Struttura SPA
-- [ ] Bootstrap Vue (router, store, services client).
-- [ ] Flusso auth/login/guest.
-- [ ] Guard di rotta per aree protette.
+Obiettivo: chiudere definitivamente il perimetro ASW con test e UX minima da esame.
 
-### 3.2 Pagine core
-- [ ] Catalogo con filtri.
-- [ ] Configuratore visuale click-based.
-- [ ] Carrello con totale aggiornato.
-- [ ] Area configurazioni salvate.
-- [ ] Centro notifiche.
-- [ ] Vista report admin.
+### Backlog Sprint 5
 
-### 3.3 UX/NFR ASW
-- [ ] Responsive desktop/mobile.
-- [ ] Feedback immediato su azioni principali.
-- [ ] Accessibilita base (semantica, focus, contrasto).
+- [x] Eseguire e documentare suite e2e completa ASW (security + flussi utente/admin).
+- [x] Eliminare regressioni note su auth/cart/cad/orders/notifications/reporting.
+- [x] Chiudere rifiniture UX essenziali (loading, error state, empty state, responsive base).
+- [x] Chiudere accessibilita minima (focus visibile, form label, alert role, aria-live).
+- [x] Aggiornare matrice di tracciabilita per tutti i requisiti ASW.
+- [x] Verifica mirata regressione category ripple (catalog/cad) su INTELLIGENTE.
 
-DoD Fase 3:
-- Demo end-to-end completa da UI senza chiamate manuali.
+Evidenza test Sprint 5 (2026-07-10):
 
----
+- [x] Run 1: `npm.cmd --prefix e2e test` -> 8 suite verdi, 73/73 test verdi.
+- [x] Run 2: `npm.cmd --prefix e2e test` -> 8 suite verdi, 73/73 test verdi.
+- [x] Stabilita confermata su due run consecutive senza failure.
 
-## Fase 4 - Test ASW end-to-end estesi
+### Exit Criteria Sprint 5
 
-### 4.1 Test integrazione backend
-- [ ] e2e CAD create/update/finalize.
-- [ ] e2e Cart from CAD.
-- [ ] e2e Notifications (evento catalog -> notifica utente).
-- [ ] e2e Chatbot Q&A su prezzi.
-
-### 4.2 Test frontend critici
-- [ ] Smoke test UI per percorso principale.
-- [ ] Test regressione su auth/logout/session.
-
-DoD Fase 4:
-- Suite e2e copre tutti i requisiti funzionali ASW principali.
+- [x] e2e ASW completamente verde.
+- [x] Nessun bug bloccante aperto su percorso demo.
+- [x] Evidenze test archiviate.
 
 ---
 
-## Fase 5 - Estensioni DS (dopo ASW)
+## 4) Sprint 6 - DS Core
 
-### 5.1 Collaborative editing (CAD)
-- [ ] Sessioni collaborative multiutente su stessa configurazione.
-- [ ] Broadcast incrementale operazioni via WebSocket.
-- [ ] Risoluzione conflitti concorrenti (strategia dichiarata e testata).
+Obiettivo: implementare la parte DS centrale con concorrenza e causalita verificabile.
 
-### 5.2 Causal ordering
-- [ ] Metadati evento (es. vector/lamport strategy scelta).
-- [ ] Ordinamento causale lato coordinatore.
-- [ ] Test con operazioni concorrenti e verifica convergenza stato.
+### Backlog Sprint 6
 
-### 5.3 Checkpoint e recovery
-- [ ] Snapshot periodico stato sessione collaborativa.
-- [ ] Replay eventi post-checkpoint.
-- [ ] Test crash/restart con recupero consistente.
+- [ ] Sessioni collaborative multiutente sulla stessa configurazione CAD.
+- [ ] Broadcast incrementale operazioni via websocket/event bus.
+- [ ] Causal ordering (strategia esplicita: Lamport o equivalente).
+- [ ] Risoluzione conflitti concorrenti con regole deterministiche.
+- [ ] Test concorrenza con convergenza stato finale.
 
-### 5.4 Replica persistenza e trade-off C/A
-- [ ] Mongo replica set per servizi critici DS.
-- [ ] Parametri applicativi espliciti su consistenza/availability dove richiesto.
-- [ ] Test failover minimo (primary down -> continuita servizio).
+### Exit Criteria Sprint 6
 
-### 5.5 Deployment production-oriented
-- [ ] Manifest Kubernetes/Minikube per servizi principali.
-- [ ] Guida deploy/restart/rollback base.
-
-DoD Fase 5:
-- Scenario collaborativo concorrente dimostrabile e recuperabile da fault.
+- [ ] Scenario multiutente ripetibile e dimostrabile in demo.
+- [ ] Test di concorrenza verdi.
+- [ ] Strategia causale documentata nella relazione.
 
 ---
 
-## Fase 6 - Chiusura progetto e relazione
+## 5) Logica costruttiva KUBE e INTELLIGENTE
 
-### 6.1 Verifica tracciabilita requisiti
-- [ ] Matrice requisito -> servizio -> test.
-- [ ] Evidenze (screenshot/log/output test) per ogni requisito critico.
+Obiettivo: trasformare il gate attuale in implementazione reale di regole costruttive.
 
-### 6.2 Deliverable finali
-- [ ] README operativo aggiornato (setup, run, test, e2e, troubleshooting).
-- [ ] Script demo rapida.
-- [ ] Sezione limiti noti e lavori futuri.
+### 5.1 Dominio e regole
 
-DoD Fase 6:
-- Pacchetto consegna completo e ripetibile su macchina pulita.
+- [ ] Definire regole KUBE (vincoli geometrici, compatibilita componenti, BOM).
+- [ ] Definire regole INTELLIGENTE (vincoli aggiuntivi, eventuali componenti dedicati, BOM).
+- [ ] Formalizzare invarianti di dominio e casi limite.
 
----
+### 5.2 Backend CAD
 
-## Ordine esecutivo consigliato (short path)
+- [ ] Implementare family resolver completo (STANDARD, KUBE, INTELLIGENTE).
+- [ ] Implementare ListNextOptions per KUBE e INTELLIGENTE.
+- [ ] Implementare UpdateDesign per KUBE e INTELLIGENTE.
+- [ ] Rimuovere NotImplemented per categorie coperte.
+- [x] Predisporre resolver per famiglie logiche e mapping errori espliciti per categorie non implementate.
 
-- [ ] 1) Chiudere backend ASW core: CAD + integrazione cart.
-- [ ] 2) Chiudere notification/chatbot/reporting minimi.
-- [ ] 3) Implementare frontend completo sulle API stabilizzate.
-- [ ] 4) Estendere e2e su tutto il flusso ASW.
-- [ ] 5) Solo dopo, sviluppare blocco DS avanzato (collaborazione/causalita/recovery/replica).
+### 5.3 Catalog e contratti
 
----
+- [ ] Verificare disponibilita componenti coerenti per nuove logiche.
+- [ ] Aggiornare seed e fixture per scenari KUBE/INTELLIGENTE.
+- [ ] Validare payload/DTO tra catalog, cad, frontend.
+- [x] Estendere enum categoria con INTELLIGENTE su catalog/cad/frontend.
 
-## Piano operativo a sprint (ASW -> DS)
+### 5.4 Frontend
 
-Assunzioni:
-- Durata sprint: 1 settimana.
-- Team: 1 persona.
-- Effort espresso in giorni uomo (gg).
+- [ ] Rendere disponibili i flussi UI per KUBE e INTELLIGENTE.
+- [ ] Mostrare messaggi specifici di vincolo quando una scelta non e valida.
+- [ ] Verificare completamento configurazione fino al carrello.
 
-Stato attuale prima dello Sprint 4:
-- Sprint 1 chiuso.
-- Sprint 2 chiuso.
-- Sprint 3 chiuso con estensione scope: nuovo microservizio `order-service` + endpoint trend admin in `reporting-service`.
+### 5.5 Test
 
-### Sprint 1 - Stabilizzazione e hardening base (ASW)
+- [ ] Unit test regole KUBE.
+- [ ] Unit test regole INTELLIGENTE.
+- [ ] e2e CAD + catalog per entrambe le categorie.
+- [ ] Test regressione su TONDO/QUADRO.
+- [x] e2e mirati INTELLIGENTE (catalog create/filter + cad next-options con errore previsto) verdi.
 
-Obiettivo:
-- Rendere affidabile la baseline attuale (auth, catalog, cart, gateway) per accelerare i passi successivi.
+### Exit Criteria blocco logica costruttiva
 
-Backlog sprint:
-- [x] Uniformare error model e naming route tra servizi attivi.
-- [x] Completare test cart mancanti (edge case validazione input e idempotenza update).
-- [x] Script unificati run/test/e2e (backend + e2e selettivi).
-- [x] Healthcheck coerenti e verificati in compose dev.
-
-Deliverable:
-- Baseline stabile con test verdi in singolo comando.
-
-Stima:
-- 3-4 gg.
-
-Exit criteria:
-- Tutti i test esistenti verdi senza interventi manuali.
-
-Stato:
-- [x] Sprint 1 formalmente chiuso.
-- [x] Step 2 avviato e completato: CAD backend core e integrazione cart implementati e verificati.
-
-### Sprint 2 - CAD backend core + integrazione cart (ASW)
-
-Obiettivo:
-- Implementare il cuore del configuratore server-side e collegarlo al carrello.
-
-Backlog sprint:
-- [x] Modello CAD configurazione step-based + persistenza Mongo (`environment`, `category`, `columnPlan`, `columnDesigns`).
-- [x] API CAD a comandi di dominio (setup/design/finalize) al posto di CRUD generico bozza.
-- [x] Regole compatibilita categoria (no mix TONDO/QUADRO/KUBE) enforce lato backend.
-- [x] Vincoli geometrici backend con formula altezza completa: quota ultimo livello + spessore ripiano + terminale.
-- [x] Vincolo adiacenza colonne (ripiani adiacenti non alla stessa quota).
-- [x] Solver di fattibilita futura (look-ahead) per prevenire dead-end configurativi (Scenario 2).
-- [x] Derivazione automatica BOM componenti (ripiani/montanti/piedini/terminali) con deduplica montanti condivisi.
-- [x] Finalize configurazione -> BOM consolidata -> integrazione cart per generazione/upsert carrello.
-- [x] Allineamento contratti CAD (DB/DTO/Payload) con modello a colonne/livelli.
-
-Deliverable:
-- Flusso backend completo e vincolato: setup ambiente/categoria/colonne -> design guidato -> finalize -> cart aggiornato.
-
-Stima:
-- 5-6 gg.
-
-Exit criteria:
-- Test CAD->Cart verdi con copertura minima su:
-	- vincolo adiacenza colonne;
-	- vincolo altezza con spessore ripiano;
-	- prevenzione dead-end (look-ahead);
-	- finalize con BOM coerente e carrello aggiornato.
-
-### Sprint 3 - Notification + Chatbot + Reporting minimo (ASW)
-
-Obiettivo:
-- Coprire i moduli applicativi ASW mancanti lato backend.
-
-Backlog sprint:
-- [x] notification-service: persistenza + API list/read + push realtime.
-- [x] Sottoscrizione eventi catalog per price/availability changed.
-- [x] chatbot-service: endpoint Q&A contestuale su catalogo/prezzi.
-- [x] order-service minimo (senza pagamento): creazione/lista/dettaglio/annullo ordine con persistenza dedicata.
-- [x] Checkout cart integrato con order-service (creazione ordine reale da carrello).
-- [x] reporting-service: endpoint trend base per admin.
-
-Deliverable:
-- Backend ASW completo per requisiti principali utente/admin.
-
-Stima:
-- 5-6 gg.
-
-Exit criteria:
-- Test e2e backend per notifica, chatbot e ordine almeno su scenario base.
-
-### Sprint 4 - Frontend MVP completo (ASW)
-
-Obiettivo:
-- Portare online la SPA completa sui flussi core utente/admin, includendo ordini e reporting trend.
-
-Backlog sprint:
-- [x] Bootstrap Vue (router, store, service clients) con client separati per auth/catalog/cad/cart/orders/notifications/reports.
-- [x] Guard ruoli frontend (USER/ADMIN) allineate agli endpoint protetti backend.
-- [x] Pagine utente: login/guest, catalogo, configuratore, carrello, configurazioni salvate, centro notifiche.
-- [x] Pagine admin: gestione ordini (lista/dettaglio/azione DONE) e report trend ordini con filtro periodo.
-- [x] Integrazione pagina report con endpoint `GET /reports/trends/orders` e visualizzazione trend giornaliero.
-- [x] Gestione errori UI + stati loading/empty + fallback su servizi non disponibili.
-
-Dettaglio copertura pagine utente:
-- [x] login/guest.
-- [x] catalogo.
-- [x] carrello.
-- [x] configurazioni salvate.
-- [x] centro notifiche.
-- [x] configuratore CAD visuale click-based completo (step ambiente/column-plan/design guidato in UI).
-
-Deliverable:
-- Demo end-to-end completa da UI per percorso utente + percorso admin (ordine/report).
-
-Stima:
-- 7-8 gg.
-
-Exit criteria:
-- [x] Percorso utente principale eseguibile solo da frontend.
-	Nota: rimangono solo rifiniture UX/NFR (responsive completo, accessibilita e smoke test UI).
-- [x] Percorso admin minimo eseguibile solo da frontend:
-	- consultazione trend ordini da reporting-service;
-	- avanzamento ordine a DONE.
-
-Stato:
-- [x] Sprint 4 formalmente chiuso.
-
-### Sprint 5 - Qualita ASW (e2e full + rifinitura NFR)
-
-Obiettivo:
-- Chiudere il 100% ASW con evidenze testabili.
-
-Stato:
-- [x] Sprint 5 avviato.
-
-Backlog sprint:
-- [x] Suite e2e estesa su tutti i flussi ASW.
-	- [x] Blocco security-first runtime validato (order/cad/chatbot/notifications/reporting).
-	- [x] Full-run e2e completo eseguito 2 volte consecutive (69/69 + 69/69).
-- [x] Responsive + accessibilita base + feedback immediato.
-	- [x] Error handling accessibile: role=alert + aria-live aggiunti nelle viste core frontend.
-	- [x] Rifinitura responsive breakpoint e labeling controlli.
-- [x] Verifica sicurezza endpoint admin/ruoli (security-first e2e runtime verde).
-- [x] Matrice tracciabilita requisito -> test (baseline iniziale in `utilities/traceability-matrix.md`).
-
-Deliverable:
-- Chiusura ASW pronta per consegna.
-
-Stima:
-- 4-5 gg.
-
-Exit criteria:
-- Requisiti ASW coperti da test/evidenze.
-
-### Sprint 6 - DS Collaboration e causalita
-
-Obiettivo:
-- Introdurre editing collaborativo concorrente nel CAD.
-
-Backlog sprint:
-- [ ] Sessioni collaborative multiutente realtime.
-- [ ] Broadcast incrementale operazioni.
-- [ ] Strategia causal ordering implementata.
-- [ ] Test concorrenza e convergenza stato.
-
-Deliverable:
-- Feature DS principale dimostrabile.
-
-Stima:
-- 5-6 gg.
-
-Exit criteria:
-- Test concorrenti verdi con ordine causale verificato.
-
-### Sprint 7 - DS fault tolerance + delivery finale
-
-Obiettivo:
-- Completare resilienza DS e pacchetto finale.
-
-Backlog sprint:
-- [ ] Checkpoint/recovery stato collaborativo.
-- [ ] Replica Mongo e failover test.
-- [ ] Manifest Kubernetes/Minikube.
-- [ ] README finale + script demo + evidenze complete.
-
-Deliverable:
-- Chiusura DS + consegna finale completa.
-
-Stima:
-- 5-6 gg.
-
-Exit criteria:
-- Scenario crash/restart e failover dimostrato.
+- [ ] Nessun endpoint Step4 ritorna NotImplemented per KUBE/INTELLIGENTE.
+- [ ] Finalize produce BOM coerente per tutte le categorie supportate.
+- [ ] e2e target verdi.
 
 ---
 
-## Priorita immediata (prossimi 3 passi)
+## 6) Sprint 7 - DS Resilienza e Pacchetto Finale
 
-- [ ] Step 1: estendere la suite e2e ASW ai flussi mancanti e ai test di isolamento/RBAC (notifications/chatbot/reporting/cad/orders).
-- [ ] Step 2: completare rifiniture NFR frontend (responsive completo, accessibilita base, feedback immediato coerente).
-- [ ] Step 3: consolidare evidenze comandi test/build/e2e in un artefatto unico per chiusura Sprint 5.
+Obiettivo: fault tolerance, deployment e chiusura formale della consegna.
 
+### Backlog Sprint 7
+
+- [ ] Checkpoint periodico stato collaborativo.
+- [ ] Recovery da checkpoint + replay eventi.
+- [ ] Replica DB/failover minimo dimostrabile.
+- [ ] Manifest Kubernetes/Minikube e guida operativa.
+- [ ] Rifinitura report finale e allineamento con demo.
+
+### Exit Criteria Sprint 7
+
+- [ ] Crash/restart con recupero consistente verificato.
+- [ ] Failover testato almeno su scenario minimo.
+- [ ] Pacchetto consegna completo e ripetibile.
+
+---
+
+## 7) Chatbot con API LLM (ultimo blocco)
+
+Obiettivo: estendere il chatbot senza mettere a rischio la consegna principale.
+
+### Backlog Chatbot LLM
+
+- [ ] Definire provider LLM (modello, costi, limiti, policy).
+- [ ] Integrare adapter LLM nel chatbot-service con timeout e retry.
+- [ ] Implementare fallback locale rule-based quando provider non disponibile.
+- [ ] Aggiungere sanitizzazione prompt e guardrail output.
+- [ ] Introdurre logging osservabilita (latency, token usage, error rate).
+- [ ] Aggiungere test integrazione con mock provider.
+
+### Exit Criteria Chatbot LLM
+
+- [ ] Chatbot non blocca il flusso utente in caso di errore LLM.
+- [ ] SLA minimo rispettato per tempo di risposta.
+- [ ] Costi e limiti documentati nel README.
+
+---
+
+## 8) Evidenze obbligatorie per l'esame
+
+- [ ] Report test backend (per servizio) allegato.
+- [ ] Report e2e completo allegato.
+- [ ] Screenshot/clip demo user path e admin path.
+- [ ] Screenshot/clip scenario DS concorrente.
+- [ ] Screenshot/clip scenario recovery/failover.
+- [ ] Matrice tracciabilita aggiornata.
+- [ ] README finale con comandi run/test/demo.
+
+---
+
+## 9) Piano rapido settimanale (proposta)
+
+- [ ] Settimana 1: Sprint 5 completo + evidenze ASW.
+- [ ] Settimana 2: Sprint 6 completo + test concorrenza.
+- [ ] Settimana 3: Logica costruttiva KUBE/INTELLIGENTE completa + e2e.
+- [ ] Settimana 4: Sprint 7 + consegna finale.
+- [ ] Buffer: Chatbot LLM (solo se settimane 1-4 sono verdi).
+
+---
+
+## 10) Regola di avanzamento (gates)
+
+Si passa al blocco successivo solo se tutti i gate del blocco corrente sono verdi.
+
+- [x] Gate A: Sprint 5 verde.
+- [ ] Gate B: Sprint 6 verde.
+- [ ] Gate C: Logica costruttiva verde.
+- [ ] Gate D: Sprint 7 verde.
+- [ ] Gate E: Chatbot LLM verde (opzionale per estensione).
