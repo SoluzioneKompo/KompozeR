@@ -117,6 +117,13 @@ export class InMemoryCollabSessionService {
   async createSession(input: CreateCollabSessionInput): Promise<CollabSessionOutput> {
     this.pruneExpiredSessions();
 
+    const existingSession = this.findSessionByHostAndConfiguration(input.hostUserId, input.configurationId);
+    if (existingSession) {
+      existingSession.participants.add(input.hostUserId);
+      this.touch(existingSession);
+      return this.toOutput(existingSession);
+    }
+
     const configuration = await this.configurationRepository.findById(input.configurationId);
     if (!configuration) {
       throw new ResourceNotFoundError('Configuration not found');
@@ -144,6 +151,23 @@ export class InMemoryCollabSessionService {
 
     this.sessions.set(sessionId, state);
     return this.toOutput(state);
+  }
+
+  private findSessionByHostAndConfiguration(hostUserId: string, configurationId: string): SessionState | null {
+    for (const session of this.sessions.values()) {
+      if (session.hostUserId !== hostUserId) {
+        continue;
+      }
+      if (session.configurationId !== configurationId) {
+        continue;
+      }
+      if (session.expiresAtMs <= this.now()) {
+        continue;
+      }
+      return session;
+    }
+
+    return null;
   }
 
   async joinSession(input: JoinCollabSessionInput): Promise<CollabSessionOutput> {
@@ -251,6 +275,7 @@ export class InMemoryCollabSessionService {
 
     if (mustApply) {
       this.applyFieldMutation(session.snapshot, input.fieldPath, input.value);
+      this.applyStatusTransition(session.snapshot, input.fieldPath);
       session.snapshot.version += 1;
       session.snapshot.updatedAt = new Date(this.now());
       validateConfigurationModel(session.snapshot);
@@ -394,6 +419,42 @@ export class InMemoryCollabSessionService {
       }
       default:
         throw new ValidationError('Unsupported fieldPath');
+    }
+  }
+
+  /**
+   * Applies the same status transitions that the REST write use cases enforce,
+   * so that realtime snapshots have consistent status for all collaborators.
+   */
+  private applyStatusTransition(configuration: Configuration, fieldPath: CollabFieldPath): void {
+    switch (fieldPath) {
+      case 'environment':
+        configuration.status = configuration.category ? 'CATEGORY_SELECTED' : 'ENVIRONMENT_DEFINED';
+        configuration.columnPlan = null;
+        configuration.columnDesigns = [];
+        configuration.components = [];
+        return;
+      case 'category':
+        if (configuration.category) {
+          configuration.status = 'CATEGORY_SELECTED';
+        }
+        configuration.columnPlan = null;
+        configuration.columnDesigns = [];
+        configuration.components = [];
+        return;
+      case 'columnPlan':
+        if (configuration.columnPlan) {
+          configuration.status = 'COLUMNS_DEFINED';
+        }
+        configuration.components = [];
+        return;
+      case 'columnDesigns':
+        configuration.status =
+          configuration.columnDesigns.length > 0 ? 'DESIGN_IN_PROGRESS' : 'COLUMNS_DEFINED';
+        return;
+      default:
+        // 'name' and other non-status-bearing fields leave status unchanged.
+        return;
     }
   }
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /** CAD configurator view orchestrating environment, design, and BOM workflows. */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import type {
   Category,
   ColumnDesign,
@@ -10,6 +10,7 @@ import type {
   NextOption,
 } from '@/types/cad';
 import { useCad } from '@/composables/useCad';
+import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { cadCollabSocket, type CollabFieldPath, type CollabPresencePayload } from '@/services/cadCollabSocket';
 import { catalogService } from '@/services/catalogService';
@@ -42,8 +43,8 @@ const {
 
 const categories: Array<Category> = ['TONDO', 'QUADRO', 'KUBE', 'INTELLIGENTE'];
 const route = useRoute();
-const router = useRouter();
 const notifications = useNotificationStore();
+const authStore = useAuthStore();
 
 const environmentDraft = ref<Environment>({
   maxWidthMm: 5000,
@@ -129,12 +130,17 @@ async function syncFromSessionSnapshot(snapshot: ConfigurationDto): Promise<void
   await refreshAllNextOptions();
 }
 
-async function ensureCollabSession(configurationId?: string): Promise<void> {
+async function ensureCollabSession(configurationId?: string, sessionId?: string): Promise<void> {
   if (collabJoining.value) {
     return;
   }
 
-  if (configurationId && collabConfigurationId.value === configurationId && collabSessionId.value) {
+  if (
+    configurationId
+    && collabConfigurationId.value === configurationId
+    && collabSessionId.value
+    && (!sessionId || collabSessionId.value === sessionId)
+  ) {
     return;
   }
 
@@ -144,30 +150,19 @@ async function ensureCollabSession(configurationId?: string): Promise<void> {
     return;
   }
 
-  const requestedSessionId = typeof route.query['sessionId'] === 'string' ? route.query['sessionId'] : '';
-  if (collabSessionId.value && requestedSessionId && collabSessionId.value === requestedSessionId) {
+  if (collabSessionId.value && sessionId && collabSessionId.value === sessionId) {
     return;
   }
 
   collabJoining.value = true;
   try {
     cadCollabSocket.connect();
-    const joined = await cadCollabSocket.joinSession(configurationId, requestedSessionId || undefined);
+    const joined = await cadCollabSocket.joinSession(configurationId, sessionId || undefined);
     collabConnected.value = cadCollabSocket.isConnected();
     collabSessionId.value = joined.sessionId;
     collabConfigurationId.value = joined.configurationId;
     collabLamport.value = Math.max(collabLamport.value, joined.lamport);
     collabParticipants.value = joined.participants;
-
-    if (!requestedSessionId || configurationId !== joined.configurationId) {
-      await router.replace({
-        query: {
-          ...route.query,
-          configurationId: joined.configurationId,
-          sessionId: joined.sessionId,
-        },
-      });
-    }
 
     await syncFromSessionSnapshot(joined.snapshot);
   } catch (error) {
@@ -192,6 +187,13 @@ onMounted(() => {
     }
 
     collabLamport.value = Math.max(collabLamport.value, data.lamport);
+
+    // Skip snapshot sync for own operations — REST already gave us the authoritative state.
+    const myUserId = authStore.user?.id ?? '';
+    if (myUserId && data.userId === myUserId) {
+      return;
+    }
+
     void syncFromSessionSnapshot(data.snapshot);
   });
 
@@ -229,21 +231,8 @@ onMounted(() => {
 
   void (async () => {
     const configurationId = route.query['configurationId'];
-    const requestedSessionId = typeof route.query['sessionId'] === 'string' ? route.query['sessionId'] : '';
-
     if (typeof configurationId === 'string' && configurationId.length > 0) {
-      if (!requestedSessionId) {
-        await loadDetail(configurationId);
-      }
-
-      await ensureCollabSession(configurationId);
-      collabConnected.value = cadCollabSocket.isConnected();
-      return;
-    }
-
-    if (requestedSessionId) {
-      await ensureCollabSession();
-      collabConnected.value = cadCollabSocket.isConnected();
+      await loadDetail(configurationId);
     }
   })();
 });
@@ -283,8 +272,15 @@ watch(
       return;
     }
 
-    void ensureCollabSession(configurationId);
-    collabConnected.value = cadCollabSocket.isConnected();
+    // Keep realtime collaboration attached to the currently opened configuration.
+    if (
+      !collabSessionId.value
+      || collabConfigurationId.value !== configurationId
+      || !collabConnected.value
+    ) {
+      void ensureCollabSession(configurationId);
+      collabConnected.value = cadCollabSocket.isConnected();
+    }
   },
 );
 
@@ -381,23 +377,12 @@ const collabStatusLabel = computed(() => {
   }
 
   if (!collabSessionId.value) {
-    return 'Sessione collaborativa non disponibile';
+    return 'Nessuna sessione collaborativa attiva';
   }
 
   return collabConnected.value
     ? `Collaborazione attiva (${collabParticipants.value.length} partecipanti)`
     : 'Collaborazione temporaneamente disconnessa';
-});
-
-const collabShareUrl = computed(() => {
-  if (!selected.value || !collabSessionId.value) {
-    return '';
-  }
-
-  const url = new URL(window.location.href);
-  url.searchParams.set('configurationId', selected.value.id);
-  url.searchParams.set('sessionId', collabSessionId.value);
-  return url.toString();
 });
 
 const totalPrice = computed(() => {
@@ -494,16 +479,35 @@ function formatDate(iso: string): string {
   }).format(new Date(iso));
 }
 
-async function copyCollabLink(): Promise<void> {
-  if (!collabShareUrl.value) {
+async function copySessionId(): Promise<void> {
+  if (!collabSessionId.value) {
     return;
   }
 
   try {
-    await navigator.clipboard.writeText(collabShareUrl.value);
-    notifications.addToast('success', 'Link collaborazione copiato');
+    await navigator.clipboard.writeText(collabSessionId.value);
+    notifications.addToast('success', 'Session ID copiato');
   } catch {
-    notifications.addToast('error', 'Impossibile copiare il link collaborazione');
+    notifications.addToast('error', 'Impossibile copiare il Session ID');
+  }
+}
+
+/** Starts a collaborative session for currently selected configuration. */
+async function startSessionFromCad(): Promise<void> {
+  if (!selected.value) {
+    return;
+  }
+
+  joinLoading.value = true;
+  try {
+    await ensureCollabSession(selected.value.id);
+    collabConnected.value = cadCollabSocket.isConnected();
+    notifications.addToast('success', 'Sessione collaborativa avviata');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Avvio sessione collaborativa fallito';
+    notifications.addToast('error', message);
+  } finally {
+    joinLoading.value = false;
   }
 }
 
@@ -864,14 +868,7 @@ async function joinFromCad(): Promise<void> {
 
   joinLoading.value = true;
   try {
-    await router.replace({
-      query: {
-        ...route.query,
-        sessionId,
-      },
-    });
-
-    await ensureCollabSession();
+    await ensureCollabSession(undefined, sessionId);
     collabConnected.value = cadCollabSocket.isConnected();
     notifications.addToast('success', 'Sessione collaborativa agganciata');
   } catch (error) {
@@ -917,10 +914,31 @@ function stepActive(index: number): boolean {
       <div class="collab-actions">
         <button
           class="btn btn--light btn--small"
-          :disabled="!collabShareUrl"
-          @click="copyCollabLink"
+          :disabled="joinLoading"
+          @click="startSessionFromCad"
         >
-          Copia link collaborazione
+          {{ joinLoading ? 'Avvio...' : 'Avvia sessione' }}
+        </button>
+        <input
+          v-model="joinSessionInput"
+          class="field__input"
+          type="text"
+          placeholder="Session ID"
+          style="width: 220px;"
+        />
+        <button
+          class="btn btn--light btn--small"
+          :disabled="joinLoading"
+          @click="joinFromCad"
+        >
+          {{ joinLoading ? 'Join...' : 'Join sessione' }}
+        </button>
+        <button
+          class="btn btn--light btn--small"
+          :disabled="!collabSessionId"
+          @click="copySessionId"
+        >
+          Copia Session ID
         </button>
       </div>
     </section>
