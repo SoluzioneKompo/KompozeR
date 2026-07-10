@@ -6,6 +6,7 @@
 import request from 'supertest';
 import express, { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import type { SignOptions } from 'jsonwebtoken';
 import { buildJwtMiddleware } from '../../src/middleware/jwtMiddleware';
 import { gatewayErrorMiddleware } from '../../src/middleware/gatewayErrorMiddleware';
 
@@ -24,6 +25,14 @@ function buildApp() {
     });
   });
 
+  app.get('/cad/collab/socket.io', (req: Request, res: Response) => {
+    res.json({
+      userId: req.headers['x-user-id'],
+      role: req.headers['x-user-role'],
+      sessionId: req.headers['x-session-id'],
+    });
+  });
+
   app.post('/auth/register', (_req: Request, res: Response) => res.status(201).json({}));
   app.post('/auth/login', (_req: Request, res: Response) => res.json({}));
   app.post('/auth/guest', (_req: Request, res: Response) => res.json({}));
@@ -32,7 +41,7 @@ function buildApp() {
   return app;
 }
 
-function makeToken(payload: object, secret = SECRET, options?: jwt.SignOptions) {
+function makeToken(payload: object, secret = SECRET, options?: SignOptions) {
   return jwt.sign(payload, secret, { expiresIn: 3600, ...options });
 }
 
@@ -130,6 +139,16 @@ describe('jwtMiddleware - protected routes', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.role).toBe('GUEST');
+  });
+
+  it('accepts ?token fallback on CAD collaborative socket handshake path', async () => {
+    const token = makeToken({ userId: 'cad-user-1', tokenId: 'cad-tok-1', role: 'BASE' });
+    const res = await request(app).get(`/cad/collab/socket.io?token=${encodeURIComponent(token)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.userId).toBe('cad-user-1');
+    expect(res.body.role).toBe('BASE');
+    expect(res.body.sessionId).toBe('cad-tok-1');
   });
 });
 

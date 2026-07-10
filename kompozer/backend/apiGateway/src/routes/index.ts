@@ -28,7 +28,7 @@ export interface ServiceUrls {
  * All proxy routes preserve HTTP method and body while rewriting only
  * the service-local base path.
  */
-export function buildRoutes(services: ServiceUrls): Router {
+export function buildRoutes(services: ServiceUrls): ReturnType<typeof Router> {
   const router = Router();
 
   // ── authenticationService ────────────────────────────────────────────────────
@@ -59,6 +59,7 @@ export function buildRoutes(services: ServiceUrls): Router {
     createProxyMiddleware({
       target: services.cad,
       changeOrigin: true,
+      ws: true,
       pathRewrite: (path: string) => `/cad${path}`,
       on: { proxyReq: fixRequestBody },
     }),

@@ -44,7 +44,7 @@ function settle<T>(
 export function buildBffRouter(
   services: ServiceUrls,
   clientFactory: ClientFactory = createServiceClient,
-): Router {
+): ReturnType<typeof Router> {
   const router = Router();
 
   // Used by the post-login homepage to aggregate cart, CAD sessions,

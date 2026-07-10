@@ -72,6 +72,12 @@ Evidenza test Sprint 5 (2026-07-10):
 
 Obiettivo: implementare la parte DS centrale con concorrenza e causalita verificabile.
 
+Stato avanzamento (2026-07-10):
+
+- [x] Slice 1 backend collaborativo CAD: sessioni in-memory con TTL + join/leave + snapshot + apply operation Lamport/LWW field-level.
+- [x] Slice 2 realtime Socket.IO CAD via API Gateway.
+- [ ] Slice 3 integrazione frontend CadView per presenza/sync realtime.
+
 ### Backlog Sprint 6
 
 - [ ] Sessioni collaborative multiutente sulla stessa configurazione CAD.

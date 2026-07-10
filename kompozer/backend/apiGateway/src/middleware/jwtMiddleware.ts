@@ -56,8 +56,8 @@ export function buildJwtMiddleware(jwtSecret: string) {
     }
 
     // Browser Socket.IO clients cannot reliably set Authorization headers.
-    // For chatbot handshake/polling, allow ?token=<jwt> fallback.
-    if (!token && req.path.startsWith('/chatbot/socket.io')) {
+    // For realtime channels, allow ?token=<jwt> fallback during handshake/polling.
+    if (!token && (req.path.startsWith('/chatbot/socket.io') || req.path.startsWith('/cad/collab/socket.io'))) {
       const queryToken = req.query['token'];
       if (typeof queryToken === 'string' && queryToken.trim()) {
         token = queryToken;

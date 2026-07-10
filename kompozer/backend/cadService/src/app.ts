@@ -11,6 +11,7 @@ import { CatalogRulesProvider } from './domain/ports/CatalogRulesProvider';
 import { CartServiceClient } from './domain/ports/CartServiceClient';
 import { NotificationSubscriptionClient } from './domain/ports/NotificationSubscriptionClient';
 import { ConfigurationRepository } from './domain/ports/ConfigurationRepository';
+import { InMemoryCollabSessionService } from './domain/services/InMemoryCollabSessionService';
 import { GetConfiguration } from './useCases/read/GetConfiguration';
 import { ListConfigurations } from './useCases/read/ListConfigurations';
 import { ListNextOptions } from './useCases/read/ListNextOptions';
@@ -33,6 +34,7 @@ export interface BuildAppDeps {
   catalogRulesProvider?: CatalogRulesProvider;
   cartServiceClient?: CartServiceClient;
   notificationSubscriptionClient?: NotificationSubscriptionClient;
+  collabSessionService?: InMemoryCollabSessionService;
 }
 
 /**
@@ -49,6 +51,8 @@ export function buildApp(deps: BuildAppDeps = {}) {
     ?? (notificationBaseUrl
       ? new HttpNotificationSubscriptionClient(notificationBaseUrl)
       : undefined);
+  const collabSessionService = deps.collabSessionService
+    ?? new InMemoryCollabSessionService(configurationRepository);
 
   const createConfiguration = new CreateConfiguration(configurationRepository);
   const listConfigurations = new ListConfigurations(configurationRepository);
@@ -86,6 +90,7 @@ export function buildApp(deps: BuildAppDeps = {}) {
       updateDesign,
       finalizeConfiguration,
       reorderConfiguration,
+      collabSessionService,
     }),
   );
 

@@ -39,3 +39,24 @@ export class CategoryLogicNotImplementedError extends CadError {
     );
   }
 }
+
+/** Raised when the caller does not have permissions for the requested operation. */
+export class ForbiddenError extends CadError {
+  constructor(message: string) {
+    super('FORBIDDEN', message);
+  }
+}
+
+/** Raised when a collaborative session has expired and can no longer be used. */
+export class SessionExpiredError extends CadError {
+  constructor(message: string) {
+    super('SESSION_EXPIRED', message);
+  }
+}
+
+/** Raised when collaborative operations are applied against a stale baseline snapshot. */
+export class CollabOperationStaleError extends CadError {
+  constructor(message: string) {
+    super('COLLAB_OPERATION_STALE', message);
+  }
+}

@@ -459,4 +459,103 @@ describe('cadRouter', () => {
     expect(res.status).toBe(501);
     expect(res.body.error.code).toBe('CATEGORY_LOGIC_NOT_IMPLEMENTED');
   });
+
+  it('POST /cad/configurations/:id/collab/sessions -> 201 and join from another user', async () => {
+    const app = buildApp({
+      configurationRepository: new FakeConfigurationRepository(),
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const created = await request(app)
+      .post('/cad/configurations')
+      .set('x-user-id', 'usr_1')
+      .send({ name: 'Collaborative setup' });
+
+    const opened = await request(app)
+      .post(`/cad/configurations/${created.body.id}/collab/sessions`)
+      .set('x-user-id', 'usr_1')
+      .send({});
+
+    expect(opened.status).toBe(201);
+    expect(opened.body.sessionId).toBeDefined();
+    expect(opened.body.participants).toEqual(['usr_1']);
+
+    const joined = await request(app)
+      .post(`/cad/configurations/${created.body.id}/collab/sessions/${opened.body.sessionId}/join`)
+      .set('x-user-id', 'usr_2')
+      .send({});
+
+    expect(joined.status).toBe(200);
+    expect(joined.body.participants).toEqual(expect.arrayContaining(['usr_1', 'usr_2']));
+    expect(joined.body.snapshot.id).toBe(created.body.id);
+  });
+
+  it('POST /cad/configurations/:id/collab/sessions/:sessionId/operations -> applies Lamport/LWW and rejects stale baseVersion', async () => {
+    const app = buildApp({
+      configurationRepository: new FakeConfigurationRepository(),
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const created = await request(app)
+      .post('/cad/configurations')
+      .set('x-user-id', 'usr_1')
+      .send({ name: 'Draft name' });
+
+    const opened = await request(app)
+      .post(`/cad/configurations/${created.body.id}/collab/sessions`)
+      .set('x-user-id', 'usr_1')
+      .send({});
+
+    await request(app)
+      .post(`/cad/configurations/${created.body.id}/collab/sessions/${opened.body.sessionId}/join`)
+      .set('x-user-id', 'usr_2')
+      .send({});
+
+    const applied = await request(app)
+      .post(`/cad/configurations/${created.body.id}/collab/sessions/${opened.body.sessionId}/operations`)
+      .set('x-user-id', 'usr_2')
+      .send({
+        opId: 'op_1',
+        lamport: 5,
+        fieldPath: 'name',
+        value: 'Name from usr_2',
+        baseVersion: 1,
+      });
+
+    expect(applied.status).toBe(200);
+    expect(applied.body.applied).toBe(true);
+    expect(applied.body.snapshot.name).toBe('Name from usr_2');
+    expect(applied.body.snapshot.version).toBe(2);
+
+    const lowerLamport = await request(app)
+      .post(`/cad/configurations/${created.body.id}/collab/sessions/${opened.body.sessionId}/operations`)
+      .set('x-user-id', 'usr_1')
+      .send({
+        opId: 'op_2',
+        lamport: 4,
+        fieldPath: 'name',
+        value: 'Name from usr_1',
+        baseVersion: 2,
+      });
+
+    expect(lowerLamport.status).toBe(200);
+    expect(lowerLamport.body.applied).toBe(false);
+    expect(lowerLamport.body.snapshot.name).toBe('Name from usr_2');
+
+    const stale = await request(app)
+      .post(`/cad/configurations/${created.body.id}/collab/sessions/${opened.body.sessionId}/operations`)
+      .set('x-user-id', 'usr_2')
+      .send({
+        opId: 'op_3',
+        lamport: 8,
+        fieldPath: 'name',
+        value: 'stale update',
+        baseVersion: 1,
+      });
+
+    expect(stale.status).toBe(409);
+    expect(stale.body.error.code).toBe('COLLAB_OPERATION_STALE');
+  });
 });

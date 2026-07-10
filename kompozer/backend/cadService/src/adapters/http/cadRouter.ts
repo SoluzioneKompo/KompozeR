@@ -3,6 +3,10 @@ import { CATEGORIES, Category, isCategory } from '../../domain/entities/Category
 import { ConfigurationStatus } from '../../domain/entities/ConfigurationStatus';
 import { ColumnDesign, ColumnPlan, Environment } from '../../domain/entities/Configuration';
 import { ValidationError } from '../../domain/entities/errors';
+import {
+  CollabFieldPath,
+  InMemoryCollabSessionService,
+} from '../../domain/services/InMemoryCollabSessionService';
 import { GetConfiguration } from '../../useCases/read/GetConfiguration';
 import { ListConfigurations } from '../../useCases/read/ListConfigurations';
 import { ListNextOptions } from '../../useCases/read/ListNextOptions';
@@ -25,7 +29,16 @@ export interface CadRouterDeps {
   updateDesign: UpdateDesign;
   finalizeConfiguration: FinalizeConfiguration;
   reorderConfiguration: ReorderConfiguration;
+  collabSessionService: InMemoryCollabSessionService;
 }
+
+const COLLAB_FIELD_PATHS: CollabFieldPath[] = [
+  'name',
+  'category',
+  'environment',
+  'columnPlan',
+  'columnDesigns',
+];
 
 /** Wraps async handlers and forwards rejections to Express error middleware. */
 function wrap(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
@@ -188,6 +201,49 @@ function parseColumnDesigns(body: unknown): ColumnDesign[] {
       levelsMm,
     };
   });
+}
+
+/** Parses payload for collaborative operation endpoint. */
+function parseCollabOperation(body: unknown): {
+  opId: string;
+  lamport: number;
+  fieldPath: CollabFieldPath;
+  value: unknown;
+  baseVersion: number;
+} {
+  if (!body || typeof body !== 'object') {
+    throw new ValidationError('collab operation payload is required');
+  }
+
+  const typed = body as Record<string, unknown>;
+  const opId = typeof typed['opId'] === 'string' ? typed['opId'].trim() : '';
+  const fieldPathRaw = typed['fieldPath'];
+  const lamport = Number(typed['lamport']);
+  const baseVersion = Number(typed['baseVersion']);
+
+  if (!opId) {
+    throw new ValidationError('opId is required');
+  }
+
+  if (typeof fieldPathRaw !== 'string' || !COLLAB_FIELD_PATHS.includes(fieldPathRaw as CollabFieldPath)) {
+    throw new ValidationError(`fieldPath must be one of ${COLLAB_FIELD_PATHS.join(', ')}`);
+  }
+
+  if (Number.isNaN(lamport)) {
+    throw new ValidationError('lamport must be numeric');
+  }
+
+  if (Number.isNaN(baseVersion)) {
+    throw new ValidationError('baseVersion must be numeric');
+  }
+
+  return {
+    opId,
+    lamport,
+    fieldPath: fieldPathRaw as CollabFieldPath,
+    value: typed['value'],
+    baseVersion,
+  };
 }
 
 /** Builds the HTTP router exposing CAD workflow endpoints. */
@@ -361,6 +417,104 @@ export function buildCadRouter(deps: CadRouterDeps) {
         ownerId,
       });
       res.json(configuration);
+    }),
+  );
+
+  router.post(
+    '/configurations/:id/collab/sessions',
+    requireUserId,
+    wrap(async (req, res) => {
+      const hostUserId = req.headers['x-user-id'] as string;
+      const session = await deps.collabSessionService.createSession({
+        configurationId: req.params['id'],
+        hostUserId,
+      });
+
+      res.status(201).json({
+        sessionId: session.sessionId,
+        configurationId: session.configurationId,
+        lamport: session.lamport,
+        participants: session.participants,
+        ttlSeconds: session.ttlSeconds,
+        snapshot: session.snapshot,
+      });
+    }),
+  );
+
+  router.post(
+    '/configurations/:id/collab/sessions/:sessionId/join',
+    requireUserId,
+    wrap(async (req, res) => {
+      const userId = req.headers['x-user-id'] as string;
+      const session = await deps.collabSessionService.joinSession({
+        sessionId: req.params['sessionId'],
+        configurationId: req.params['id'],
+        userId,
+      });
+
+      res.json({
+        sessionId: session.sessionId,
+        configurationId: session.configurationId,
+        lamport: session.lamport,
+        participants: session.participants,
+        ttlSeconds: session.ttlSeconds,
+        snapshot: session.snapshot,
+      });
+    }),
+  );
+
+  router.post(
+    '/configurations/:id/collab/sessions/:sessionId/leave',
+    requireUserId,
+    wrap(async (req, res) => {
+      const userId = req.headers['x-user-id'] as string;
+      await deps.collabSessionService.leaveSession({
+        sessionId: req.params['sessionId'],
+        configurationId: req.params['id'],
+        userId,
+      });
+
+      res.status(204).send();
+    }),
+  );
+
+  router.get(
+    '/configurations/:id/collab/sessions/:sessionId/snapshot',
+    requireUserId,
+    wrap(async (req, res) => {
+      const userId = req.headers['x-user-id'] as string;
+      const session = await deps.collabSessionService.getSnapshot({
+        sessionId: req.params['sessionId'],
+        configurationId: req.params['id'],
+        userId,
+      });
+
+      res.json({
+        sessionId: session.sessionId,
+        configurationId: session.configurationId,
+        lamport: session.lamport,
+        participants: session.participants,
+        ttlSeconds: session.ttlSeconds,
+        snapshot: session.snapshot,
+      });
+    }),
+  );
+
+  router.post(
+    '/configurations/:id/collab/sessions/:sessionId/operations',
+    requireUserId,
+    wrap(async (req, res) => {
+      const userId = req.headers['x-user-id'] as string;
+      const operation = parseCollabOperation(req.body);
+
+      const output = await deps.collabSessionService.applyOperation({
+        sessionId: req.params['sessionId'],
+        configurationId: req.params['id'],
+        userId,
+        ...operation,
+      });
+
+      res.json(output);
     }),
   );
 

@@ -60,7 +60,10 @@ async function checkService(
 /**
  * Builds the public health-check router.
  */
-export function buildHealthRouter(services: ServiceUrls, fetchFn: FetchFn = fetch as FetchFn): Router {
+export function buildHealthRouter(
+  services: ServiceUrls,
+  fetchFn: FetchFn = fetch as FetchFn,
+): ReturnType<typeof Router> {
   const router = Router();
 
   router.get('/health', async (_req: Request, res: Response): Promise<void> => {
