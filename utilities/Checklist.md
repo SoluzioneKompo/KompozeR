@@ -79,18 +79,20 @@ Stato avanzamento (2026-07-10):
 - [x] Slice 3 integrazione frontend CadView per presenza/sync realtime.
 - [x] Slice 3.1 hardening collaborativo: fallback owner via sessione attiva su endpoint CAD + ingresso esplicito Join sessione in CadView.
 - [x] Slice 3.2 ACL persistente: owner + collaborators su configurazione con accesso read/write asincrono.
+- [x] Slice 3.3 UX Join esplicito: eliminazione flusso query-link, solo join via Session ID esplicito (Avvia sessione / Join sessione / Copia Session ID).
+- [x] Slice 3.4 Real-time corretto: fix status transitions in-memory (applyStatusTransition replica logica REST use cases), fix overwrite selected.value per mittente (filtra propri eventi socket via authStore.user.id). Test cadService 51/51 verdi post-fix.
 
 ### Backlog Sprint 6
 
-- [ ] Sessioni collaborative multiutente sulla stessa configurazione CAD.
-- [ ] Broadcast incrementale operazioni via websocket/event bus.
-- [ ] Causal ordering (strategia esplicita: Lamport o equivalente).
-- [ ] Risoluzione conflitti concorrenti con regole deterministiche.
+- [x] Sessioni collaborative multiutente sulla stessa configurazione CAD.
+- [x] Broadcast incrementale operazioni via websocket/event bus.
+- [x] Causal ordering (strategia esplicita: Lamport + LWW field-level).
+- [x] Risoluzione conflitti concorrenti con regole deterministiche (LWW actor-id tie-break).
 - [ ] Test concorrenza con convergenza stato finale.
 
 ### Exit Criteria Sprint 6
 
-- [ ] Scenario multiutente ripetibile e dimostrabile in demo.
+- [x] Scenario multiutente ripetibile e dimostrabile in demo.
 - [ ] Test di concorrenza verdi.
 - [ ] Strategia causale documentata nella relazione.
 
