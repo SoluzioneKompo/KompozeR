@@ -154,6 +154,38 @@ describe('cadRouter', () => {
     expect(res.body.error.code).toBe('RESOURCE_CONFLICT');
   });
 
+  it('PATCH /cad/configurations/:id/category -> 200 for INTELLIGENTE', async () => {
+    const app = buildApp({
+      configurationRepository: new FakeConfigurationRepository(),
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const created = await request(app)
+      .post('/cad/configurations')
+      .set('x-user-id', 'usr_1')
+      .send({ name: 'Bozza intelligente' });
+
+    await request(app)
+      .patch(`/cad/configurations/${created.body.id}/environment`)
+      .set('x-user-id', 'usr_1')
+      .send({
+        maxWidthMm: 5000,
+        maxHeightMm: 3000,
+        minWidthMm: 600,
+        minHeightMm: 220,
+        unit: 'mm',
+      });
+
+    const res = await request(app)
+      .patch(`/cad/configurations/${created.body.id}/category`)
+      .set('x-user-id', 'usr_1')
+      .send({ category: 'INTELLIGENTE' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.category).toBe('INTELLIGENTE');
+  });
+
   it('PATCH /cad/configurations/:id/design -> 422 on invalid payload', async () => {
     const app = buildApp({
       configurationRepository: new FakeConfigurationRepository(),
@@ -338,5 +370,93 @@ describe('cadRouter', () => {
     expect(res.body.options.length).toBeGreaterThan(0);
     expect(res.body.options.some((option: { allowed: boolean }) => option.allowed)).toBe(true);
     expect(typeof res.body.lookAhead?.feasible).toBe('boolean');
+  });
+
+  it('GET /cad/configurations/:id/next-options -> 501 for KUBE (logic not implemented yet)', async () => {
+    const app = buildApp({
+      configurationRepository: new FakeConfigurationRepository(),
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const created = await request(app)
+      .post('/cad/configurations')
+      .set('x-user-id', 'usr_1')
+      .send({ name: 'Bozza kube' });
+
+    await request(app)
+      .patch(`/cad/configurations/${created.body.id}/environment`)
+      .set('x-user-id', 'usr_1')
+      .send({
+        maxWidthMm: 5000,
+        maxHeightMm: 3000,
+        minWidthMm: 600,
+        minHeightMm: 220,
+        unit: 'mm',
+      });
+
+    await request(app)
+      .patch(`/cad/configurations/${created.body.id}/category`)
+      .set('x-user-id', 'usr_1')
+      .send({ category: 'KUBE' });
+
+    await request(app)
+      .patch(`/cad/configurations/${created.body.id}/column-plan`)
+      .set('x-user-id', 'usr_1')
+      .send({
+        columnCount: 1,
+        columns: [{ index: 0, shelfWidthMm: 800 }],
+      });
+
+    const res = await request(app)
+      .get(`/cad/configurations/${created.body.id}/next-options?columnIndex=0`)
+      .set('x-user-id', 'usr_1');
+
+    expect(res.status).toBe(501);
+    expect(res.body.error.code).toBe('CATEGORY_LOGIC_NOT_IMPLEMENTED');
+  });
+
+  it('GET /cad/configurations/:id/next-options -> 501 for INTELLIGENTE (logic not implemented yet)', async () => {
+    const app = buildApp({
+      configurationRepository: new FakeConfigurationRepository(),
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const created = await request(app)
+      .post('/cad/configurations')
+      .set('x-user-id', 'usr_1')
+      .send({ name: 'Bozza intelligente' });
+
+    await request(app)
+      .patch(`/cad/configurations/${created.body.id}/environment`)
+      .set('x-user-id', 'usr_1')
+      .send({
+        maxWidthMm: 5000,
+        maxHeightMm: 3000,
+        minWidthMm: 600,
+        minHeightMm: 220,
+        unit: 'mm',
+      });
+
+    await request(app)
+      .patch(`/cad/configurations/${created.body.id}/category`)
+      .set('x-user-id', 'usr_1')
+      .send({ category: 'INTELLIGENTE' });
+
+    await request(app)
+      .patch(`/cad/configurations/${created.body.id}/column-plan`)
+      .set('x-user-id', 'usr_1')
+      .send({
+        columnCount: 1,
+        columns: [{ index: 0, shelfWidthMm: 800 }],
+      });
+
+    const res = await request(app)
+      .get(`/cad/configurations/${created.body.id}/next-options?columnIndex=0`)
+      .set('x-user-id', 'usr_1');
+
+    expect(res.status).toBe(501);
+    expect(res.body.error.code).toBe('CATEGORY_LOGIC_NOT_IMPLEMENTED');
   });
 });

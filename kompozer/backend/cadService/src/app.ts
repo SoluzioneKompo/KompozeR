@@ -1,5 +1,6 @@
 import cors from 'cors';
 import express from 'express';
+import { Request, Response } from 'express';
 import { buildCadRouter } from './adapters/http/cadRouter';
 import { HttpCatalogRulesProvider } from './adapters/http/HttpCatalogRulesProvider';
 import { HttpCartServiceClient } from './adapters/http/HttpCartServiceClient';
@@ -69,7 +70,7 @@ export function buildApp(deps: BuildAppDeps = {}) {
   app.use(cors());
   app.use(express.json());
 
-  app.get('/health', (_req, res) => {
+  app.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok' });
   });
 

@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response, Router } from 'express';
-import { Category, isCategory } from '../../domain/entities/Category';
+import { CATEGORIES, Category, isCategory } from '../../domain/entities/Category';
 import { ConfigurationStatus } from '../../domain/entities/ConfigurationStatus';
 import { ColumnDesign, ColumnPlan, Environment } from '../../domain/entities/Configuration';
 import { ValidationError } from '../../domain/entities/errors';
@@ -65,7 +65,7 @@ function parseCategory(body: unknown): Category | null | undefined {
       return null;
     }
     if (!isCategory(typedBody.category)) {
-      throw new ValidationError('category must be one of TONDO, QUADRO, KUBE');
+      throw new ValidationError(`category must be one of ${CATEGORIES.join(', ')}`);
     }
     return typedBody.category;
   }
@@ -75,7 +75,7 @@ function parseCategory(body: unknown): Category | null | undefined {
       return null;
     }
     if (!isCategory(typedBody.systemType)) {
-      throw new ValidationError('systemType must be one of TONDO, QUADRO, KUBE');
+      throw new ValidationError(`systemType must be one of ${CATEGORIES.join(', ')}`);
     }
     return typedBody.systemType;
   }
@@ -191,10 +191,10 @@ function parseColumnDesigns(body: unknown): ColumnDesign[] {
 }
 
 /** Builds the HTTP router exposing CAD workflow endpoints. */
-export function buildCadRouter(deps: CadRouterDeps): Router {
+export function buildCadRouter(deps: CadRouterDeps) {
   const router = Router();
 
-  router.get('/health', (_req, res) => {
+  router.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok' });
   });
 

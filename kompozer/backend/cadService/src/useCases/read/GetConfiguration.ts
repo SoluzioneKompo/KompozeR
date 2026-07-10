@@ -41,7 +41,7 @@ export class GetConfiguration {
       this.catalogRulesProvider
     ) {
       try {
-        console.warn(`[CAD] Lazy migrating components for configuration ${configuration.id}`);
+        console.log(`[CAD] Lazy migrating components for configuration ${configuration.id}`);
         const rules = await this.catalogRulesProvider.getRules(configuration.category);
         configuration.components = deriveBom(configuration, rules);
       } catch (err) {

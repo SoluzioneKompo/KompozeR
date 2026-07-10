@@ -93,6 +93,19 @@ describe('GET /catalog', () => {
     expect(res.body.items[0].category).toBe('TONDO');
   });
 
+  it('200 — filtra per categoria INTELLIGENTE via query string', async () => {
+    const { app, repo } = buildApp();
+    await repo.save(
+      makeComponent({ id: 'c1', sku: 'SKU-I', category: ComponentCategory.INTELLIGENTE }),
+    );
+    await repo.save(makeComponent({ id: 'c2', sku: 'SKU-T', category: ComponentCategory.TONDO }));
+
+    const res = await request(app).get('/catalog?category=INTELLIGENTE');
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.items[0].category).toBe('INTELLIGENTE');
+  });
+
   it('200 — filtra per available=true', async () => {
     const { app, repo } = buildApp();
     await repo.save(makeComponent({ id: 'c1', sku: 'SKU-A', isAvailable: true }));

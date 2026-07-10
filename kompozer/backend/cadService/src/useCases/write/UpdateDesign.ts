@@ -17,6 +17,7 @@ import {
   SHELF_THICKNESS_MM,
   validateColumnDesigns,
 } from '../../domain/services/SpineModel';
+import { assertStep4LogicImplemented } from '../../domain/services/Step4LogicResolver';
 
 /**
  * Write use case for Step 4 (design): validates and persists column shelf levels.
@@ -62,6 +63,8 @@ export class UpdateDesign {
     if (!configuration.environment || !configuration.category || !configuration.columnPlan) {
       throw new ResourceConflictError('Environment, category and column plan must be defined before design');
     }
+
+    assertStep4LogicImplemented(configuration.category);
 
     const rules = await this.catalogRulesProvider.getRules(configuration.category);
     const normalizedDesigns = input.columnDesigns.map((design) => ({

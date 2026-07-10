@@ -289,3 +289,53 @@ describe('[INT] CAD — guardie di accesso', () => {
     expect([403, 404]).toContain(res.status);
   });
 });
+
+describe('[INT] CAD — categoria INTELLIGENTE (Step4 non implementato)', () => {
+  let smartConfigurationId = '';
+
+  it('crea una configurazione con categoria INTELLIGENTE', async () => {
+    const created = await fetch(`${BASE}/cad/configurations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
+      body: JSON.stringify({ name: `Scaffale Smart INT ${RUN}` }),
+    });
+    expect(created.status).toBe(201);
+    smartConfigurationId = ((await json(created))['id'] as string);
+
+    const env = await fetch(`${BASE}/cad/configurations/${smartConfigurationId}/environment`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
+      body: JSON.stringify({ maxWidthMm: 5000, maxHeightMm: 3000, minWidthMm: 600, minHeightMm: 220, unit: 'mm' }),
+    });
+    expect(env.status).toBe(200);
+
+    const category = await fetch(`${BASE}/cad/configurations/${smartConfigurationId}/category`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
+      body: JSON.stringify({ category: 'INTELLIGENTE' }),
+    });
+    expect(category.status).toBe(200);
+    expect((await json(category))['category']).toBe('INTELLIGENTE');
+  });
+
+  it('ListNextOptions ritorna CATEGORY_LOGIC_NOT_IMPLEMENTED per INTELLIGENTE', async () => {
+    const plan = await fetch(`${BASE}/cad/configurations/${smartConfigurationId}/column-plan`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
+      body: JSON.stringify({
+        columnCount: 1,
+        columns: [{ index: 0, shelfWidthMm: 800 }],
+      }),
+    });
+    expect(plan.status).toBe(200);
+
+    const nextOptions = await fetch(`${BASE}/cad/configurations/${smartConfigurationId}/next-options?columnIndex=0`, {
+      headers: { Authorization: `Bearer ${userToken}` },
+    });
+
+    expect(nextOptions.status).toBe(501);
+    const body = await json(nextOptions);
+    const error = body['error'] as Record<string, unknown>;
+    expect(error['code']).toBe('CATEGORY_LOGIC_NOT_IMPLEMENTED');
+  });
+});

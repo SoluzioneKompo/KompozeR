@@ -1,5 +1,5 @@
 import { Schema, model } from 'mongoose';
-import { Category } from '../../../domain/entities/Category';
+import { CATEGORIES, Category } from '../../../domain/entities/Category';
 import { ConfigurationStatus } from '../../../domain/entities/ConfigurationStatus';
 import { CatalogComponentType } from '../../../domain/ports/CatalogRulesProvider';
 
@@ -123,7 +123,7 @@ const configurationSchema = new Schema<ConfigurationDoc>(
     },
     category: {
       type: String,
-      enum: ['TONDO', 'QUADRO', 'KUBE'],
+      enum: CATEGORIES,
       required: false,
       default: null,
     },

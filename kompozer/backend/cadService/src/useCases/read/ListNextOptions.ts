@@ -9,6 +9,7 @@ import {
   resolveFirstLevelHeightsMm,
   validateColumnCandidate,
 } from '../../domain/services/SpineModel';
+import { assertStep4LogicImplemented } from '../../domain/services/Step4LogicResolver';
 import {
   ListNextOptionsInput,
   ListNextOptionsOutput,
@@ -63,6 +64,8 @@ export class ListNextOptions {
     if (!configuration.environment || !configuration.category || !configuration.columnPlan) {
       throw new ValidationError('Environment, category and column plan must be defined before listing options');
     }
+    assertStep4LogicImplemented(configuration.category);
+
     const environment = configuration.environment;
     const columnPlan = configuration.columnPlan;
 

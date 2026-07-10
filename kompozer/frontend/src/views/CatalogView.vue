@@ -56,6 +56,7 @@ function formatCurrency(cents: number): string {
           <option value="TONDO">Tondo</option>
           <option value="QUADRO">Quadro</option>
           <option value="KUBE">Kube</option>
+          <option value="INTELLIGENTE">Intelligente</option>
         </select>
       </label>
 

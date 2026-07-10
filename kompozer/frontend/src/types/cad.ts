@@ -8,7 +8,7 @@ export type ConfigurationStatus =
   | 'READY_FOR_FINALIZE'
   | 'FINALIZED';
 
-export type Category = 'TONDO' | 'QUADRO' | 'KUBE';
+export type Category = 'TONDO' | 'QUADRO' | 'KUBE' | 'INTELLIGENTE';
 
 export interface Environment {
   maxWidthMm: number;

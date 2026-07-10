@@ -6,6 +6,7 @@
  * - false: NoopCatalogEventPublisher (development without Redis)
  */
 import express from 'express';
+import { Request, Response } from 'express';
 import cors    from 'cors';
 import Redis   from 'ioredis';
 import { MongoCatalogRepository }       from './adapters/persistence/MongoCatalogRepository';
@@ -52,7 +53,7 @@ export function buildApp(config: AppConfig = {}) {
   app.use(cors());
   app.use(express.json());
 
-  app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/health', (_req: Request, res: Response) => res.json({ status: 'ok' }));
 
   app.use(
     '/catalog',

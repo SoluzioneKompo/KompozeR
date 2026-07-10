@@ -38,7 +38,7 @@ const createForm = reactive({
 
 const editCommercial = reactive<Record<string, { priceEuro: string; isAvailable: boolean }>>({});
 
-const categories = ['TONDO', 'QUADRO', 'KUBE'] as const;
+const categories = ['TONDO', 'QUADRO', 'KUBE', 'INTELLIGENTE'] as const;
 const componentTypes = ['PIEDINO', 'MONTANTE', 'RIPIANO', 'TERMINALE', 'MENSOLA'] as const;
 
 onMounted(() => {
@@ -317,6 +317,7 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
           <option value="TONDO">TONDO</option>
           <option value="QUADRO">QUADRO</option>
           <option value="KUBE">KUBE</option>
+          <option value="INTELLIGENTE">INTELLIGENTE</option>
         </select>
       </label>
       <label class="checkbox-field">

@@ -43,11 +43,11 @@ function wrap(fn: (req: Request, res: Response, next: NextFunction) => Promise<v
     fn(req, res, next).catch(next);
 }
 
-export function buildCatalogRouter(deps: CatalogRouterDeps): Router {
+export function buildCatalogRouter(deps: CatalogRouterDeps) {
   const router = Router();
 
   // GET /catalog/health - health check (must be before /:id).
-  router.get('/health', (_req, res) => {
+  router.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok' });
   });
 

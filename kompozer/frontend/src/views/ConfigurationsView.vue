@@ -159,6 +159,7 @@ async function reorder(configuration: ConfigurationDto): Promise<void> {
             <option value="TONDO">TONDO</option>
             <option value="QUADRO">QUADRO</option>
             <option value="KUBE">KUBE</option>
+            <option value="INTELLIGENTE">INTELLIGENTE</option>
           </select>
         </label>
         <button class="btn btn--primary" :disabled="createLoading" aria-label="Crea una nuova configurazione e aprila nel CAD" @click="quickCreate">

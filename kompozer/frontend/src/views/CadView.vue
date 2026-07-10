@@ -36,7 +36,7 @@ const {
   finalizeSelected,
 } = useCad();
 
-const categories: Array<Category> = ['TONDO', 'QUADRO', 'KUBE'];
+const categories: Array<Category> = ['TONDO', 'QUADRO', 'KUBE', 'INTELLIGENTE'];
 const route = useRoute();
 
 const environmentDraft = ref<Environment>({

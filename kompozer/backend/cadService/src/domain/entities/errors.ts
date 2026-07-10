@@ -29,3 +29,13 @@ export class ResourceConflictError extends CadError {
     super('RESOURCE_CONFLICT', message);
   }
 }
+
+/** Raised when a category-specific Step4 logic family is intentionally not implemented yet. */
+export class CategoryLogicNotImplementedError extends CadError {
+  constructor(category: string) {
+    super(
+      'CATEGORY_LOGIC_NOT_IMPLEMENTED',
+      `Step4 logic for category ${category} is not implemented yet`,
+    );
+  }
+}

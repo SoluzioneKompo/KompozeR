@@ -225,10 +225,12 @@ async function connectWithRetry(): Promise<void> {
         break;
       }
 
-      console.warn(
+      console.log(
         `[seed] MongoDB non pronto (tentativo ${attempt}/${CONNECT_RETRIES}), retry in ${CONNECT_RETRY_DELAY_MS}ms...`,
       );
-      await new Promise((resolve) => setTimeout(resolve, CONNECT_RETRY_DELAY_MS));
+      await new Promise<void>((resolve) => {
+        setTimeout(() => resolve(), CONNECT_RETRY_DELAY_MS);
+      });
     }
   }
 

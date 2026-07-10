@@ -15,6 +15,7 @@ export {};
 
 const BASE = 'http://localhost:3000';
 const SKU  = `INT-TONDO-${Date.now()}`; // univoco per ogni run
+const SMART_SKU = `INT-SMART-${Date.now()}`;
 const SEARCH_TOKEN = `catalog-e2e-${Date.now()}`;
 
 let adminToken = '';
@@ -179,6 +180,30 @@ describe('[INT] Catalog — CRUD (ruolo ADMIN)', () => {
     const error = body['error'] as Record<string, unknown>;
     expect(error['code']).toBe('VALIDATION_ERROR');
   });
+
+  it('POST /catalog → 201, crea componente INTELLIGENTE/RIPIANO', async () => {
+    const res = await fetch(`${BASE}/catalog`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        sku:            SMART_SKU,
+        name:           'Ripiano intelligente test integrazione',
+        description:    `Creato dai test e2e ${SEARCH_TOKEN} — categoria intelligente`,
+        category:       'INTELLIGENTE',
+        Type:           'RIPIANO',
+        price:          2700,
+        isAvailable:    true,
+        imageUrl:       '',
+        dimensions:     { widthMm: 800, heightMm: 20, depthMm: 300 },
+        compatibleWith: [],
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await res.json() as Record<string, unknown>;
+    expect(body['sku']).toBe(SMART_SKU);
+    expect(body['category']).toBe('INTELLIGENTE');
+  });
 });
 
 // ── Lettura e filtri ─────────────────────────────────────────────────────────
@@ -216,6 +241,18 @@ describe('[INT] Catalog — lettura e filtri', () => {
     const items = body['items'] as Array<Record<string, unknown>>;
     expect(items.some(i => i['id'] === componentId)).toBe(true);
     expect(items.every(i => i['category'] === 'TONDO')).toBe(true);
+  });
+
+  it('GET /catalog?category=INTELLIGENTE → 200, solo componenti INTELLIGENTE', async () => {
+    const res = await fetch(`${BASE}/catalog?category=INTELLIGENTE&search=${encodeURIComponent(SEARCH_TOKEN)}&limit=100`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    expect(res.status).toBe(200);
+
+    const body = await res.json() as Record<string, unknown>;
+    const items = body['items'] as Array<Record<string, unknown>>;
+    expect(items.some(i => i['sku'] === SMART_SKU)).toBe(true);
+    expect(items.every(i => i['category'] === 'INTELLIGENTE')).toBe(true);
   });
 
   it('GET /catalog?available=true → 200, contiene il componente (isAvailable=true)', async () => {
