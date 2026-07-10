@@ -10,6 +10,7 @@ import {
   ValidationError,
 } from '../../domain/entities/errors';
 import { deriveBom } from '../../domain/services/deriveBom';
+import { canAccessConfiguration } from '../access';
 
 /** Read use case that returns one owned configuration by id. */
 export class GetConfiguration {
@@ -28,7 +29,7 @@ export class GetConfiguration {
     }
 
     const configuration = await this.configurationRepository.findById(input.id);
-    if (!configuration || configuration.ownerId !== input.ownerId) {
+    if (!configuration || !canAccessConfiguration(configuration, input.ownerId)) {
       throw new ResourceNotFoundError('Configuration not found');
     }
 

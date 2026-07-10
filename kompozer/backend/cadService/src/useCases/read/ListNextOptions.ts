@@ -15,6 +15,7 @@ import {
   ListNextOptionsOutput,
   NextOptionDto,
 } from '../types';
+import { canAccessConfiguration } from '../access';
 
 /**
  * Read use case for Step 4 (design): computes the candidate gaps for the *next shelf*
@@ -161,7 +162,7 @@ export class ListNextOptions {
 
   private async loadOwnedConfiguration(id: string, ownerId: string): Promise<Configuration> {
     const configuration = await this.configurationRepository.findById(id);
-    if (!configuration || configuration.ownerId !== ownerId) {
+    if (!configuration || !canAccessConfiguration(configuration, ownerId)) {
       throw new ResourceNotFoundError('Configuration not found');
     }
 

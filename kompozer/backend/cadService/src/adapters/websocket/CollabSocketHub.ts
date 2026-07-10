@@ -106,19 +106,24 @@ export class CollabSocketHub {
         const configurationId = payload?.data?.configurationId?.trim() || '';
         const providedSessionId = payload?.data?.sessionId?.trim() || '';
 
-        if (!configurationId) {
-          const error = { code: 'VALIDATION_ERROR', message: 'configurationId is required' };
+        if (!configurationId && !providedSessionId) {
+          const error = { code: 'VALIDATION_ERROR', message: 'configurationId or sessionId is required' };
           ack?.({ ok: false, error });
           return;
         }
 
         try {
           const output = providedSessionId
-            ? await this.collabSessionService.joinSession({
-                sessionId: providedSessionId,
-                configurationId,
-                userId,
-              })
+            ? (configurationId
+              ? await this.collabSessionService.joinSession({
+                  sessionId: providedSessionId,
+                  configurationId,
+                  userId,
+                })
+              : await this.collabSessionService.joinSessionById({
+                  sessionId: providedSessionId,
+                  userId,
+                }))
             : await this.collabSessionService.createSession({
                 configurationId,
                 hostUserId: userId,

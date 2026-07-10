@@ -24,6 +24,7 @@ export class CreateConfiguration {
     const configuration: Configuration = {
       id: `cfg_${randomUUID()}`,
       ownerId: input.ownerId,
+      collaborators: [],
       name: input.name?.trim() || 'Nuova configurazione',
       status: 'DRAFT',
       category: input.category ?? null,

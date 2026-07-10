@@ -5,6 +5,7 @@ import {
 import { CartServiceClient } from '../../domain/ports/CartServiceClient';
 import { ConfigurationRepository } from '../../domain/ports/ConfigurationRepository';
 import { ConfigurationDto, toConfigurationDto } from '../types';
+import { canAccessConfiguration } from '../access';
 
 export interface ReorderConfigurationInput {
   id: string;
@@ -31,7 +32,7 @@ export class ReorderConfiguration {
     }
 
     const configuration = await this.configurationRepository.findById(input.id);
-    if (!configuration || configuration.ownerId !== input.ownerId) {
+    if (!configuration || !canAccessConfiguration(configuration, input.ownerId)) {
       throw new ResourceNotFoundError('Configuration not found');
     }
 

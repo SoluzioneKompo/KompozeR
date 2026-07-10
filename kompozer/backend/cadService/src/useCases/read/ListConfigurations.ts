@@ -41,7 +41,7 @@ export class ListConfigurations {
     const page = Math.max(1, pageValue);
     const limit = Math.min(MAX_LIMIT, Math.max(1, limitValue));
 
-    const all = await this.configurationRepository.findByOwner(input.ownerId);
+    const all = await this.configurationRepository.findAccessibleByUser(input.ownerId);
     const filtered = input.status
       ? all.filter((configuration) => configuration.status === input.status)
       : all;

@@ -27,6 +27,28 @@ export class FakeConfigurationRepository implements ConfigurationRepository {
       .map((configuration) => this.clone(configuration));
   }
 
+  async findAccessibleByUser(userId: string): Promise<Configuration[]> {
+    return [...this.store.values()]
+      .filter((configuration) =>
+        configuration.ownerId === userId || configuration.collaborators.includes(userId),
+      )
+      .map((configuration) => this.clone(configuration));
+  }
+
+  async addCollaborator(id: string, userId: string): Promise<void> {
+    const existing = this.store.get(id);
+    if (!existing) {
+      return;
+    }
+
+    if (existing.ownerId === userId) {
+      return;
+    }
+
+    existing.collaborators = Array.from(new Set([...existing.collaborators, userId]));
+    this.store.set(id, this.clone(existing));
+  }
+
   async update(configuration: Configuration): Promise<void> {
     this.store.set(configuration.id, this.clone(configuration));
   }
@@ -38,6 +60,7 @@ export class FakeConfigurationRepository implements ConfigurationRepository {
   private clone(configuration: Configuration): Configuration {
     return {
       ...configuration,
+      collaborators: [...configuration.collaborators],
       environment: configuration.environment ? { ...configuration.environment } : null,
       columnPlan: configuration.columnPlan
         ? {
@@ -62,6 +85,7 @@ export function buildConfiguration(overrides: Partial<Configuration> = {}): Conf
   return {
     id: 'cfg_test',
     ownerId: 'usr_1',
+    collaborators: [],
     name: 'Configurazione test',
     status: 'DRAFT',
     category: null,

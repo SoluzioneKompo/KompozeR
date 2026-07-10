@@ -76,7 +76,9 @@ Stato avanzamento (2026-07-10):
 
 - [x] Slice 1 backend collaborativo CAD: sessioni in-memory con TTL + join/leave + snapshot + apply operation Lamport/LWW field-level.
 - [x] Slice 2 realtime Socket.IO CAD via API Gateway.
-- [ ] Slice 3 integrazione frontend CadView per presenza/sync realtime.
+- [x] Slice 3 integrazione frontend CadView per presenza/sync realtime.
+- [x] Slice 3.1 hardening collaborativo: fallback owner via sessione attiva su endpoint CAD + ingresso esplicito Join sessione in CadView.
+- [x] Slice 3.2 ACL persistente: owner + collaborators su configurazione con accesso read/write asincrono.
 
 ### Backlog Sprint 6
 

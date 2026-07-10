@@ -29,6 +29,11 @@ export interface JoinCollabSessionInput {
   userId: string;
 }
 
+export interface JoinCollabSessionByIdInput {
+  sessionId: string;
+  userId: string;
+}
+
 export interface LeaveCollabSessionInput {
   sessionId: string;
   configurationId: string;
@@ -61,6 +66,12 @@ export interface CollabOperationOutput {
   applied: boolean;
   duplicate: boolean;
   snapshot: Configuration;
+}
+
+export interface FindSessionForUserInput {
+  configurationId: string;
+  userId: string;
+  sessionId?: string;
 }
 
 type SessionFieldClock = {
@@ -138,8 +149,47 @@ export class InMemoryCollabSessionService {
   async joinSession(input: JoinCollabSessionInput): Promise<CollabSessionOutput> {
     const session = this.getActiveSession(input.sessionId, input.configurationId);
     session.participants.add(input.userId);
+    await this.configurationRepository.addCollaborator(input.configurationId, input.userId);
     this.touch(session);
     return this.toOutput(session);
+  }
+
+  async joinSessionById(input: JoinCollabSessionByIdInput): Promise<CollabSessionOutput> {
+    const session = this.getActiveSessionById(input.sessionId);
+    session.participants.add(input.userId);
+    await this.configurationRepository.addCollaborator(session.configurationId, input.userId);
+    this.touch(session);
+    return this.toOutput(session);
+  }
+
+  findSessionForUser(input: FindSessionForUserInput): CollabSessionOutput | null {
+    this.pruneExpiredSessions();
+
+    if (input.sessionId?.trim()) {
+      const session = this.sessions.get(input.sessionId.trim());
+      if (!session) {
+        return null;
+      }
+      if (session.configurationId !== input.configurationId) {
+        return null;
+      }
+      if (!session.participants.has(input.userId)) {
+        return null;
+      }
+      return this.toOutput(session);
+    }
+
+    for (const session of this.sessions.values()) {
+      if (session.configurationId !== input.configurationId) {
+        continue;
+      }
+      if (!session.participants.has(input.userId)) {
+        continue;
+      }
+      return this.toOutput(session);
+    }
+
+    return null;
   }
 
   async leaveSession(input: LeaveCollabSessionInput): Promise<void> {
@@ -348,15 +398,21 @@ export class InMemoryCollabSessionService {
   }
 
   private getActiveSession(sessionId: string, configurationId: string): SessionState {
+    const session = this.getActiveSessionById(sessionId);
+
+    if (session.configurationId !== configurationId) {
+      throw new ResourceNotFoundError('Collaborative session does not match configuration');
+    }
+
+    return session;
+  }
+
+  private getActiveSessionById(sessionId: string): SessionState {
     this.pruneExpiredSessions();
 
     const session = this.sessions.get(sessionId);
     if (!session) {
       throw new ResourceNotFoundError('Collaborative session not found');
-    }
-
-    if (session.configurationId !== configurationId) {
-      throw new ResourceNotFoundError('Collaborative session does not match configuration');
     }
 
     if (session.expiresAtMs <= this.now()) {
@@ -394,6 +450,7 @@ export class InMemoryCollabSessionService {
   private cloneConfiguration(configuration: Configuration): Configuration {
     return {
       ...configuration,
+      collaborators: [...configuration.collaborators],
       environment: configuration.environment ? { ...configuration.environment } : null,
       columnPlan: configuration.columnPlan
         ? {

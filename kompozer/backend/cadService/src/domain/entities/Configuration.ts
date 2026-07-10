@@ -32,6 +32,7 @@ export interface ColumnDesign {
 export interface Configuration {
   id: string;
   ownerId: string;
+  collaborators: string[];
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
@@ -55,6 +56,11 @@ export function validateConfigurationModel(configuration: Configuration): void {
   if (!configuration.ownerId.trim()) {
     throw new ValidationError('Owner id is required');
   }
+
+  const cleanedCollaborators = configuration.collaborators
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0 && value !== configuration.ownerId);
+  configuration.collaborators = Array.from(new Set(cleanedCollaborators));
 
   if (configuration.version < 1) {
     throw new ValidationError('Version must be >= 1');

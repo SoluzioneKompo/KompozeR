@@ -558,4 +558,46 @@ describe('cadRouter', () => {
     expect(stale.status).toBe(409);
     expect(stale.body.error.code).toBe('COLLAB_OPERATION_STALE');
   });
+
+  it('PATCH /cad/configurations/:id/category -> 200 for participant joined to collaborative session', async () => {
+    const app = buildApp({
+      configurationRepository: new FakeConfigurationRepository(),
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const created = await request(app)
+      .post('/cad/configurations')
+      .set('x-user-id', 'owner_1')
+      .send({ name: 'Shared config' });
+
+    await request(app)
+      .patch(`/cad/configurations/${created.body.id}/environment`)
+      .set('x-user-id', 'owner_1')
+      .send({
+        maxWidthMm: 5000,
+        maxHeightMm: 3000,
+        minWidthMm: 600,
+        minHeightMm: 220,
+        unit: 'mm',
+      });
+
+    const opened = await request(app)
+      .post(`/cad/configurations/${created.body.id}/collab/sessions`)
+      .set('x-user-id', 'owner_1')
+      .send({});
+
+    await request(app)
+      .post(`/cad/configurations/${created.body.id}/collab/sessions/${opened.body.sessionId}/join`)
+      .set('x-user-id', 'collab_2')
+      .send({});
+
+    const category = await request(app)
+      .patch(`/cad/configurations/${created.body.id}/category`)
+      .set('x-user-id', 'collab_2')
+      .send({ category: 'TONDO' });
+
+    expect(category.status).toBe(200);
+    expect(category.body.category).toBe('TONDO');
+  });
 });

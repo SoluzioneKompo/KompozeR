@@ -1,16 +1,20 @@
 <script setup lang="ts">
 /** CAD configurator view orchestrating environment, design, and BOM workflows. */
-import { computed, onMounted, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import type {
   Category,
+  ColumnDesign,
   ColumnPlan,
   Environment,
   NextOption,
 } from '@/types/cad';
 import { useCad } from '@/composables/useCad';
+import { useNotificationStore } from '@/store/notificationStore';
+import { cadCollabSocket, type CollabFieldPath, type CollabPresencePayload } from '@/services/cadCollabSocket';
 import { catalogService } from '@/services/catalogService';
 import type { CatalogItem } from '@/types/catalog';
+import type { ConfigurationDto } from '@/types/cad';
 
 const {
   selected,
@@ -38,6 +42,8 @@ const {
 
 const categories: Array<Category> = ['TONDO', 'QUADRO', 'KUBE', 'INTELLIGENTE'];
 const route = useRoute();
+const router = useRouter();
+const notifications = useNotificationStore();
 
 const environmentDraft = ref<Environment>({
   maxWidthMm: 5000,
@@ -51,6 +57,7 @@ const columnCountDraft = ref(2);
 const shelfWidthsDraft = ref<number[]>([800, 800]);
 const SHELF_THICKNESS_MM = 20;
 const shelfThicknessDraft = ref(SHELF_THICKNESS_MM);
+const categoryDraft = ref('');
 const selectedGapByColumn = ref<Record<number, number | null>>({});
 const categoryCatalogItems = ref<CatalogItem[]>([]);
 const catalogLoading = ref(false);
@@ -60,20 +67,233 @@ const showResetConfirm = ref(false);
 const showResetFinalConfirm = ref(false);
 const pendingCategory = ref<Category | null>(null);
 const pendingEnvironment = ref<Environment | null>(null);
+const joinSessionInput = ref('');
+const joinLoading = ref(false);
+
+const collabSessionId = ref('');
+const collabConfigurationId = ref('');
+const collabLamport = ref(0);
+const collabParticipants = ref<string[]>([]);
+const collabConnected = ref(false);
+const collabJoining = ref(false);
+
+let removeCollabPresenceListener: (() => void) | null = null;
+let removeCollabOperationListener: (() => void) | null = null;
+let removeCollabErrorListener: (() => void) | null = null;
+let removeCollabConnectionRestoredListener: (() => void) | null = null;
+
+function detachCollabListeners(): void {
+  removeCollabPresenceListener?.();
+  removeCollabOperationListener?.();
+  removeCollabErrorListener?.();
+  removeCollabConnectionRestoredListener?.();
+  removeCollabPresenceListener = null;
+  removeCollabOperationListener = null;
+  removeCollabErrorListener = null;
+  removeCollabConnectionRestoredListener = null;
+}
+
+async function refreshAllNextOptions(): Promise<void> {
+  const planIndexes = selected.value?.columnPlan?.columns.map((column) => column.index) ?? [];
+  await Promise.all(planIndexes.map((columnIndex) => openNextOptions(columnIndex)));
+}
+
+function applyPresence(payload: CollabPresencePayload): void {
+  if (!collabSessionId.value || payload.sessionId !== collabSessionId.value) {
+    return;
+  }
+
+  if (payload.participants && payload.participants.length > 0) {
+    collabParticipants.value = payload.participants;
+    return;
+  }
+
+  if (payload.event === 'joined') {
+    collabParticipants.value = Array.from(new Set([...collabParticipants.value, payload.userId]));
+    return;
+  }
+
+  collabParticipants.value = collabParticipants.value.filter((userId) => userId !== payload.userId);
+}
+
+function normalizeSnapshot(snapshot: ConfigurationDto): ConfigurationDto {
+  return {
+    ...snapshot,
+    createdAt: new Date(snapshot.createdAt).toISOString(),
+    updatedAt: new Date(snapshot.updatedAt).toISOString(),
+  };
+}
+
+async function syncFromSessionSnapshot(snapshot: ConfigurationDto): Promise<void> {
+  selected.value = normalizeSnapshot(snapshot);
+  await refreshAllNextOptions();
+}
+
+async function ensureCollabSession(configurationId?: string): Promise<void> {
+  if (collabJoining.value) {
+    return;
+  }
+
+  if (configurationId && collabConfigurationId.value === configurationId && collabSessionId.value) {
+    return;
+  }
+
+  const token = localStorage.getItem('kompozer_token') ?? '';
+  if (!token) {
+    collabConnected.value = false;
+    return;
+  }
+
+  const requestedSessionId = typeof route.query['sessionId'] === 'string' ? route.query['sessionId'] : '';
+  if (collabSessionId.value && requestedSessionId && collabSessionId.value === requestedSessionId) {
+    return;
+  }
+
+  collabJoining.value = true;
+  try {
+    cadCollabSocket.connect();
+    const joined = await cadCollabSocket.joinSession(configurationId, requestedSessionId || undefined);
+    collabConnected.value = cadCollabSocket.isConnected();
+    collabSessionId.value = joined.sessionId;
+    collabConfigurationId.value = joined.configurationId;
+    collabLamport.value = Math.max(collabLamport.value, joined.lamport);
+    collabParticipants.value = joined.participants;
+
+    if (!requestedSessionId || configurationId !== joined.configurationId) {
+      await router.replace({
+        query: {
+          ...route.query,
+          configurationId: joined.configurationId,
+          sessionId: joined.sessionId,
+        },
+      });
+    }
+
+    await syncFromSessionSnapshot(joined.snapshot);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Realtime CAD non disponibile';
+    notifications.addToast('error', message);
+  } finally {
+    collabJoining.value = false;
+  }
+}
 
 onMounted(() => {
+  cadCollabSocket.connect();
+
+  removeCollabPresenceListener = cadCollabSocket.onPresence((payload) => {
+    applyPresence(payload);
+  });
+
+  removeCollabOperationListener = cadCollabSocket.onOperationApplied((payload) => {
+    const data = payload.data;
+    if (!data || data.sessionId !== collabSessionId.value) {
+      return;
+    }
+
+    collabLamport.value = Math.max(collabLamport.value, data.lamport);
+    void syncFromSessionSnapshot(data.snapshot);
+  });
+
+  removeCollabErrorListener = cadCollabSocket.onError((payload) => {
+    const code = payload.error?.code || 'COLLAB_ERROR';
+    const message = payload.error?.message || 'Errore realtime CAD';
+    if (code === 'COLLAB_OPERATION_STALE' && selected.value && collabSessionId.value) {
+      void cadCollabSocket
+        .requestSnapshot(selected.value.id, collabSessionId.value)
+        .then((snapshot) => syncFromSessionSnapshot(snapshot.snapshot))
+        .catch(() => {
+          void reloadSelected();
+        });
+    }
+    notifications.addToast('error', `${code}: ${message}`);
+  });
+
+  removeCollabConnectionRestoredListener = cadCollabSocket.onConnectionRestored(() => {
+    collabConnected.value = true;
+    if (!selected.value || !collabSessionId.value) {
+      return;
+    }
+
+    void cadCollabSocket
+      .requestSnapshot(selected.value.id, collabSessionId.value)
+      .then((snapshot) => {
+        collabParticipants.value = snapshot.participants;
+        collabLamport.value = Math.max(collabLamport.value, snapshot.lamport);
+        return syncFromSessionSnapshot(snapshot.snapshot);
+      })
+      .catch(() => {
+        void reloadSelected();
+      });
+  });
+
   void (async () => {
     const configurationId = route.query['configurationId'];
+    const requestedSessionId = typeof route.query['sessionId'] === 'string' ? route.query['sessionId'] : '';
+
     if (typeof configurationId === 'string' && configurationId.length > 0) {
-      await loadDetail(configurationId);
+      if (!requestedSessionId) {
+        await loadDetail(configurationId);
+      }
+
+      await ensureCollabSession(configurationId);
+      collabConnected.value = cadCollabSocket.isConnected();
+      return;
+    }
+
+    if (requestedSessionId) {
+      await ensureCollabSession();
+      collabConnected.value = cadCollabSocket.isConnected();
     }
   })();
 });
+
+onBeforeUnmount(() => {
+  const configurationId = selected.value?.id;
+  const sessionId = collabSessionId.value;
+  if (configurationId && sessionId) {
+    void cadCollabSocket.leaveSession(configurationId, sessionId);
+  }
+
+  detachCollabListeners();
+  cadCollabSocket.disconnect();
+  collabConnected.value = false;
+  collabConfigurationId.value = '';
+});
+
+watch(
+  () => selected.value?.id,
+  (configurationId, previousConfigurationId) => {
+    if (
+      previousConfigurationId
+      && collabSessionId.value
+      && collabConfigurationId.value === previousConfigurationId
+      && previousConfigurationId !== configurationId
+    ) {
+      void cadCollabSocket.leaveSession(previousConfigurationId, collabSessionId.value);
+      collabSessionId.value = '';
+      collabConfigurationId.value = '';
+      collabParticipants.value = [];
+    }
+
+    if (!configurationId) {
+      collabSessionId.value = '';
+      collabConfigurationId.value = '';
+      collabParticipants.value = [];
+      return;
+    }
+
+    void ensureCollabSession(configurationId);
+    collabConnected.value = cadCollabSocket.isConnected();
+  },
+);
 
 watch(selected, (value) => {
   if (!value) {
     return;
   }
+
+  categoryDraft.value = value.category ?? '';
 
   if (value.environment) {
     environmentDraft.value = { ...value.environment };
@@ -118,7 +338,17 @@ const currentStepIndex = computed(() => {
   }
 });
 
-const selectedCategoryDraft = computed(() => selected.value?.category || '');
+const canSubmitCategory = computed(() => {
+  if (!selected.value) {
+    return false;
+  }
+
+  if (!categoryDraft.value) {
+    return false;
+  }
+
+  return categoryDraft.value !== selected.value.category;
+});
 
 const canFinalize = computed(() => selected.value?.status === 'READY_FOR_FINALIZE');
 const canEditEnvironment = computed(() => selected.value && selected.value.status !== 'FINALIZED');
@@ -139,6 +369,35 @@ const canEditDesign = computed(() => {
     selected.value.status === 'DESIGN_IN_PROGRESS' ||
     selected.value.status === 'READY_FOR_FINALIZE'
   );
+});
+
+const collabStatusLabel = computed(() => {
+  if (!selected.value) {
+    return 'Seleziona o crea una configurazione per avviare la collaborazione';
+  }
+
+  if (collabJoining.value) {
+    return 'Connessione alla sessione collaborativa in corso...';
+  }
+
+  if (!collabSessionId.value) {
+    return 'Sessione collaborativa non disponibile';
+  }
+
+  return collabConnected.value
+    ? `Collaborazione attiva (${collabParticipants.value.length} partecipanti)`
+    : 'Collaborazione temporaneamente disconnessa';
+});
+
+const collabShareUrl = computed(() => {
+  if (!selected.value || !collabSessionId.value) {
+    return '';
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('configurationId', selected.value.id);
+  url.searchParams.set('sessionId', collabSessionId.value);
+  return url.toString();
 });
 
 const totalPrice = computed(() => {
@@ -235,6 +494,44 @@ function formatDate(iso: string): string {
   }).format(new Date(iso));
 }
 
+async function copyCollabLink(): Promise<void> {
+  if (!collabShareUrl.value) {
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(collabShareUrl.value);
+    notifications.addToast('success', 'Link collaborazione copiato');
+  } catch {
+    notifications.addToast('error', 'Impossibile copiare il link collaborazione');
+  }
+}
+
+async function broadcastCollabOperation(
+  fieldPath: CollabFieldPath,
+  value: string | Category | Environment | ColumnPlan | ColumnDesign[] | null,
+  baseVersion: number,
+): Promise<void> {
+  if (!selected.value || !collabSessionId.value) {
+    return;
+  }
+
+  try {
+    const output = await cadCollabSocket.applyOperation({
+      configurationId: selected.value.id,
+      sessionId: collabSessionId.value,
+      lamport: collabLamport.value + 1,
+      baseVersion,
+      fieldPath,
+      value,
+    });
+
+    collabLamport.value = Math.max(collabLamport.value, output.lamport);
+  } catch {
+    // Collaboration signaling is best-effort: local persistence is handled by REST APIs.
+  }
+}
+
 /** Formats BOM or pricing values using localized euro currency. */
 function formatPrice(value: number): string {
   return new Intl.NumberFormat('it-IT', {
@@ -324,7 +621,9 @@ async function saveEnvironment(): Promise<void> {
     return;
   }
 
+  const baseVersion = selected.value.version;
   await updateEnvironment(environmentDraft.value);
+  await broadcastCollabOperation('environment', environmentDraft.value, baseVersion);
 }
 
 /** Saves selected category, with reset confirmation when design already progressed. */
@@ -349,7 +648,18 @@ async function saveCategory(value: string): Promise<void> {
     return;
   }
 
+  const baseVersion = selected.value.version;
   await updateCategory(nextCategory);
+  await broadcastCollabOperation('category', nextCategory, baseVersion);
+}
+
+/** Saves currently selected category draft through explicit Step 2 action button. */
+async function submitCategory(): Promise<void> {
+  if (!categoryDraft.value) {
+    return;
+  }
+
+  await saveCategory(categoryDraft.value);
 }
 
 /** Advances reset confirmation flow to final irreversible confirmation. */
@@ -363,12 +673,16 @@ async function confirmResetStepTwo(): Promise<void> {
   showResetFinalConfirm.value = false;
 
   if (pendingEnvironment.value) {
+    const baseVersion = selected.value?.version ?? 1;
     await updateEnvironment(pendingEnvironment.value);
+    await broadcastCollabOperation('environment', pendingEnvironment.value, baseVersion);
     pendingEnvironment.value = null;
   }
 
   if (pendingCategory.value) {
+    const baseVersion = selected.value?.version ?? 1;
     await updateCategory(pendingCategory.value);
+    await broadcastCollabOperation('category', pendingCategory.value, baseVersion);
     pendingCategory.value = null;
   }
 }
@@ -387,11 +701,17 @@ function cancelReset(): void {
 
 /** Persists current column count and shelf width draft as column plan. */
 async function saveColumnPlan(): Promise<void> {
+  if (!selected.value) {
+    return;
+  }
+
+  const baseVersion = selected.value.version;
   const columnPlan: ColumnPlan = {
     columnCount: columnCountDraft.value,
     columns: shelfWidthsDraft.value.map((shelfWidthMm, index) => ({ index, shelfWidthMm })),
   };
   await updateColumnPlan(columnPlan);
+  await broadcastCollabOperation('columnPlan', columnPlan, baseVersion);
 }
 
 /** Returns raw next-step options for a given column index. */
@@ -486,6 +806,11 @@ async function refreshOptionsAround(columnIndex: number): Promise<void> {
 
 /** Adds a top shelf using selected or first allowed gap for the target column. */
 async function addShelf(columnIndex: number): Promise<void> {
+  if (!selected.value) {
+    return;
+  }
+
+  const baseVersion = selected.value.version;
   const gap = selectedGapByColumn.value[columnIndex] ?? effectiveOptions(columnIndex).find((o) => o.allowed)?.heightMm ?? null;
   if (!gap) {
     return;
@@ -495,12 +820,23 @@ async function addShelf(columnIndex: number): Promise<void> {
     [columnIndex]: gap,
   };
   await addTopShelf(columnIndex, gap, shelfThicknessDraft.value);
+  if (selected.value) {
+    await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
+  }
   await refreshOptionsAround(columnIndex);
 }
 
 /** Removes top shelf from a column and refreshes dependent options. */
 async function removeShelf(columnIndex: number): Promise<void> {
+  if (!selected.value) {
+    return;
+  }
+
+  const baseVersion = selected.value.version;
   await removeTopShelf(columnIndex, shelfThicknessDraft.value);
+  if (selected.value) {
+    await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
+  }
   await refreshOptionsAround(columnIndex);
 }
 
@@ -516,6 +852,34 @@ async function reloadSelected(): Promise<void> {
 /** Creates a new configuration directly from CAD landing state. */
 async function createFromCad(): Promise<void> {
   await createConfiguration();
+}
+
+/** Joins a shared collaboration session explicitly from UI input. */
+async function joinFromCad(): Promise<void> {
+  const sessionId = joinSessionInput.value.trim();
+  if (!sessionId) {
+    notifications.addToast('error', 'Inserisci un Session ID valido');
+    return;
+  }
+
+  joinLoading.value = true;
+  try {
+    await router.replace({
+      query: {
+        ...route.query,
+        sessionId,
+      },
+    });
+
+    await ensureCollabSession();
+    collabConnected.value = cadCollabSocket.isConnected();
+    notifications.addToast('success', 'Sessione collaborativa agganciata');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Join sessione collaborativa fallito';
+    notifications.addToast('error', message);
+  } finally {
+    joinLoading.value = false;
+  }
 }
 
 /** Returns true when the requested step has already been completed. */
@@ -542,6 +906,25 @@ function stepActive(index: number): boolean {
       </div>
     </header>
 
+    <section v-if="selected" class="collab-strip" aria-live="polite">
+      <div>
+        <p class="mini muted">Sessione collaborativa</p>
+        <strong>{{ collabStatusLabel }}</strong>
+        <p v-if="collabSessionId" class="mini muted">
+          Session ID: {{ collabSessionId }}
+        </p>
+      </div>
+      <div class="collab-actions">
+        <button
+          class="btn btn--light btn--small"
+          :disabled="!collabShareUrl"
+          @click="copyCollabLink"
+        >
+          Copia link collaborazione
+        </button>
+      </div>
+    </section>
+
     <p v-if="error" class="error" role="alert" aria-live="assertive">{{ error }}</p>
 
     <div class="cad-layout">
@@ -549,7 +932,7 @@ function stepActive(index: number): boolean {
         <p v-if="detailLoading" class="placeholder">Caricamento dettaglio...</p>
         <section v-else-if="!selected" class="create-card">
           <h3>Crea nuova configurazione</h3>
-          <p class="muted">Puoi iniziare direttamente da qui anche come utente guest.</p>
+          <p class="muted">Puoi iniziare da qui o entrare in una sessione collaborativa esistente.</p>
           <div class="actions-row">
             <label class="field" style="flex: 1; min-width: 220px;">
               <span class="field__label">Nome configurazione</span>
@@ -557,6 +940,21 @@ function stepActive(index: number): boolean {
             </label>
             <button class="btn btn--primary" :disabled="createLoading" @click="createFromCad">
               {{ createLoading ? 'Creazione...' : 'Crea e apri configuratore' }}
+            </button>
+          </div>
+
+          <div class="actions-row" style="margin-top: var(--space-3);">
+            <label class="field" style="flex: 1; min-width: 220px;">
+              <span class="field__label">Session ID condivisa</span>
+              <input
+                v-model="joinSessionInput"
+                class="field__input"
+                type="text"
+                placeholder="Incolla Session ID"
+              />
+            </label>
+            <button class="btn btn--light" :disabled="joinLoading" @click="joinFromCad">
+              {{ joinLoading ? 'Join...' : 'Join sessione' }}
             </button>
           </div>
         </section>
@@ -623,14 +1021,20 @@ function stepActive(index: number): boolean {
                 <span class="field__label">Categoria</span>
                 <select
                   class="field__input"
-                  :value="selectedCategoryDraft"
+                  v-model="categoryDraft"
                   :disabled="!canEditCategory || categoryLoading"
-                  @change="saveCategory(($event.target as HTMLSelectElement).value)"
                 >
                   <option disabled value="">Seleziona categoria</option>
                   <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
                 </select>
               </label>
+              <button
+                class="btn btn--light"
+                :disabled="!canEditCategory || categoryLoading || !canSubmitCategory"
+                @click="submitCategory"
+              >
+                {{ categoryLoading ? 'Salvataggio...' : 'Salva categoria' }}
+              </button>
             </article>
 
             <article class="control-card">
@@ -892,6 +1296,23 @@ function stepActive(index: number): boolean {
 }
 
 .header-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.collab-strip {
+  margin-top: var(--space-3);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.collab-actions {
   display: flex;
   gap: var(--space-2);
 }
@@ -1342,6 +1763,11 @@ function stepActive(index: number): boolean {
 
   .actions-row {
     flex-wrap: wrap;
+  }
+
+  .collab-strip {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 

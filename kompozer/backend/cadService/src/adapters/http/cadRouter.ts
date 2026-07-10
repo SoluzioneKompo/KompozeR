@@ -246,6 +246,43 @@ function parseCollabOperation(body: unknown): {
   };
 }
 
+/** Reads optional collaborative session identifier used to resolve shared-access context. */
+function readCollabSessionId(req: Request): string | undefined {
+  const fromQuery = req.query['sessionId'];
+  if (typeof fromQuery === 'string' && fromQuery.trim()) {
+    return fromQuery.trim();
+  }
+
+  const fromHeader = req.headers['x-collab-session-id'];
+  if (typeof fromHeader === 'string' && fromHeader.trim()) {
+    return fromHeader.trim();
+  }
+
+  return undefined;
+}
+
+/**
+ * Keeps owner-scoped use cases unchanged while enabling collaborative participants.
+ *
+ * If the caller is part of an active collaborative session for the same
+ * configuration, we execute with the configuration ownerId.
+ */
+function resolveEffectiveOwnerId(
+  req: Request,
+  deps: CadRouterDeps,
+  configurationId: string,
+  userId: string,
+): string {
+  const collabSessionId = readCollabSessionId(req);
+  const session = deps.collabSessionService.findSessionForUser({
+    configurationId,
+    userId,
+    sessionId: collabSessionId,
+  });
+
+  return session?.snapshot.ownerId ?? userId;
+}
+
 /** Builds the HTTP router exposing CAD workflow endpoints. */
 export function buildCadRouter(deps: CadRouterDeps) {
   const router = Router();
@@ -298,7 +335,8 @@ export function buildCadRouter(deps: CadRouterDeps) {
     '/configurations/:id',
     requireUserId,
     wrap(async (req, res) => {
-      const ownerId = req.headers['x-user-id'] as string;
+      const userId = req.headers['x-user-id'] as string;
+      const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
       const configuration = await deps.getConfiguration.execute({
         id: req.params['id'],
         ownerId,
@@ -311,7 +349,8 @@ export function buildCadRouter(deps: CadRouterDeps) {
     '/configurations/:id/next-options',
     requireUserId,
     wrap(async (req, res) => {
-      const ownerId = req.headers['x-user-id'] as string;
+      const userId = req.headers['x-user-id'] as string;
+      const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
       const rawColumnIndex = req.query['columnIndex'];
 
       if (typeof rawColumnIndex !== 'string') {
@@ -337,7 +376,8 @@ export function buildCadRouter(deps: CadRouterDeps) {
     '/configurations/:id/environment',
     requireUserId,
     wrap(async (req, res) => {
-      const ownerId = req.headers['x-user-id'] as string;
+      const userId = req.headers['x-user-id'] as string;
+      const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
       const configuration = await deps.setEnvironment.execute({
         id: req.params['id'],
         ownerId,
@@ -351,7 +391,8 @@ export function buildCadRouter(deps: CadRouterDeps) {
     '/configurations/:id/category',
     requireUserId,
     wrap(async (req, res) => {
-      const ownerId = req.headers['x-user-id'] as string;
+      const userId = req.headers['x-user-id'] as string;
+      const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
       const category = parseCategory(req.body);
       if (!category) {
         throw new ValidationError('category is required');
@@ -370,7 +411,8 @@ export function buildCadRouter(deps: CadRouterDeps) {
     '/configurations/:id/column-plan',
     requireUserId,
     wrap(async (req, res) => {
-      const ownerId = req.headers['x-user-id'] as string;
+      const userId = req.headers['x-user-id'] as string;
+      const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
       const configuration = await deps.setColumnPlan.execute({
         id: req.params['id'],
         ownerId,
@@ -384,7 +426,8 @@ export function buildCadRouter(deps: CadRouterDeps) {
     '/configurations/:id/design',
     requireUserId,
     wrap(async (req, res) => {
-      const ownerId = req.headers['x-user-id'] as string;
+      const userId = req.headers['x-user-id'] as string;
+      const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
       const configuration = await deps.updateDesign.execute({
         id: req.params['id'],
         ownerId,
@@ -398,7 +441,8 @@ export function buildCadRouter(deps: CadRouterDeps) {
     '/configurations/:id/finalize',
     requireUserId,
     wrap(async (req, res) => {
-      const ownerId = req.headers['x-user-id'] as string;
+      const userId = req.headers['x-user-id'] as string;
+      const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
       const configuration = await deps.finalizeConfiguration.execute({
         id: req.params['id'],
         ownerId,
@@ -411,7 +455,8 @@ export function buildCadRouter(deps: CadRouterDeps) {
     '/configurations/:id/reorder',
     requireUserId,
     wrap(async (req, res) => {
-      const ownerId = req.headers['x-user-id'] as string;
+      const userId = req.headers['x-user-id'] as string;
+      const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
       const configuration = await deps.reorderConfiguration.execute({
         id: req.params['id'],
         ownerId,

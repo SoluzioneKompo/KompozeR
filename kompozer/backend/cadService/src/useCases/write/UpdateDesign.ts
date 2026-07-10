@@ -18,6 +18,7 @@ import {
   validateColumnDesigns,
 } from '../../domain/services/SpineModel';
 import { assertStep4LogicImplemented } from '../../domain/services/Step4LogicResolver';
+import { canAccessConfiguration } from '../access';
 
 /**
  * Write use case for Step 4 (design): validates and persists column shelf levels.
@@ -183,7 +184,7 @@ export class UpdateDesign {
 
   private async loadOwnedConfiguration(id: string, ownerId: string): Promise<Configuration> {
     const configuration = await this.configurationRepository.findById(id);
-    if (!configuration || configuration.ownerId !== ownerId) {
+    if (!configuration || !canAccessConfiguration(configuration, ownerId)) {
       throw new ResourceNotFoundError('Configuration not found');
     }
 

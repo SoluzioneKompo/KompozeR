@@ -38,6 +38,7 @@ type BomItemDoc = {
 export type ConfigurationDoc = {
   _id: string;
   ownerId: string;
+  collaborators: string[];
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
@@ -107,6 +108,7 @@ const configurationSchema = new Schema<ConfigurationDoc>(
   {
     _id: { type: String, required: true },
     ownerId: { type: String, required: true, index: true },
+    collaborators: { type: [String], default: [] },
     name: { type: String, required: true },
     status: {
       type: String,
@@ -155,6 +157,7 @@ const configurationSchema = new Schema<ConfigurationDoc>(
 );
 
 configurationSchema.index({ ownerId: 1, updatedAt: -1 });
+configurationSchema.index({ collaborators: 1, updatedAt: -1 });
 
 export const ConfigurationModel = model<ConfigurationDoc>(
   'Configuration',

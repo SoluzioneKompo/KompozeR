@@ -27,6 +27,23 @@ export class MongoConfigurationRepository implements ConfigurationRepository {
     return docs.map((doc) => this.toEntity(doc));
   }
 
+  async findAccessibleByUser(userId: string): Promise<Configuration[]> {
+    const docs = await ConfigurationModel.find({
+      $or: [
+        { ownerId: userId },
+        { collaborators: userId },
+      ],
+    }).sort({ updatedAt: -1 }).lean();
+    return docs.map((doc) => this.toEntity(doc));
+  }
+
+  async addCollaborator(id: string, userId: string): Promise<void> {
+    await ConfigurationModel.updateOne(
+      { _id: id, ownerId: { $ne: userId } },
+      { $addToSet: { collaborators: userId } },
+    );
+  }
+
   async update(configuration: Configuration): Promise<void> {
     validateConfigurationModel(configuration);
 
@@ -34,6 +51,7 @@ export class MongoConfigurationRepository implements ConfigurationRepository {
       { _id: configuration.id, version: configuration.version - 1 },
       {
         ownerId: configuration.ownerId,
+        collaborators: configuration.collaborators,
         name: configuration.name,
         status: configuration.status,
         category: configuration.category,
@@ -57,6 +75,7 @@ export class MongoConfigurationRepository implements ConfigurationRepository {
     return {
       id: doc._id,
       ownerId: doc.ownerId,
+      collaborators: doc.collaborators ?? [],
       name: doc.name,
       status: doc.status,
       category: doc.category ?? null,
@@ -75,6 +94,7 @@ export class MongoConfigurationRepository implements ConfigurationRepository {
     return {
       _id: configuration.id,
       ownerId: configuration.ownerId,
+      collaborators: configuration.collaborators,
       name: configuration.name,
       status: configuration.status,
       category: configuration.category,

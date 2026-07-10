@@ -10,6 +10,7 @@ import {
   SetCategoryInput,
   toConfigurationDto,
 } from '../types';
+import { canAccessConfiguration } from '../access';
 
 /** Write use case that sets system category after environment selection. */
 export class SetCategory {
@@ -50,7 +51,7 @@ export class SetCategory {
 
   private async loadOwnedConfiguration(id: string, ownerId: string): Promise<Configuration> {
     const configuration = await this.configurationRepository.findById(id);
-    if (!configuration || configuration.ownerId !== ownerId) {
+    if (!configuration || !canAccessConfiguration(configuration, ownerId)) {
       throw new ResourceNotFoundError('Configuration not found');
     }
 

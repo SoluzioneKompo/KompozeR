@@ -19,6 +19,7 @@ export interface CreateConfigurationInput {
 export interface ConfigurationDto {
   id: string;
   ownerId: string;
+  collaborators: string[];
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
@@ -117,6 +118,7 @@ export function toConfigurationDto(configuration: Configuration): ConfigurationD
   return {
     id: configuration.id,
     ownerId: configuration.ownerId,
+    collaborators: configuration.collaborators,
     name: configuration.name,
     status: configuration.status,
     category: configuration.category,
