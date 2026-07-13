@@ -18,30 +18,28 @@ import { ConfigurationRepository } from '../ports/ConfigurationRepository';
 
 export type CollabFieldPath = 'name' | 'category' | 'environment' | 'columnPlan' | 'columnDesigns';
 
+/** Characters used for session codes — excludes visually confusable glyphs (0/O, 1/I/L). */
+const SESSION_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const SESSION_CODE_LENGTH = 6;
+
 export interface CreateCollabSessionInput {
   configurationId: string;
   hostUserId: string;
 }
 
-export interface JoinCollabSessionInput {
-  sessionId: string;
-  configurationId: string;
-  userId: string;
-}
-
-export interface JoinCollabSessionByIdInput {
-  sessionId: string;
+export interface JoinCollabByCodeInput {
+  sessionCode: string;
   userId: string;
 }
 
 export interface LeaveCollabSessionInput {
-  sessionId: string;
+  sessionCode: string;
   configurationId: string;
   userId: string;
 }
 
 export interface ApplyCollabOperationInput {
-  sessionId: string;
+  sessionCode: string;
   configurationId: string;
   userId: string;
   opId: string;
@@ -52,16 +50,17 @@ export interface ApplyCollabOperationInput {
 }
 
 export interface CollabSessionOutput {
-  sessionId: string;
+  sessionCode: string;
   configurationId: string;
   lamport: number;
   participants: string[];
   ttlSeconds: number;
   snapshot: Configuration;
+  ownerId: string;
 }
 
 export interface CollabOperationOutput {
-  sessionId: string;
+  sessionCode: string;
   lamport: number;
   applied: boolean;
   duplicate: boolean;
@@ -71,7 +70,7 @@ export interface CollabOperationOutput {
 export interface FindSessionForUserInput {
   configurationId: string;
   userId: string;
-  sessionId?: string;
+  sessionCode?: string;
 }
 
 type SessionFieldClock = {
@@ -80,7 +79,7 @@ type SessionFieldClock = {
 };
 
 type SessionState = {
-  sessionId: string;
+  sessionCode: string;
   configurationId: string;
   hostUserId: string;
   participants: Set<string>;
@@ -100,10 +99,15 @@ const SUPPORTED_FIELD_PATHS: CollabFieldPath[] = [
 ];
 
 /**
- * In-memory collaborative sessions for Sprint 6 MVP.
+ * In-memory collaborative sessions.
  *
- * Sessions are ephemeral and identified by a shareable sessionId.
- * Conflicts are solved through Lamport timestamp ordering with actor-id tie-break.
+ * Sessions are opt-in and owner-driven:
+ * - The owner explicitly creates a session via the "Collabora" action, receiving
+ *   a short human-readable code (e.g. "A3KP7X").
+ * - Participants (logged or guest) join by entering the code.
+ * - The session is active while the owner is connected; when the owner leaves the
+ *   session is destroyed immediately. The configuration persists only in the owner's DB.
+ * - Conflicts are resolved via Lamport timestamps with actor-id tie-break.
  */
 export class InMemoryCollabSessionService {
   private readonly sessions = new Map<string, SessionState>();
@@ -114,15 +118,30 @@ export class InMemoryCollabSessionService {
     private readonly now: () => number = () => Date.now(),
   ) {}
 
+  /**
+   * Generates a short, human-readable session code.
+   * Retries until a code not currently in use is found.
+   */
+  private generateSessionCode(): string {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const code = Array.from(
+        { length: SESSION_CODE_LENGTH },
+        () => SESSION_CODE_CHARS[crypto.randomInt(SESSION_CODE_CHARS.length)],
+      ).join('');
+      if (!this.sessions.has(code)) {
+        return code;
+      }
+    }
+    return crypto.randomUUID().replace(/-/g, '').slice(0, SESSION_CODE_LENGTH).toUpperCase();
+  }
+
+  /**
+   * Creates a new collaborative session for the given configuration.
+   * Only the configuration owner can create a session.
+   * If the owner already has an active session for this configuration, it is returned as-is.
+   */
   async createSession(input: CreateCollabSessionInput): Promise<CollabSessionOutput> {
     this.pruneExpiredSessions();
-
-    const existingSession = this.findSessionByHostAndConfiguration(input.hostUserId, input.configurationId);
-    if (existingSession) {
-      existingSession.participants.add(input.hostUserId);
-      this.touch(existingSession);
-      return this.toOutput(existingSession);
-    }
 
     const configuration = await this.configurationRepository.findById(input.configurationId);
     if (!configuration) {
@@ -133,12 +152,18 @@ export class InMemoryCollabSessionService {
       throw new ForbiddenError('Only the owner can create collaborative sessions for this configuration');
     }
 
-    const sessionId = crypto.randomUUID();
+    const existing = this.findSessionByOwner(input.hostUserId, input.configurationId);
+    if (existing) {
+      this.touch(existing);
+      return this.toOutput(existing);
+    }
+
+    const sessionCode = this.generateSessionCode();
     const nowMs = this.now();
     const snapshot = this.cloneConfiguration(configuration);
 
     const state: SessionState = {
-      sessionId,
+      sessionCode,
       configurationId: configuration.id,
       hostUserId: input.hostUserId,
       participants: new Set([input.hostUserId]),
@@ -149,39 +174,31 @@ export class InMemoryCollabSessionService {
       fieldClocks: new Map(),
     };
 
-    this.sessions.set(sessionId, state);
+    this.sessions.set(sessionCode, state);
     return this.toOutput(state);
   }
 
-  private findSessionByHostAndConfiguration(hostUserId: string, configurationId: string): SessionState | null {
+  private findSessionByOwner(hostUserId: string, configurationId: string): SessionState | null {
     for (const session of this.sessions.values()) {
-      if (session.hostUserId !== hostUserId) {
-        continue;
+      if (
+        session.hostUserId === hostUserId
+        && session.configurationId === configurationId
+        && session.expiresAtMs > this.now()
+      ) {
+        return session;
       }
-      if (session.configurationId !== configurationId) {
-        continue;
-      }
-      if (session.expiresAtMs <= this.now()) {
-        continue;
-      }
-      return session;
     }
-
     return null;
   }
 
-  async joinSession(input: JoinCollabSessionInput): Promise<CollabSessionOutput> {
-    const session = this.getActiveSession(input.sessionId, input.configurationId);
+  /**
+   * Joins an existing session using the short session code.
+   * Any user (logged or guest) can join. No DB write is performed —
+   * the collaboration is purely in-memory and ephemeral.
+   */
+  async joinByCode(input: JoinCollabByCodeInput): Promise<CollabSessionOutput> {
+    const session = this.getActiveSessionByCode(input.sessionCode);
     session.participants.add(input.userId);
-    await this.configurationRepository.addCollaborator(input.configurationId, input.userId);
-    this.touch(session);
-    return this.toOutput(session);
-  }
-
-  async joinSessionById(input: JoinCollabSessionByIdInput): Promise<CollabSessionOutput> {
-    const session = this.getActiveSessionById(input.sessionId);
-    session.participants.add(input.userId);
-    await this.configurationRepository.addCollaborator(session.configurationId, input.userId);
     this.touch(session);
     return this.toOutput(session);
   }
@@ -189,12 +206,9 @@ export class InMemoryCollabSessionService {
   findSessionForUser(input: FindSessionForUserInput): CollabSessionOutput | null {
     this.pruneExpiredSessions();
 
-    if (input.sessionId?.trim()) {
-      const session = this.sessions.get(input.sessionId.trim());
-      if (!session) {
-        return null;
-      }
-      if (session.configurationId !== input.configurationId) {
+    if (input.sessionCode?.trim()) {
+      const session = this.sessions.get(input.sessionCode.trim());
+      if (!session || session.configurationId !== input.configurationId) {
         return null;
       }
       if (!session.participants.has(input.userId)) {
@@ -217,26 +231,26 @@ export class InMemoryCollabSessionService {
   }
 
   async leaveSession(input: LeaveCollabSessionInput): Promise<void> {
-    const session = this.getActiveSession(input.sessionId, input.configurationId);
+    const session = this.getActiveSession(input.sessionCode, input.configurationId);
     session.participants.delete(input.userId);
 
-    if (session.participants.size === 0) {
-      this.sessions.delete(session.sessionId);
+    if (session.participants.size === 0 || session.hostUserId === input.userId) {
+      this.sessions.delete(session.sessionCode);
       return;
     }
 
     this.touch(session);
   }
 
-  async getSnapshot(input: JoinCollabSessionInput): Promise<CollabSessionOutput> {
-    const session = this.getActiveSession(input.sessionId, input.configurationId);
+  async getSnapshot(input: { sessionCode: string; configurationId: string; userId: string }): Promise<CollabSessionOutput> {
+    const session = this.getActiveSession(input.sessionCode, input.configurationId);
     session.participants.add(input.userId);
     this.touch(session);
     return this.toOutput(session);
   }
 
   async applyOperation(input: ApplyCollabOperationInput): Promise<CollabOperationOutput> {
-    const session = this.getActiveSession(input.sessionId, input.configurationId);
+    const session = this.getActiveSession(input.sessionCode, input.configurationId);
 
     if (!session.participants.has(input.userId)) {
       throw new ForbiddenError('User is not part of the collaborative session');
@@ -260,7 +274,7 @@ export class InMemoryCollabSessionService {
     if (session.appliedOpIds.has(input.opId)) {
       this.touch(session);
       return {
-        sessionId: session.sessionId,
+        sessionCode: session.sessionCode,
         lamport: session.lamport,
         applied: false,
         duplicate: true,
@@ -288,12 +302,38 @@ export class InMemoryCollabSessionService {
     this.touch(session);
 
     return {
-      sessionId: session.sessionId,
+      sessionCode: session.sessionCode,
       lamport: session.lamport,
       applied: mustApply,
       duplicate: false,
       snapshot: this.cloneConfiguration(session.snapshot),
     };
+  }
+
+  /** Returns true when the given user is the owner of the specified session. */
+  isOwner(sessionCode: string, userId: string): boolean {
+    const session = this.sessions.get(sessionCode);
+    return session?.hostUserId === userId;
+  }
+
+  /**
+   * Destroys a session immediately, regardless of remaining participants.
+   * Called when the owner disconnects their WebSocket connection.
+   */
+  destroySession(sessionCode: string): void {
+    this.sessions.delete(sessionCode);
+  }
+
+  /** Returns all active session codes owned by the given user. */
+  getSessionCodesOwnedBy(userId: string): string[] {
+    this.pruneExpiredSessions();
+    const codes: string[] = [];
+    for (const session of this.sessions.values()) {
+      if (session.hostUserId === userId) {
+        codes.push(session.sessionCode);
+      }
+    }
+    return codes;
   }
 
   private shouldApply(previous: SessionFieldClock | undefined, incoming: SessionFieldClock): boolean {
@@ -458,8 +498,8 @@ export class InMemoryCollabSessionService {
     }
   }
 
-  private getActiveSession(sessionId: string, configurationId: string): SessionState {
-    const session = this.getActiveSessionById(sessionId);
+  private getActiveSession(sessionCode: string, configurationId: string): SessionState {
+    const session = this.getActiveSessionByCode(sessionCode);
 
     if (session.configurationId !== configurationId) {
       throw new ResourceNotFoundError('Collaborative session does not match configuration');
@@ -468,16 +508,16 @@ export class InMemoryCollabSessionService {
     return session;
   }
 
-  private getActiveSessionById(sessionId: string): SessionState {
+  private getActiveSessionByCode(sessionCode: string): SessionState {
     this.pruneExpiredSessions();
 
-    const session = this.sessions.get(sessionId);
+    const session = this.sessions.get(sessionCode);
     if (!session) {
       throw new ResourceNotFoundError('Collaborative session not found');
     }
 
     if (session.expiresAtMs <= this.now()) {
-      this.sessions.delete(sessionId);
+      this.sessions.delete(sessionCode);
       throw new SessionExpiredError('Collaborative session expired');
     }
 
@@ -490,21 +530,22 @@ export class InMemoryCollabSessionService {
 
   private pruneExpiredSessions(): void {
     const nowMs = this.now();
-    for (const [sessionId, session] of this.sessions.entries()) {
+    for (const [sessionCode, session] of this.sessions.entries()) {
       if (session.expiresAtMs <= nowMs) {
-        this.sessions.delete(sessionId);
+        this.sessions.delete(sessionCode);
       }
     }
   }
 
   private toOutput(session: SessionState): CollabSessionOutput {
     return {
-      sessionId: session.sessionId,
+      sessionCode: session.sessionCode,
       configurationId: session.configurationId,
       lamport: session.lamport,
       participants: [...session.participants].sort(),
       ttlSeconds: Math.floor(this.ttlMs / 1000),
       snapshot: this.cloneConfiguration(session.snapshot),
+      ownerId: session.hostUserId,
     };
   }
 

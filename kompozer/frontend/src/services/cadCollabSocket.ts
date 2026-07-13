@@ -16,16 +16,17 @@ interface AckResponse<T> {
 export type CollabFieldPath = 'name' | 'category' | 'environment' | 'columnPlan' | 'columnDesigns';
 
 export interface CollabSessionOutput {
-  sessionId: string;
+  sessionCode: string;
   configurationId: string;
   lamport: number;
   participants: string[];
   ttlSeconds: number;
   snapshot: ConfigurationDto;
+  ownerId: string;
 }
 
 export interface CollabOperationOutput {
-  sessionId: string;
+  sessionCode: string;
   lamport: number;
   applied: boolean;
   duplicate: boolean;
@@ -35,7 +36,7 @@ export interface CollabOperationOutput {
 export interface CollabPresencePayload {
   event: 'joined' | 'left';
   userId: string;
-  sessionId: string;
+  sessionCode: string;
   participants?: string[];
 }
 
@@ -112,6 +113,12 @@ class CadCollabSocketService {
     return () => this.socket?.off('cad:collab:error', handler);
   }
 
+  onOwnerDisconnected(handler: (payload: { sessionCode: string; configurationId: string }) => void): () => void {
+    this.connect();
+    this.socket?.on('cad:collab:owner-disconnected', handler);
+    return () => this.socket?.off('cad:collab:owner-disconnected', handler);
+  }
+
   onConnectionRestored(handler: () => void): () => void {
     this.connect();
 
@@ -142,7 +149,7 @@ class CadCollabSocketService {
     };
   }
 
-  async joinSession(configurationId?: string, sessionId?: string): Promise<CollabSessionOutput> {
+  async joinSession(sessionCode: string): Promise<CollabSessionOutput> {
     this.connect();
     if (!this.socket) {
       throw new Error('Connessione realtime non disponibile');
@@ -150,10 +157,7 @@ class CadCollabSocketService {
 
     const payload = {
       requestId: randomId('join'),
-      data: {
-        configurationId,
-        sessionId,
-      },
+      data: { sessionCode: sessionCode.toUpperCase() },
     };
 
     return new Promise((resolve, reject) => {
@@ -177,7 +181,7 @@ class CadCollabSocketService {
     });
   }
 
-  async leaveSession(configurationId: string, sessionId: string): Promise<void> {
+  async leaveSession(configurationId: string, sessionCode: string): Promise<void> {
     this.connect();
     if (!this.socket) {
       return;
@@ -187,7 +191,7 @@ class CadCollabSocketService {
       requestId: randomId('leave'),
       data: {
         configurationId,
-        sessionId,
+        sessionCode: sessionCode.toUpperCase(),
       },
     };
 
@@ -212,7 +216,7 @@ class CadCollabSocketService {
     });
   }
 
-  async requestSnapshot(configurationId: string, sessionId: string): Promise<CollabSessionOutput> {
+  async requestSnapshot(configurationId: string, sessionCode: string): Promise<CollabSessionOutput> {
     this.connect();
     if (!this.socket) {
       throw new Error('Connessione realtime non disponibile');
@@ -222,7 +226,7 @@ class CadCollabSocketService {
       requestId: randomId('snapshot'),
       data: {
         configurationId,
-        sessionId,
+        sessionCode: sessionCode.toUpperCase(),
       },
     };
 
@@ -249,7 +253,7 @@ class CadCollabSocketService {
 
   async applyOperation(input: {
     configurationId: string;
-    sessionId: string;
+    sessionCode: string;
     opId?: string;
     lamport: number;
     baseVersion: number;
@@ -265,7 +269,7 @@ class CadCollabSocketService {
       requestId: randomId('op'),
       data: {
         configurationId: input.configurationId,
-        sessionId: input.sessionId,
+        sessionCode: input.sessionCode.toUpperCase(),
         opId: input.opId ?? randomId('opid'),
         lamport: input.lamport,
         fieldPath: input.fieldPath,

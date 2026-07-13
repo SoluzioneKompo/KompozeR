@@ -246,14 +246,14 @@ function parseCollabOperation(body: unknown): {
   };
 }
 
-/** Reads optional collaborative session identifier used to resolve shared-access context. */
-function readCollabSessionId(req: Request): string | undefined {
-  const fromQuery = req.query['sessionId'];
+/** Reads optional collaborative session code used to resolve shared-access context. */
+function readCollabSessionCode(req: Request): string | undefined {
+  const fromQuery = req.query['sessionCode'];
   if (typeof fromQuery === 'string' && fromQuery.trim()) {
     return fromQuery.trim();
   }
 
-  const fromHeader = req.headers['x-collab-session-id'];
+  const fromHeader = req.headers['x-collab-session-code'];
   if (typeof fromHeader === 'string' && fromHeader.trim()) {
     return fromHeader.trim();
   }
@@ -273,11 +273,11 @@ function resolveEffectiveOwnerId(
   configurationId: string,
   userId: string,
 ): string {
-  const collabSessionId = readCollabSessionId(req);
+  const collabSessionCode = readCollabSessionCode(req);
   const session = deps.collabSessionService.findSessionForUser({
     configurationId,
     userId,
-    sessionId: collabSessionId,
+    sessionCode: collabSessionCode,
   });
 
   return session?.snapshot.ownerId ?? userId;
@@ -465,6 +465,7 @@ export function buildCadRouter(deps: CadRouterDeps) {
     }),
   );
 
+  // ── Collab: owner creates a session ──────────────────────────────────────
   router.post(
     '/configurations/:id/collab/sessions',
     requireUserId,
@@ -476,45 +477,48 @@ export function buildCadRouter(deps: CadRouterDeps) {
       });
 
       res.status(201).json({
-        sessionId: session.sessionId,
+        sessionCode: session.sessionCode,
         configurationId: session.configurationId,
         lamport: session.lamport,
         participants: session.participants,
         ttlSeconds: session.ttlSeconds,
+        ownerId: session.ownerId,
         snapshot: session.snapshot,
       });
     }),
   );
 
+  // ── Collab: participant joins by code (logged or guest) ───────────────────
   router.post(
-    '/configurations/:id/collab/sessions/:sessionId/join',
+    '/configurations/:id/collab/join/:code',
     requireUserId,
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
-      const session = await deps.collabSessionService.joinSession({
-        sessionId: req.params['sessionId'],
-        configurationId: req.params['id'],
+      const session = await deps.collabSessionService.joinByCode({
+        sessionCode: req.params['code'].toUpperCase(),
         userId,
       });
 
       res.json({
-        sessionId: session.sessionId,
+        sessionCode: session.sessionCode,
         configurationId: session.configurationId,
         lamport: session.lamport,
         participants: session.participants,
         ttlSeconds: session.ttlSeconds,
+        ownerId: session.ownerId,
         snapshot: session.snapshot,
       });
     }),
   );
 
+  // ── Collab: leave session ─────────────────────────────────────────────────
   router.post(
-    '/configurations/:id/collab/sessions/:sessionId/leave',
+    '/configurations/:id/collab/sessions/:code/leave',
     requireUserId,
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
       await deps.collabSessionService.leaveSession({
-        sessionId: req.params['sessionId'],
+        sessionCode: req.params['code'].toUpperCase(),
         configurationId: req.params['id'],
         userId,
       });
@@ -523,37 +527,40 @@ export function buildCadRouter(deps: CadRouterDeps) {
     }),
   );
 
+  // ── Collab: get snapshot ──────────────────────────────────────────────────
   router.get(
-    '/configurations/:id/collab/sessions/:sessionId/snapshot',
+    '/configurations/:id/collab/sessions/:code/snapshot',
     requireUserId,
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
       const session = await deps.collabSessionService.getSnapshot({
-        sessionId: req.params['sessionId'],
+        sessionCode: req.params['code'].toUpperCase(),
         configurationId: req.params['id'],
         userId,
       });
 
       res.json({
-        sessionId: session.sessionId,
+        sessionCode: session.sessionCode,
         configurationId: session.configurationId,
         lamport: session.lamport,
         participants: session.participants,
         ttlSeconds: session.ttlSeconds,
+        ownerId: session.ownerId,
         snapshot: session.snapshot,
       });
     }),
   );
 
+  // ── Collab: apply operation ───────────────────────────────────────────────
   router.post(
-    '/configurations/:id/collab/sessions/:sessionId/operations',
+    '/configurations/:id/collab/sessions/:code/operations',
     requireUserId,
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
       const operation = parseCollabOperation(req.body);
 
       const output = await deps.collabSessionService.applyOperation({
-        sessionId: req.params['sessionId'],
+        sessionCode: req.params['code'].toUpperCase(),
         configurationId: req.params['id'],
         userId,
         ...operation,

@@ -460,7 +460,7 @@ describe('cadRouter', () => {
     expect(res.body.error.code).toBe('CATEGORY_LOGIC_NOT_IMPLEMENTED');
   });
 
-  it('POST /cad/configurations/:id/collab/sessions -> 201 and join from another user', async () => {
+  it('POST /cad/configurations/:id/collab/sessions -> 201 and join by code from another user', async () => {
     const app = buildApp({
       configurationRepository: new FakeConfigurationRepository(),
       catalogRulesProvider: new FakeCatalogRulesProvider(),
@@ -478,11 +478,15 @@ describe('cadRouter', () => {
       .send({});
 
     expect(opened.status).toBe(201);
-    expect(opened.body.sessionId).toBeDefined();
+    expect(typeof opened.body.sessionCode).toBe('string');
+    expect(opened.body.sessionCode.length).toBe(6);
     expect(opened.body.participants).toEqual(['usr_1']);
+    expect(opened.body.ownerId).toBe('usr_1');
+
+    const sessionCode = opened.body.sessionCode as string;
 
     const joined = await request(app)
-      .post(`/cad/configurations/${created.body.id}/collab/sessions/${opened.body.sessionId}/join`)
+      .post(`/cad/configurations/${created.body.id}/collab/join/${sessionCode}`)
       .set('x-user-id', 'usr_2')
       .send({});
 
@@ -491,7 +495,7 @@ describe('cadRouter', () => {
     expect(joined.body.snapshot.id).toBe(created.body.id);
   });
 
-  it('POST /cad/configurations/:id/collab/sessions/:sessionId/operations -> applies Lamport/LWW and rejects stale baseVersion', async () => {
+  it('POST /cad/configurations/:id/collab/sessions/:code/operations -> applies Lamport/LWW and rejects stale baseVersion', async () => {
     const app = buildApp({
       configurationRepository: new FakeConfigurationRepository(),
       catalogRulesProvider: new FakeCatalogRulesProvider(),
@@ -508,13 +512,15 @@ describe('cadRouter', () => {
       .set('x-user-id', 'usr_1')
       .send({});
 
+    const sessionCode = opened.body.sessionCode as string;
+
     await request(app)
-      .post(`/cad/configurations/${created.body.id}/collab/sessions/${opened.body.sessionId}/join`)
+      .post(`/cad/configurations/${created.body.id}/collab/join/${sessionCode}`)
       .set('x-user-id', 'usr_2')
       .send({});
 
     const applied = await request(app)
-      .post(`/cad/configurations/${created.body.id}/collab/sessions/${opened.body.sessionId}/operations`)
+      .post(`/cad/configurations/${created.body.id}/collab/sessions/${sessionCode}/operations`)
       .set('x-user-id', 'usr_2')
       .send({
         opId: 'op_1',
@@ -530,7 +536,7 @@ describe('cadRouter', () => {
     expect(applied.body.snapshot.version).toBe(2);
 
     const lowerLamport = await request(app)
-      .post(`/cad/configurations/${created.body.id}/collab/sessions/${opened.body.sessionId}/operations`)
+      .post(`/cad/configurations/${created.body.id}/collab/sessions/${sessionCode}/operations`)
       .set('x-user-id', 'usr_1')
       .send({
         opId: 'op_2',
@@ -545,7 +551,7 @@ describe('cadRouter', () => {
     expect(lowerLamport.body.snapshot.name).toBe('Name from usr_2');
 
     const stale = await request(app)
-      .post(`/cad/configurations/${created.body.id}/collab/sessions/${opened.body.sessionId}/operations`)
+      .post(`/cad/configurations/${created.body.id}/collab/sessions/${sessionCode}/operations`)
       .set('x-user-id', 'usr_2')
       .send({
         opId: 'op_3',
@@ -559,7 +565,7 @@ describe('cadRouter', () => {
     expect(stale.body.error.code).toBe('COLLAB_OPERATION_STALE');
   });
 
-  it('PATCH /cad/configurations/:id/category -> 200 for participant joined to collaborative session', async () => {
+  it('PATCH /cad/configurations/:id/category -> 200 for participant joined by code to collaborative session', async () => {
     const app = buildApp({
       configurationRepository: new FakeConfigurationRepository(),
       catalogRulesProvider: new FakeCatalogRulesProvider(),
@@ -587,14 +593,17 @@ describe('cadRouter', () => {
       .set('x-user-id', 'owner_1')
       .send({});
 
+    const sessionCode = opened.body.sessionCode as string;
+
     await request(app)
-      .post(`/cad/configurations/${created.body.id}/collab/sessions/${opened.body.sessionId}/join`)
+      .post(`/cad/configurations/${created.body.id}/collab/join/${sessionCode}`)
       .set('x-user-id', 'collab_2')
       .send({});
 
     const category = await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
       .set('x-user-id', 'collab_2')
+      .set('x-collab-session-code', sessionCode)
       .send({ category: 'TONDO' });
 
     expect(category.status).toBe(200);

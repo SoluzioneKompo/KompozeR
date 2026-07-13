@@ -68,30 +68,37 @@ const showResetConfirm = ref(false);
 const showResetFinalConfirm = ref(false);
 const pendingCategory = ref<Category | null>(null);
 const pendingEnvironment = ref<Environment | null>(null);
-const joinSessionInput = ref('');
+const joinCodeInput = ref('');
 const joinLoading = ref(false);
 
-const collabSessionId = ref('');
+const collabMode = ref<'solitary' | 'shared'>('solitary');
+const collabSessionCode = ref('');
 const collabConfigurationId = ref('');
 const collabLamport = ref(0);
 const collabParticipants = ref<string[]>([]);
 const collabConnected = ref(false);
-const collabJoining = ref(false);
+const collabOwnerId = ref('');
+const collabOwnerDisconnected = ref(false);
+const showCollabModal = ref(false);
+const startCollabLoading = ref(false);
 
 let removeCollabPresenceListener: (() => void) | null = null;
 let removeCollabOperationListener: (() => void) | null = null;
 let removeCollabErrorListener: (() => void) | null = null;
 let removeCollabConnectionRestoredListener: (() => void) | null = null;
+let removeCollabOwnerDisconnectedListener: (() => void) | null = null;
 
 function detachCollabListeners(): void {
   removeCollabPresenceListener?.();
   removeCollabOperationListener?.();
   removeCollabErrorListener?.();
   removeCollabConnectionRestoredListener?.();
+  removeCollabOwnerDisconnectedListener?.();
   removeCollabPresenceListener = null;
   removeCollabOperationListener = null;
   removeCollabErrorListener = null;
   removeCollabConnectionRestoredListener = null;
+  removeCollabOwnerDisconnectedListener = null;
 }
 
 async function refreshAllNextOptions(): Promise<void> {
@@ -100,7 +107,7 @@ async function refreshAllNextOptions(): Promise<void> {
 }
 
 function applyPresence(payload: CollabPresencePayload): void {
-  if (!collabSessionId.value || payload.sessionId !== collabSessionId.value) {
+  if (!collabSessionCode.value || payload.sessionCode !== collabSessionCode.value) {
     return;
   }
 
@@ -130,46 +137,104 @@ async function syncFromSessionSnapshot(snapshot: ConfigurationDto): Promise<void
   await refreshAllNextOptions();
 }
 
-async function ensureCollabSession(configurationId?: string, sessionId?: string): Promise<void> {
-  if (collabJoining.value) {
-    return;
-  }
+function resetCollabState(): void {
+  collabMode.value = 'solitary';
+  collabSessionCode.value = '';
+  collabConfigurationId.value = '';
+  collabLamport.value = 0;
+  collabParticipants.value = [];
+  collabConnected.value = false;
+  collabOwnerId.value = '';
+  collabOwnerDisconnected.value = false;
+  showCollabModal.value = false;
+}
 
-  if (
-    configurationId
-    && collabConfigurationId.value === configurationId
-    && collabSessionId.value
-    && (!sessionId || collabSessionId.value === sessionId)
-  ) {
-    return;
-  }
+/** Owner: creates a new collaborative session and shows the code modal. */
+async function startCollabSession(): Promise<void> {
+  if (!selected.value) return;
 
-  const token = localStorage.getItem('kompozer_token') ?? '';
-  if (!token) {
-    collabConnected.value = false;
-    return;
-  }
-
-  if (collabSessionId.value && sessionId && collabSessionId.value === sessionId) {
-    return;
-  }
-
-  collabJoining.value = true;
+  startCollabLoading.value = true;
   try {
-    cadCollabSocket.connect();
-    const joined = await cadCollabSocket.joinSession(configurationId, sessionId || undefined);
-    collabConnected.value = cadCollabSocket.isConnected();
-    collabSessionId.value = joined.sessionId;
-    collabConfigurationId.value = joined.configurationId;
-    collabLamport.value = Math.max(collabLamport.value, joined.lamport);
-    collabParticipants.value = joined.participants;
+    const res = await fetch(`/api/cad/configurations/${selected.value.id}/collab/sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('kompozer_token') ?? ''}`,
+      },
+    });
+    if (!res.ok) throw new Error(`Errore HTTP ${res.status}`);
+    const data = await res.json() as { sessionCode: string; configurationId: string; participants: string[]; ownerId: string; lamport: number };
 
-    await syncFromSessionSnapshot(joined.snapshot);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Realtime CAD non disponibile';
-    notifications.addToast('error', message);
+    collabSessionCode.value = data.sessionCode;
+    collabConfigurationId.value = data.configurationId;
+    collabParticipants.value = data.participants;
+    collabOwnerId.value = data.ownerId;
+    collabLamport.value = data.lamport;
+    collabMode.value = 'shared';
+    collabOwnerDisconnected.value = false;
+
+    cadCollabSocket.connect();
+    await cadCollabSocket.joinSession(data.sessionCode);
+    collabConnected.value = cadCollabSocket.isConnected();
+
+    showCollabModal.value = true;
+  } catch (err) {
+    notifications.addToast('error', err instanceof Error ? err.message : 'Avvio sessione collaborativa fallito');
   } finally {
-    collabJoining.value = false;
+    startCollabLoading.value = false;
+  }
+}
+
+/** Participant: joins an existing session by entering the code. */
+async function joinByCode(): Promise<void> {
+  const code = joinCodeInput.value.trim().toUpperCase();
+  if (!code || !selected.value) {
+    notifications.addToast('error', 'Inserisci un codice valido');
+    return;
+  }
+
+  joinLoading.value = true;
+  try {
+    const res = await fetch(`/api/cad/configurations/${selected.value.id}/collab/join/${code}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('kompozer_token') ?? ''}`,
+      },
+    });
+    if (!res.ok) throw new Error(`Errore HTTP ${res.status}`);
+    const data = await res.json() as { sessionCode: string; configurationId: string; participants: string[]; ownerId: string; lamport: number; snapshot: ConfigurationDto };
+
+    collabSessionCode.value = data.sessionCode;
+    collabConfigurationId.value = data.configurationId;
+    collabParticipants.value = data.participants;
+    collabOwnerId.value = data.ownerId;
+    collabLamport.value = data.lamport;
+    collabMode.value = 'shared';
+    collabOwnerDisconnected.value = false;
+
+    cadCollabSocket.connect();
+    await cadCollabSocket.joinSession(data.sessionCode);
+    collabConnected.value = cadCollabSocket.isConnected();
+
+    await syncFromSessionSnapshot(data.snapshot);
+    joinCodeInput.value = '';
+    notifications.addToast('success', `Sessione collaborativa agganciata (${data.sessionCode})`);
+  } catch (err) {
+    notifications.addToast('error', err instanceof Error ? err.message : 'Join sessione collaborativa fallito');
+  } finally {
+    joinLoading.value = false;
+  }
+}
+
+/** Copies the current session code to clipboard. */
+async function copySessionCode(): Promise<void> {
+  if (!collabSessionCode.value) return;
+  try {
+    await navigator.clipboard.writeText(collabSessionCode.value);
+    notifications.addToast('success', `Codice ${collabSessionCode.value} copiato`);
+  } catch {
+    notifications.addToast('error', 'Impossibile copiare il codice');
   }
 }
 
@@ -182,7 +247,7 @@ onMounted(() => {
 
   removeCollabOperationListener = cadCollabSocket.onOperationApplied((payload) => {
     const data = payload.data;
-    if (!data || data.sessionId !== collabSessionId.value) {
+    if (!data || data.sessionCode !== collabSessionCode.value) {
       return;
     }
 
@@ -200,9 +265,9 @@ onMounted(() => {
   removeCollabErrorListener = cadCollabSocket.onError((payload) => {
     const code = payload.error?.code || 'COLLAB_ERROR';
     const message = payload.error?.message || 'Errore realtime CAD';
-    if (code === 'COLLAB_OPERATION_STALE' && selected.value && collabSessionId.value) {
+    if (code === 'COLLAB_OPERATION_STALE' && selected.value && collabSessionCode.value) {
       void cadCollabSocket
-        .requestSnapshot(selected.value.id, collabSessionId.value)
+        .requestSnapshot(selected.value.id, collabSessionCode.value)
         .then((snapshot) => syncFromSessionSnapshot(snapshot.snapshot))
         .catch(() => {
           void reloadSelected();
@@ -213,12 +278,12 @@ onMounted(() => {
 
   removeCollabConnectionRestoredListener = cadCollabSocket.onConnectionRestored(() => {
     collabConnected.value = true;
-    if (!selected.value || !collabSessionId.value) {
+    if (!selected.value || !collabSessionCode.value) {
       return;
     }
 
     void cadCollabSocket
-      .requestSnapshot(selected.value.id, collabSessionId.value)
+      .requestSnapshot(selected.value.id, collabSessionCode.value)
       .then((snapshot) => {
         collabParticipants.value = snapshot.participants;
         collabLamport.value = Math.max(collabLamport.value, snapshot.lamport);
@@ -227,6 +292,13 @@ onMounted(() => {
       .catch(() => {
         void reloadSelected();
       });
+  });
+
+  removeCollabOwnerDisconnectedListener = cadCollabSocket.onOwnerDisconnected((payload) => {
+    if (payload.sessionCode !== collabSessionCode.value) return;
+    collabOwnerDisconnected.value = true;
+    collabConnected.value = false;
+    notifications.addToast('error', 'Il proprietario ha lasciato la sessione collaborativa');
   });
 
   void (async () => {
@@ -239,48 +311,36 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   const configurationId = selected.value?.id;
-  const sessionId = collabSessionId.value;
-  if (configurationId && sessionId) {
-    void cadCollabSocket.leaveSession(configurationId, sessionId);
+  const sessionCode = collabSessionCode.value;
+  if (configurationId && sessionCode) {
+    void cadCollabSocket.leaveSession(configurationId, sessionCode);
   }
 
   detachCollabListeners();
   cadCollabSocket.disconnect();
-  collabConnected.value = false;
-  collabConfigurationId.value = '';
+  resetCollabState();
 });
 
 watch(
   () => selected.value?.id,
   (configurationId, previousConfigurationId) => {
+    // When navigating away from a config, leave any active collaborative session.
     if (
       previousConfigurationId
-      && collabSessionId.value
+      && collabSessionCode.value
       && collabConfigurationId.value === previousConfigurationId
       && previousConfigurationId !== configurationId
     ) {
-      void cadCollabSocket.leaveSession(previousConfigurationId, collabSessionId.value);
-      collabSessionId.value = '';
-      collabConfigurationId.value = '';
-      collabParticipants.value = [];
+      void cadCollabSocket.leaveSession(previousConfigurationId, collabSessionCode.value);
+      resetCollabState();
     }
 
     if (!configurationId) {
-      collabSessionId.value = '';
-      collabConfigurationId.value = '';
-      collabParticipants.value = [];
+      resetCollabState();
       return;
     }
 
-    // Keep realtime collaboration attached to the currently opened configuration.
-    if (
-      !collabSessionId.value
-      || collabConfigurationId.value !== configurationId
-      || !collabConnected.value
-    ) {
-      void ensureCollabSession(configurationId);
-      collabConnected.value = cadCollabSocket.isConnected();
-    }
+    // Default: open config in solitary mode — no auto-join.
   },
 );
 
@@ -369,21 +429,22 @@ const canEditDesign = computed(() => {
 
 const collabStatusLabel = computed(() => {
   if (!selected.value) {
-    return 'Seleziona o crea una configurazione per avviare la collaborazione';
+    return 'Seleziona o crea una configurazione';
   }
-
-  if (collabJoining.value) {
-    return 'Connessione alla sessione collaborativa in corso...';
+  if (collabOwnerDisconnected.value) {
+    return 'Il proprietario ha lasciato — sessione terminata';
   }
-
-  if (!collabSessionId.value) {
-    return 'Nessuna sessione collaborativa attiva';
+  if (collabMode.value === 'shared') {
+    return collabConnected.value
+      ? `Collaborazione attiva · ${collabParticipants.value.length} partecipanti · Codice: ${collabSessionCode.value}`
+      : 'Collaborazione — riconnessione in corso...';
   }
-
-  return collabConnected.value
-    ? `Collaborazione attiva (${collabParticipants.value.length} partecipanti)`
-    : 'Collaborazione temporaneamente disconnessa';
+  return 'Modalità solitaria';
 });
+
+const isCollabOwner = computed(() =>
+  collabMode.value === 'shared' && collabOwnerId.value === (authStore.user?.id ?? ''),
+);
 
 const totalPrice = computed(() => {
   const bom = selected.value?.bom ?? [];
@@ -479,36 +540,9 @@ function formatDate(iso: string): string {
   }).format(new Date(iso));
 }
 
-async function copySessionId(): Promise<void> {
-  if (!collabSessionId.value) {
-    return;
-  }
-
-  try {
-    await navigator.clipboard.writeText(collabSessionId.value);
-    notifications.addToast('success', 'Session ID copiato');
-  } catch {
-    notifications.addToast('error', 'Impossibile copiare il Session ID');
-  }
-}
-
-/** Starts a collaborative session for currently selected configuration. */
-async function startSessionFromCad(): Promise<void> {
-  if (!selected.value) {
-    return;
-  }
-
-  joinLoading.value = true;
-  try {
-    await ensureCollabSession(selected.value.id);
-    collabConnected.value = cadCollabSocket.isConnected();
-    notifications.addToast('success', 'Sessione collaborativa avviata');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Avvio sessione collaborativa fallito';
-    notifications.addToast('error', message);
-  } finally {
-    joinLoading.value = false;
-  }
+/** Joins a shared collaboration session explicitly from UI input. */
+async function joinFromCad(): Promise<void> {
+  await joinByCode();
 }
 
 async function broadcastCollabOperation(
@@ -516,14 +550,14 @@ async function broadcastCollabOperation(
   value: string | Category | Environment | ColumnPlan | ColumnDesign[] | null,
   baseVersion: number,
 ): Promise<void> {
-  if (!selected.value || !collabSessionId.value) {
+  if (!selected.value || !collabSessionCode.value || collabMode.value !== 'shared') {
     return;
   }
 
   try {
     const output = await cadCollabSocket.applyOperation({
       configurationId: selected.value.id,
-      sessionId: collabSessionId.value,
+      sessionCode: collabSessionCode.value,
       lamport: collabLamport.value + 1,
       baseVersion,
       fieldPath,
@@ -858,27 +892,6 @@ async function createFromCad(): Promise<void> {
   await createConfiguration();
 }
 
-/** Joins a shared collaboration session explicitly from UI input. */
-async function joinFromCad(): Promise<void> {
-  const sessionId = joinSessionInput.value.trim();
-  if (!sessionId) {
-    notifications.addToast('error', 'Inserisci un Session ID valido');
-    return;
-  }
-
-  joinLoading.value = true;
-  try {
-    await ensureCollabSession(undefined, sessionId);
-    collabConnected.value = cadCollabSocket.isConnected();
-    notifications.addToast('success', 'Sessione collaborativa agganciata');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Join sessione collaborativa fallito';
-    notifications.addToast('error', message);
-  } finally {
-    joinLoading.value = false;
-  }
-}
-
 /** Returns true when the requested step has already been completed. */
 function stepDone(index: number): boolean {
   return currentStepIndex.value > index;
@@ -905,41 +918,38 @@ function stepActive(index: number): boolean {
 
     <section v-if="selected" class="collab-strip" aria-live="polite">
       <div>
-        <p class="mini muted">Sessione collaborativa</p>
+        <p class="mini muted">Sessione</p>
         <strong>{{ collabStatusLabel }}</strong>
-        <p v-if="collabSessionId" class="mini muted">
-          Session ID: {{ collabSessionId }}
-        </p>
       </div>
       <div class="collab-actions">
-        <button
-          class="btn btn--light btn--small"
-          :disabled="joinLoading"
-          @click="startSessionFromCad"
-        >
-          {{ joinLoading ? 'Avvio...' : 'Avvia sessione' }}
-        </button>
-        <input
-          v-model="joinSessionInput"
-          class="field__input"
-          type="text"
-          placeholder="Session ID"
-          style="width: 220px;"
-        />
-        <button
-          class="btn btn--light btn--small"
-          :disabled="joinLoading"
-          @click="joinFromCad"
-        >
-          {{ joinLoading ? 'Join...' : 'Join sessione' }}
-        </button>
-        <button
-          class="btn btn--light btn--small"
-          :disabled="!collabSessionId"
-          @click="copySessionId"
-        >
-          Copia Session ID
-        </button>
+        <!-- Owner: start collab -->
+        <template v-if="collabMode === 'solitary'">
+          <button
+            class="btn btn--primary btn--small"
+            :disabled="!selected || startCollabLoading"
+            @click="startCollabSession"
+          >
+            {{ startCollabLoading ? 'Avvio...' : 'Collabora' }}
+          </button>
+        </template>
+        <!-- Shared: show code + stop -->
+        <template v-if="collabMode === 'shared' && !collabOwnerDisconnected">
+          <button class="btn btn--light btn--small" @click="showCollabModal = true">
+            Codice: <strong>{{ collabSessionCode }}</strong>
+          </button>
+          <button
+            v-if="isCollabOwner"
+            class="btn btn--light btn--small"
+            @click="() => { if (selected && collabSessionCode) { void cadCollabSocket.leaveSession(selected.id, collabSessionCode); resetCollabState(); } }"
+          >
+            Termina sessione
+          </button>
+        </template>
+        <!-- Owner disconnected -->
+        <template v-if="collabOwnerDisconnected">
+          <span class="muted mini">⚠️ Sessione terminata</span>
+          <button class="btn btn--light btn--small" @click="resetCollabState">Torna a solitaria</button>
+        </template>
       </div>
     </section>
 
@@ -963,16 +973,18 @@ function stepActive(index: number): boolean {
 
           <div class="actions-row" style="margin-top: var(--space-3);">
             <label class="field" style="flex: 1; min-width: 220px;">
-              <span class="field__label">Session ID condivisa</span>
+              <span class="field__label">Codice sessione collaborativa</span>
               <input
-                v-model="joinSessionInput"
+                v-model="joinCodeInput"
                 class="field__input"
                 type="text"
-                placeholder="Incolla Session ID"
+                placeholder="es. A3KP7X"
+                maxlength="6"
+                style="text-transform: uppercase;"
               />
             </label>
             <button class="btn btn--light" :disabled="joinLoading" @click="joinFromCad">
-              {{ joinLoading ? 'Join...' : 'Join sessione' }}
+              {{ joinLoading ? 'Accesso...' : 'Entra con codice' }}
             </button>
           </div>
         </section>
@@ -1265,6 +1277,21 @@ function stepActive(index: number): boolean {
           <span>Totale preview</span>
           <strong>{{ formatPrice(totalPrice) }}</strong>
         </footer>
+      </article>
+    </div>
+
+    <div v-if="showCollabModal" class="modal-overlay" @click.self="showCollabModal = false">
+      <article class="modal-card modal-card--narrow">
+        <header class="modal-header">
+          <h3>Sessione collaborativa attiva</h3>
+          <button class="btn btn--light btn--small" @click="showCollabModal = false">Chiudi</button>
+        </header>
+        <p>Condividi questo codice con chi vuoi far partecipare:</p>
+        <p class="collab-code-display">{{ collabSessionCode }}</p>
+        <p class="mini muted">Sia utenti registrati che ospiti possono usarlo. La sessione termina quando esci dalla configurazione.</p>
+        <div class="actions-row">
+          <button class="btn btn--primary" @click="copySessionCode">Copia codice</button>
+        </div>
       </article>
     </div>
 
@@ -1589,6 +1616,19 @@ function stepActive(index: number): boolean {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: var(--space-2);
+}
+
+.collab-code-display {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-align: center;
+  background: var(--color-surface-raised);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-2) 0;
+  font-family: monospace;
 }
 
 .design-column {

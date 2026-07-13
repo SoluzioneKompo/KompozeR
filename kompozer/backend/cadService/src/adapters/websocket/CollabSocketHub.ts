@@ -11,8 +11,7 @@ type AckResponse<T> = { ok: true; data: T } | { ok: false; error: { code: string
 type JoinPayload = {
   requestId?: string;
   data?: {
-    configurationId?: string;
-    sessionId?: string;
+    sessionCode?: string;
   };
 };
 
@@ -20,7 +19,7 @@ type LeavePayload = {
   requestId?: string;
   data?: {
     configurationId?: string;
-    sessionId?: string;
+    sessionCode?: string;
   };
 };
 
@@ -28,7 +27,7 @@ type SnapshotPayload = {
   requestId?: string;
   data?: {
     configurationId?: string;
-    sessionId?: string;
+    sessionCode?: string;
   };
 };
 
@@ -36,7 +35,7 @@ type ApplyOperationPayload = {
   requestId?: string;
   data?: {
     configurationId?: string;
-    sessionId?: string;
+    sessionCode?: string;
     opId?: string;
     lamport?: number;
     fieldPath?: CollabFieldPath;
@@ -45,8 +44,8 @@ type ApplyOperationPayload = {
   };
 };
 
-function roomOf(sessionId: string): string {
-  return `cad:collab:${sessionId}`;
+function roomOf(sessionCode: string): string {
+  return `cad:collab:${sessionCode}`;
 }
 
 function readUserId(socket: Socket): string {
@@ -100,47 +99,35 @@ export class CollabSocketHub {
         return;
       }
 
-      const joinedSessions = new Map<string, string>();
+      const joinedSessions = new Map<string, string>(); // sessionCode → configurationId
 
       socket.on('cad:collab:join', async (payload: JoinPayload, ack?: (response: AckResponse<unknown>) => void) => {
-        const configurationId = payload?.data?.configurationId?.trim() || '';
-        const providedSessionId = payload?.data?.sessionId?.trim() || '';
+        const sessionCode = payload?.data?.sessionCode?.trim().toUpperCase() || '';
 
-        if (!configurationId && !providedSessionId) {
-          const error = { code: 'VALIDATION_ERROR', message: 'configurationId or sessionId is required' };
+        if (!sessionCode) {
+          const error = { code: 'VALIDATION_ERROR', message: 'sessionCode is required' };
           ack?.({ ok: false, error });
           return;
         }
 
         try {
-          const output = providedSessionId
-            ? (configurationId
-              ? await this.collabSessionService.joinSession({
-                  sessionId: providedSessionId,
-                  configurationId,
-                  userId,
-                })
-              : await this.collabSessionService.joinSessionById({
-                  sessionId: providedSessionId,
-                  userId,
-                }))
-            : await this.collabSessionService.createSession({
-                configurationId,
-                hostUserId: userId,
-              });
+          const output = await this.collabSessionService.joinByCode({
+            sessionCode,
+            userId,
+          });
 
-          socket.join(roomOf(output.sessionId));
-          joinedSessions.set(output.sessionId, output.configurationId);
+          socket.join(roomOf(output.sessionCode));
+          joinedSessions.set(output.sessionCode, output.configurationId);
 
           socket.emit('cad:collab:joined', {
             requestId: payload?.requestId,
             data: output,
           });
 
-          socket.to(roomOf(output.sessionId)).emit('cad:collab:presence', {
+          socket.to(roomOf(output.sessionCode)).emit('cad:collab:presence', {
             event: 'joined',
             userId,
-            sessionId: output.sessionId,
+            sessionCode: output.sessionCode,
             participants: output.participants,
           });
 
@@ -154,12 +141,12 @@ export class CollabSocketHub {
 
       socket.on('cad:collab:leave', async (payload: LeavePayload, ack?: (response: AckResponse<unknown>) => void) => {
         const configurationId = payload?.data?.configurationId?.trim() || '';
-        const sessionId = payload?.data?.sessionId?.trim() || '';
+        const sessionCode = payload?.data?.sessionCode?.trim().toUpperCase() || '';
 
-        if (!configurationId || !sessionId) {
+        if (!configurationId || !sessionCode) {
           const error = {
             code: 'VALIDATION_ERROR',
-            message: 'configurationId and sessionId are required',
+            message: 'configurationId and sessionCode are required',
           };
           ack?.({ ok: false, error });
           return;
@@ -167,21 +154,21 @@ export class CollabSocketHub {
 
         try {
           await this.collabSessionService.leaveSession({
-            sessionId,
+            sessionCode,
             configurationId,
             userId,
           });
 
-          socket.leave(roomOf(sessionId));
-          joinedSessions.delete(sessionId);
+          socket.leave(roomOf(sessionCode));
+          joinedSessions.delete(sessionCode);
 
-          socket.to(roomOf(sessionId)).emit('cad:collab:presence', {
+          socket.to(roomOf(sessionCode)).emit('cad:collab:presence', {
             event: 'left',
             userId,
-            sessionId,
+            sessionCode,
           });
 
-          ack?.({ ok: true, data: { sessionId, left: true } });
+          ack?.({ ok: true, data: { sessionCode, left: true } });
         } catch (error) {
           const mapped = normalizeError(error);
           socket.emit('cad:collab:error', { requestId: payload?.requestId, error: mapped });
@@ -194,12 +181,12 @@ export class CollabSocketHub {
         ack?: (response: AckResponse<unknown>) => void,
       ) => {
         const configurationId = payload?.data?.configurationId?.trim() || '';
-        const sessionId = payload?.data?.sessionId?.trim() || '';
+        const sessionCode = payload?.data?.sessionCode?.trim().toUpperCase() || '';
 
-        if (!configurationId || !sessionId) {
+        if (!configurationId || !sessionCode) {
           const error = {
             code: 'VALIDATION_ERROR',
-            message: 'configurationId and sessionId are required',
+            message: 'configurationId and sessionCode are required',
           };
           ack?.({ ok: false, error });
           return;
@@ -207,12 +194,12 @@ export class CollabSocketHub {
 
         try {
           const output = await this.collabSessionService.getSnapshot({
-            sessionId,
+            sessionCode,
             configurationId,
             userId,
           });
-          socket.join(roomOf(output.sessionId));
-          joinedSessions.set(output.sessionId, output.configurationId);
+          socket.join(roomOf(output.sessionCode));
+          joinedSessions.set(output.sessionCode, output.configurationId);
           ack?.({ ok: true, data: output });
         } catch (error) {
           const mapped = normalizeError(error);
@@ -227,16 +214,16 @@ export class CollabSocketHub {
       ) => {
         const data = payload?.data;
         const configurationId = data?.configurationId?.trim() || '';
-        const sessionId = data?.sessionId?.trim() || '';
+        const sessionCode = data?.sessionCode?.trim().toUpperCase() || '';
         const opId = data?.opId?.trim() || '';
         const fieldPath = data?.fieldPath;
         const lamport = Number(data?.lamport);
         const baseVersion = Number(data?.baseVersion);
 
-        if (!configurationId || !sessionId || !opId || !fieldPath || Number.isNaN(lamport) || Number.isNaN(baseVersion)) {
+        if (!configurationId || !sessionCode || !opId || !fieldPath || Number.isNaN(lamport) || Number.isNaN(baseVersion)) {
           const error = {
             code: 'VALIDATION_ERROR',
-            message: 'configurationId, sessionId, opId, fieldPath, lamport and baseVersion are required',
+            message: 'configurationId, sessionCode, opId, fieldPath, lamport and baseVersion are required',
           };
           ack?.({ ok: false, error });
           return;
@@ -245,7 +232,7 @@ export class CollabSocketHub {
         try {
           const output = await this.collabSessionService.applyOperation({
             configurationId,
-            sessionId,
+            sessionCode,
             userId,
             opId,
             lamport,
@@ -254,7 +241,7 @@ export class CollabSocketHub {
             baseVersion,
           });
 
-          this.io.to(roomOf(output.sessionId)).emit('cad:collab:operation:applied', {
+          this.io.to(roomOf(output.sessionCode)).emit('cad:collab:operation:applied', {
             requestId: payload?.requestId,
             data: {
               userId,
@@ -273,19 +260,31 @@ export class CollabSocketHub {
       });
 
       socket.on('disconnect', () => {
-        const tasks = Array.from(joinedSessions.entries()).map(async ([sessionId, configurationId]) => {
-          try {
-            await this.collabSessionService.leaveSession({
-              sessionId,
+        for (const [sessionCode, configurationId] of joinedSessions.entries()) {
+          if (this.collabSessionService.isOwner(sessionCode, userId)) {
+            // Owner disconnected: notify remaining participants and destroy session.
+            this.io.to(roomOf(sessionCode)).emit('cad:collab:owner-disconnected', {
+              sessionCode,
+              configurationId,
+            });
+            this.collabSessionService.destroySession(sessionCode);
+          } else {
+            // Participant left: silent cleanup, no await needed.
+            void this.collabSessionService.leaveSession({
+              sessionCode,
               configurationId,
               userId,
+            }).then(() => {
+              this.io.to(roomOf(sessionCode)).emit('cad:collab:presence', {
+                event: 'left',
+                userId,
+                sessionCode,
+              });
+            }).catch(() => {
+              // Ignore cleanup failures for already expired/closed sessions.
             });
-          } catch {
-            // Ignore cleanup failures for already expired/closed sessions.
           }
-        });
-
-        void Promise.all(tasks);
+        }
       });
     });
   }
