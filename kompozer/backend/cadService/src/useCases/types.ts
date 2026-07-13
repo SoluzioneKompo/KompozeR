@@ -101,6 +101,8 @@ export type NextOptionReasonCode = SpineReasonCode | 'INVALID_GAP' | 'SPINE_CONF
 export interface NextOptionDto {
   heightMm: number;
   allowed: boolean;
+  /** 'bridge' when the shelf spans a tall gap anchored to adjacent columns' joints. */
+  kind?: 'standard' | 'bridge';
   reasonCode?: NextOptionReasonCode;
   reason?: string;
 }

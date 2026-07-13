@@ -6,6 +6,7 @@ import {
 import { CatalogRules, CatalogRulesProvider } from '../../domain/ports/CatalogRulesProvider';
 import { ConfigurationRepository } from '../../domain/ports/ConfigurationRepository';
 import {
+  buildCandidateGaps,
   computeNextLevelMm,
   resolveFirstLevelHeightsMm,
   validateColumnCandidate,
@@ -118,12 +119,30 @@ export class ListNextOptions {
       footHeightsMm: rules.footHeightsMm,
       uprightHeightsMm: rules.uprightHeightsMm,
     });
-    const candidates = levels.length === 0 ? firstLevelHeightsMm : rules.uprightHeightsMm;
     const columnLevels = [...columnPlan.columns]
       .sort((left, right) => left.index - right.index)
       .map((column) => ({
         levelsMm: byIndex.get(column.index)?.levelsMm ?? [],
       }));
+    const columnIndexInPlan = [...columnPlan.columns]
+      .sort((left, right) => left.index - right.index)
+      .findIndex((column) => column.index === input.columnIndex);
+
+    const isIntelligente = configuration.category === 'INTELLIGENTE';
+
+    // Candidate gaps:
+    // - INTELLIGENTE: classic single-piece candidates (columns are kept aligned,
+    //   so no bridging over neighbor joints is offered).
+    // - STANDARD: extended candidates including neighbor-anchored 'bridge' gaps,
+    //   enabling a column to bridge a tall gap supported by adjacent columns' joints.
+    const candidates: Array<{ heightMm: number; kind: 'standard' | 'bridge' }> = isIntelligente
+      ? (levels.length === 0 ? [...firstLevelHeightsMm] : [...rules.uprightHeightsMm]).map(
+          (heightMm) => ({ heightMm, kind: 'standard' as const }),
+        )
+      : buildCandidateGaps(columnLevels, columnIndexInPlan, {
+          footHeightsMm: rules.footHeightsMm,
+          uprightHeightsMm: rules.uprightHeightsMm,
+        });
 
     // Evaluate each candidate independently and explain exactly why it is blocked.
     // This enables the UI to present a "disabled with reason" dropdown.
@@ -134,25 +153,23 @@ export class ListNextOptions {
       maxHeightMm: environment.maxHeightMm,
     };
 
-    const options: NextOptionDto[] = candidates.map((heightMm) => {
+    const options: NextOptionDto[] = candidates.map(({ heightMm, kind }) => {
       if (heightMm <= 0 || !Number.isFinite(heightMm)) {
         return {
           heightMm,
           allowed: false,
+          kind,
           reasonCode: 'INVALID_GAP',
           reason: 'Gap height must be positive',
         };
       }
 
       let validation;
-      if (configuration.category === 'INTELLIGENTE') {
+      if (isIntelligente) {
         // INTELLIGENTE: no shared-spine adjacency — validate target column alone
         const nextLevelMm = computeNextLevelMm({ existingLevelsMm: levels, candidateHeightMm: heightMm });
         validation = validateSpine([...levels, nextLevelMm], spineRules);
       } else {
-        const columnIndexInPlan = [...columnPlan.columns]
-          .sort((left, right) => left.index - right.index)
-          .findIndex((column) => column.index === input.columnIndex);
         validation = validateColumnCandidate(columnLevels, columnIndexInPlan, heightMm, spineRules);
       }
 
@@ -160,6 +177,7 @@ export class ListNextOptions {
         return {
           heightMm,
           allowed: false,
+          kind,
           reasonCode: validation.reasonCode ?? 'SPINE_CONFLICT',
           reason: validation.reason ?? 'This choice violates shared-spine constraints',
         };
@@ -168,6 +186,7 @@ export class ListNextOptions {
       return {
         heightMm,
         allowed: true,
+        kind,
       };
     });
 

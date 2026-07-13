@@ -80,6 +80,7 @@ export type NextOptionReasonCode =
 export interface NextOption {
   heightMm: number;
   allowed: boolean;
+  kind?: 'standard' | 'bridge';
   reasonCode?: NextOptionReasonCode;
   reason?: string;
 }

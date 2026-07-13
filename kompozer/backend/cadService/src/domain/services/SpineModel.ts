@@ -63,6 +63,92 @@ export function computeNextLevelMm(input: NextLevelInput): number {
   return sortedLevels[sortedLevels.length - 1] + SHELF_THICKNESS_MM + input.candidateHeightMm;
 }
 
+/**
+ * Distinguishes how a candidate gap is supported:
+ * - 'standard': a single foot/upright placed directly on the column's own stack;
+ * - 'bridge':   the shelf attaches one upright above a joint provided by an adjacent
+ *               column, spanning a tall gap held by the neighbors' shared montante.
+ */
+export type CandidateGapKind = 'standard' | 'bridge';
+
+export interface CandidateGap {
+  heightMm: number;
+  kind: CandidateGapKind;
+}
+
+/**
+ * Builds the set of candidate gap heights for the next shelf of a target column.
+ *
+ * Two families of candidates are produced:
+ * 1. Base single-piece gaps ('standard'): a foot (empty column) or a single upright
+ *    (non-empty), i.e. the classic bottom-up construction where the column supports itself.
+ * 2. Neighbor-anchored gaps ('bridge'): a shelf may attach one upright above ANY joint
+ *    provided by an adjacent column. Because adjacent columns share the vertical montante,
+ *    the neighbors segment that montante — so a column can legitimately span a gap taller
+ *    than any single available upright (e.g. an empty middle column bridged high up).
+ *
+ * When a gap value belongs to both families the 'standard' classification wins (it is a
+ * genuine single piece). Every returned gap is only a *candidate*: geometric/adjacency
+ * validity is still enforced downstream by `validateColumnCandidate`.
+ *
+ * Gaps are expressed in the same units consumed by `computeNextLevelMm`:
+ * - empty column: gap === absolute first level,
+ * - non-empty column: gap === absoluteLevel - currentTop - shelfThickness.
+ */
+export function buildCandidateGaps(
+  columnLevels: readonly ColumnLevels[],
+  columnIndex: number,
+  rules: Pick<SpineRules, 'footHeightsMm' | 'uprightHeightsMm'>,
+): CandidateGap[] {
+  const uprights = rules.uprightHeightsMm;
+  const feet = resolveFirstLevelHeightsMm(rules);
+  const levels = sortLevels(columnLevels[columnIndex]?.levelsMm ?? []);
+  const isEmpty = levels.length === 0;
+  const top = isEmpty ? 0 : levels[levels.length - 1];
+
+  const byGap = new Map<number, CandidateGapKind>();
+
+  // Family 1: base single-piece candidates (classic bottom-up construction).
+  if (isEmpty) {
+    for (const foot of feet) {
+      byGap.set(foot, 'standard');
+    }
+  } else {
+    for (const upright of uprights) {
+      byGap.set(upright, 'standard');
+    }
+  }
+
+  // Family 2: neighbor-anchored candidates. Collect joints from adjacent columns
+  // strictly above the target column's current top; a shelf may sit one upright
+  // above each such joint, spanning a tall empty gap held by the neighbors.
+  const neighborJoints = new Set<number>();
+  for (const neighborIndex of [columnIndex - 1, columnIndex + 1]) {
+    for (const level of columnLevels[neighborIndex]?.levelsMm ?? []) {
+      if (level > top) {
+        neighborJoints.add(level);
+      }
+    }
+  }
+
+  for (const joint of neighborJoints) {
+    for (const upright of uprights) {
+      const absoluteLevel = joint + SHELF_THICKNESS_MM + upright;
+      const gap = isEmpty ? absoluteLevel : absoluteLevel - top - SHELF_THICKNESS_MM;
+      // Do not downgrade a real single-piece candidate to a bridge.
+      if (gap > 0 && !byGap.has(gap)) {
+        byGap.set(gap, 'bridge');
+      }
+    }
+  }
+
+  return [...byGap.entries()]
+    .map(([heightMm, kind]) => ({ heightMm, kind }))
+    .sort((a, b) => a.heightMm - b.heightMm);
+}
+
+
+
 export function buildSpines(columnLevels: readonly ColumnLevels[]): SpineModel[] {
   const spines: SpineModel[] = [];
 

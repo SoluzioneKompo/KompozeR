@@ -831,6 +831,11 @@ function hasAllowedOption(columnIndex: number): boolean {
   return effectiveOptions(columnIndex).some((option) => option.allowed);
 }
 
+/** True when the column offers at least one allowed neighbor-anchored bridge option. */
+function hasBridgeOption(columnIndex: number): boolean {
+  return effectiveOptions(columnIndex).some((option) => option.allowed && option.kind === 'bridge');
+}
+
 /** Collects distinct blocking reasons for disabled options in a column. */
 function blockedReasons(columnIndex: number): string[] {
   const reasons = effectiveOptions(columnIndex)
@@ -1210,7 +1215,10 @@ function stepActive(index: number): boolean {
 
                   <p class="mini muted">Livelli correnti: {{ column.levels.join(', ') || 'nessuno' }}</p>
                   <p class="mini muted">
-                    {{ column.levels.length === 0 ? 'Primo livello: scegli un PIEDINO' : 'Livello successivo: scegli un MONTANTE' }}
+                    {{ column.levels.length === 0 ? 'Primo livello: scegli un PIEDINO o un ponte verso le colonne adiacenti' : 'Livello successivo: scegli un MONTANTE o un ponte' }}
+                  </p>
+                  <p v-if="!isIntelligente && hasBridgeOption(column.index)" class="mini bridge-hint">
+                    🌉 Puoi creare un <strong>ponte</strong>: unire questa colonna alle adiacenti scavalcando un gap più alto dei montanti singoli.
                   </p>
 
                   <label class="field" v-if="effectiveOptions(column.index).length > 0">
@@ -1227,7 +1235,7 @@ function stepActive(index: number): boolean {
                         :value="option.allowed ? option.heightMm : null"
                         :disabled="!option.allowed"
                       >
-                          {{ option.heightMm }}mm{{ option.allowed ? '' : ` - ${option.reasonCode || 'NON_CONSENTITA'}` }}
+                          {{ option.heightMm }}mm{{ option.kind === 'bridge' ? ' · ponte' : '' }}{{ option.allowed ? '' : ` - ${option.reasonCode || 'NON_CONSENTITA'}` }}
                       </option>
                     </select>
                   </label>
@@ -1743,6 +1751,14 @@ function stepActive(index: number): boolean {
 .blocked-reasons {
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.bridge-hint {
+  color: var(--color-primary, #4f46e5);
+  background: color-mix(in srgb, var(--color-primary, #4f46e5) 6%, transparent);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 8px;
+  line-height: 1.4;
 }
 
 .intelligente-banner {
