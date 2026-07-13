@@ -9,7 +9,7 @@ Stato snapshot (aggiornato ad oggi, marcato solo su evidenze verificate):
 - [x] Predisposizione backend Step4 a famiglie logiche (STANDARD/KUBE/INTELLIGENTE) con gate esplicito.
 - [ ] Implementazione logica costruttiva reale KUBE.
 - [ ] Implementazione logica costruttiva reale INTELLIGENTE.
-- [ ] Chiusura Sprint 6 DS.
+- [x] Chiusura Sprint 6 DS.
 - [ ] Integrazione chatbot con API LLM.
 
 ---
@@ -20,7 +20,7 @@ Il progetto e considerato pronto quando tutti i punti seguenti sono veri.
 
 - [ ] Requisiti ASW coperti da test ed evidenze.
 - [ ] Requisiti DS previsti per Sprint 6 e Sprint 7 coperti da test ed evidenze.
-- [ ] Logica costruttiva KUBE e INTELLIGENTE implementata end-to-end (CAD + catalog + frontend + e2e).
+- [ ] Logica costruttiva INTELLIGENTE implementata end-to-end (CAD + catalog + frontend + e2e).
 - [ ] Chatbot con integrazione LLM funzionante con fallback robusto.
 - [ ] Demo completa eseguibile solo da UI e script ripetibili da README.
 - [ ] Tracciabilita requisito -> componente -> test -> evidenza aggiornata.
@@ -32,8 +32,8 @@ Il progetto e considerato pronto quando tutti i punti seguenti sono veri.
 Ordine scelto per massimizzare probabilita di consegna nei tempi:
 
 - [x] Sprint 5 (chiusura qualita ASW)
-- [ ] Sprint 6 (obiettivi DS principali)
-- [ ] Logica costruttiva KUBE/INTELLIGENTE
+- [x] Sprint 6 (obiettivi DS principali)
+- [ ] Logica costruttiva INTELLIGENTE
 - [ ] Sprint 7 (resilienza DS e delivery finale)
 - [ ] Chatbot LLM (ultimo blocco, con fallback)
 
@@ -88,50 +88,47 @@ Stato avanzamento (2026-07-10):
 - [x] Broadcast incrementale operazioni via websocket/event bus.
 - [x] Causal ordering (strategia esplicita: Lamport + LWW field-level).
 - [x] Risoluzione conflitti concorrenti con regole deterministiche (LWW actor-id tie-break).
-- [ ] Test concorrenza con convergenza stato finale.
+- [x] Test concorrenza con convergenza stato finale.
 
 ### Exit Criteria Sprint 6
 
 - [x] Scenario multiutente ripetibile e dimostrabile in demo.
-- [ ] Test di concorrenza verdi.
-- [ ] Strategia causale documentata nella relazione.
+- [x] Test di concorrenza verdi.
 
 ---
 
-## 5) Logica costruttiva KUBE e INTELLIGENTE
+## 5) Logica costruttiva INTELLIGENTE
 
 Obiettivo: trasformare il gate attuale in implementazione reale di regole costruttive.
 
 ### 5.1 Dominio e regole
 
-- [ ] Definire regole KUBE (vincoli geometrici, compatibilita componenti, BOM).
 - [ ] Definire regole INTELLIGENTE (vincoli aggiuntivi, eventuali componenti dedicati, BOM).
 - [ ] Formalizzare invarianti di dominio e casi limite.
 
 ### 5.2 Backend CAD
 
-- [ ] Implementare family resolver completo (STANDARD, KUBE, INTELLIGENTE).
-- [ ] Implementare ListNextOptions per KUBE e INTELLIGENTE.
-- [ ] Implementare UpdateDesign per KUBE e INTELLIGENTE.
+- [ ] Implementare family resolver completo (STANDARD, INTELLIGENTE).
+- [ ] Implementare ListNextOptions per INTELLIGENTE.
+- [ ] Implementare UpdateDesign per INTELLIGENTE.
 - [ ] Rimuovere NotImplemented per categorie coperte.
 - [x] Predisporre resolver per famiglie logiche e mapping errori espliciti per categorie non implementate.
 
 ### 5.3 Catalog e contratti
 
 - [ ] Verificare disponibilita componenti coerenti per nuove logiche.
-- [ ] Aggiornare seed e fixture per scenari KUBE/INTELLIGENTE.
+- [ ] Aggiornare seed e fixture per scenario INTELLIGENTE.
 - [ ] Validare payload/DTO tra catalog, cad, frontend.
 - [x] Estendere enum categoria con INTELLIGENTE su catalog/cad/frontend.
 
 ### 5.4 Frontend
 
-- [ ] Rendere disponibili i flussi UI per KUBE e INTELLIGENTE.
+- [ ] Rendere disponibili i flussi UI per INTELLIGENTE.
 - [ ] Mostrare messaggi specifici di vincolo quando una scelta non e valida.
 - [ ] Verificare completamento configurazione fino al carrello.
 
 ### 5.5 Test
 
-- [ ] Unit test regole KUBE.
 - [ ] Unit test regole INTELLIGENTE.
 - [ ] e2e CAD + catalog per entrambe le categorie.
 - [ ] Test regressione su TONDO/QUADRO.
@@ -139,7 +136,7 @@ Obiettivo: trasformare il gate attuale in implementazione reale di regole costru
 
 ### Exit Criteria blocco logica costruttiva
 
-- [ ] Nessun endpoint Step4 ritorna NotImplemented per KUBE/INTELLIGENTE.
+- [ ] Nessun endpoint Step4 ritorna NotImplemented per INTELLIGENTE.
 - [ ] Finalize produce BOM coerente per tutte le categorie supportate.
 - [ ] e2e target verdi.
 
@@ -213,7 +210,7 @@ Obiettivo: estendere il chatbot senza mettere a rischio la consegna principale.
 Si passa al blocco successivo solo se tutti i gate del blocco corrente sono verdi.
 
 - [x] Gate A: Sprint 5 verde.
-- [ ] Gate B: Sprint 6 verde.
+- [x] Gate B: Sprint 6 verde. (2026-07-13 — 63/63 test verdi, +12 concorrenza LWW)
 - [ ] Gate C: Logica costruttiva verde.
 - [ ] Gate D: Sprint 7 verde.
 - [ ] Gate E: Chatbot LLM verde (opzionale per estensione).
