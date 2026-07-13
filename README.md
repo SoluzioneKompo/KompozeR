@@ -62,6 +62,7 @@ npm run dev:frontend
 
 - Gateway: `http://localhost:3000/health`
 - Frontend: `http://localhost:5173`
+- **Osservabilità (Grafana + Loki):** `http://localhost:3010` — visualizza log aggregati di tutti i servizi (pre-configurato, accesso anonimo)
 
 Per spegnere tutto:
 
@@ -92,9 +93,24 @@ Oppure baseline completa:
 npm run test:baseline
 ```
 
+## Osservabilità e Log Aggregation
+
+Lo stack include **Grafana** + **Loki** + **Promtail** per centralizzare i log di tutti i servizi in tempo reale.
+
+**Come usare:**
+1. Alla startup di `docker compose up`, Loki raccoglie i log via Promtail (no configurazione richiesta).
+2. Accedi a **Grafana**: `http://localhost:3010` (accesso anonimo già abilitato).
+3. Vai in **Explore** > seleziona datasource **Loki** > scrivi query:
+   - `{service="auth-service"}` — solo auth service
+   - `{service=~"auth-service|catalog-service"}` — più servizi
+   - `{service="auth-service"} |= "error"` — solo errori nel service
+
+Vedi [observability/README.md](observability/README.md) per dettagli su query e troubleshooting.
+
 ## Struttura Repository
 
 - `kompozer/`: codice applicativo (frontend, backend, e2e, compose, script workspace)
+  - `observability/`: config Loki/Promtail/Grafana
 - `ReportASW/`: relazione ASW in LaTeX
 - `ReportDS/`: relazione DS in LaTeX
 - `utilities/`: artefatti di analisi e documentazione tecnica
