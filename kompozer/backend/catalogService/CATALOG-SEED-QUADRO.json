@@ -1,0 +1,599 @@
+{
+  "components": [
+    {
+      "sku": "QUADRO-SKU-PIEDINO-50",
+      "name": "Piedino Quadro 50mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "PIEDINO",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 50,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-PIEDINO-80",
+      "name": "Piedino Quadro 80mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "PIEDINO",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 80,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-PIEDINO-140",
+      "name": "Piedino Quadro140mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "PIEDINO",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 140,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-PIEDINO-180",
+      "name": "Piedino Quadro 180mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "PIEDINO",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 180,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-PIEDINO-240",
+      "name": "Piedino Quadro 240mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "PIEDINO",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 240,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-PIEDINO-300",
+      "name": "Piedino Quadro 300mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "PIEDINO",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 300,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-PIEDINO-380",
+      "name": "Piedino Quadro 380mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "PIEDINO",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 380,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-PIEDINO-500",
+      "name": "Piedino Quadro 500mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "PIEDINO",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 500,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-MONTANTE-80",
+      "name": "Montante Quadro 80mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "MONTANTE",
+      "price": 400,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 80,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+   {
+      "sku": "QUADRO-SKU-MONTANTE-140",
+      "name": "Montante Quadro 140mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "MONTANTE",
+      "price": 400,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 140,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-MONTANTE-180",
+      "name": "Montante Quadro 180mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "MONTANTE",
+      "price": 400,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 180,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-MONTANTE-240",
+      "name": "Montante Quadro 240mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "MONTANTE",
+      "price": 400,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 240,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-MONTANTE-300",
+      "name": "Montante Quadro 300mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "MONTANTE",
+      "price": 400,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 300,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-MONTANTE-380",
+      "name": "Montante Quadro 380mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "MONTANTE",
+      "price": 400,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 380,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-MONTANTE-500",
+      "name": "Montante Quadro 500mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "MONTANTE",
+      "price": 400,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 500,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-RIPIANO-200x200",
+      "name": "Ripiano Quadro 200x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO",
+      "price": 500,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 200,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-RIPIANO-250x200",
+      "name": "Ripiano Quadro 250x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO",
+      "price": 500,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 250,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-RIPIANO-300x200",
+      "name": "Ripiano Quadro 300x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO",
+      "price": 500,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 300,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-RIPIANO-400x200",
+      "name": "Ripiano Quadro 400x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO",
+      "price": 600,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 400,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-RIPIANO-500x200",
+      "name": "Ripiano Quadro 500x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO",
+      "price": 700,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 500,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-RIPIANO-600x200",
+      "name": "Ripiano Quadro 600x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO",
+      "price": 800,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 600,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-RIPIANO-700x200",
+      "name": "Ripiano Quadro 700x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO",
+      "price": 900,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 700,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-RIPIANO-800x200",
+      "name": "Ripiano Quadro 800x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO",
+      "price": 1000,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 800,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-RIPIANO-900x200",
+      "name": "Ripiano Quadro 900x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO",
+      "price": 1100,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 900,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-RIPIANO-1000x200",
+      "name": "Ripiano Quadro 1000x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO",
+      "price": 1200,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 1000,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-TERMINALE-50",
+      "name": "Terminale Quadro 50mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "TERMINALE",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 50,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-TERMINALE-80",
+      "name": "Terminale Quadro 80mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "TERMINALE",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 80,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-TERMINALE-140",
+      "name": "Terminale Quadro 140mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "TERMINALE",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 140,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-TERMINALE-180",
+      "name": "Terminale Quadro 180mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "TERMINALE",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 180,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-TERMINALE-240",
+      "name": "Terminale Quadro 240mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "TERMINALE",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 240,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-TERMINALE-300",
+      "name": "Terminale Quadro 300mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "TERMINALE",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 300,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-TERMINALE-380",
+      "name": "Terminale Quadro 380mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "TERMINALE",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 380,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-TERMINALE-500",
+      "name": "Terminale Quadro 500mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "TERMINALE",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 500,
+        "depthMm": 0
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    }
+  ]
+}
+

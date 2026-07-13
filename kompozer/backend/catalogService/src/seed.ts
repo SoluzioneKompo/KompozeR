@@ -30,7 +30,12 @@ type SeedFile = {
 };
 
 const MONGO_URI = process.env['CATALOG_MONGO_URI'] ?? process.env['MONGO_URI'] ?? 'mongodb://localhost:27017/kompozer-catalog';
-const SEED_PATH = path.resolve(__dirname, '..', 'CATALOG-SEED.json');
+const SEED_DIR = path.resolve(__dirname, '..');
+const SEED_FILE_NAMES = [
+  'CATALOG-SEED-TONDO.json',
+  'CATALOG-SEED-QUADRO.json',
+  'CATALOG-SEED-INTELLIGENTE.json',
+];
 const CATEGORY_TOKENS = Object.values(ComponentCategory) as string[];
 const CONNECT_RETRIES = Number(process.env['SEED_CONNECT_RETRIES'] ?? 20);
 const CONNECT_RETRY_DELAY_MS = Number(process.env['SEED_CONNECT_RETRY_DELAY_MS'] ?? 2000);
@@ -95,14 +100,17 @@ function validateComponent(input: SeedComponent): SeedComponent {
 }
 
 function readSeedFile(): SeedComponent[] {
-  const raw = fs.readFileSync(SEED_PATH, 'utf-8');
-  const parsed = JSON.parse(raw) as SeedFile;
-
-  if (!parsed || !Array.isArray(parsed.components)) {
-    throw new Error('[seed] CATALOG-SEED.json deve contenere un array components');
+  const allComponents: SeedComponent[] = [];
+  for (const fileName of SEED_FILE_NAMES) {
+    const filePath = path.join(SEED_DIR, fileName);
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const parsed = JSON.parse(raw) as SeedFile;
+    if (!parsed || !Array.isArray(parsed.components)) {
+      throw new Error(`[seed] ${fileName} deve contenere un array components`);
+    }
+    allComponents.push(...parsed.components);
   }
-
-  return parsed.components;
+  return allComponents;
 }
 
 function expandCompatibleWith(

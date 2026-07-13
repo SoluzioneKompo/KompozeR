@@ -46,6 +46,8 @@ export class HttpCatalogRulesProvider implements CatalogRulesProvider {
     }
 
     const shelfByWidthMm = new Map<number, CatalogComponentRule>();
+    const bordoByWidthMm = new Map<number, CatalogComponentRule>();
+    const intermezzoByWidthMm = new Map<number, CatalogComponentRule>();
     const uprightByHeightMm = new Map<number, CatalogComponentRule>();
     const footByHeightMm = new Map<number, CatalogComponentRule>();
     const terminalHeightsMm: number[] = [];
@@ -67,9 +69,9 @@ export class HttpCatalogRulesProvider implements CatalogRulesProvider {
         continue;
       }
 
-      // RIPIANO needs physical width/depth. Vertical parts can use 0 for width/depth
-      // in our catalog seed and must not be dropped from rules extraction.
-      if ((type === 'RIPIANO' || type === 'MENSOLA') && (widthMm <= 0 || depthMm <= 0)) {
+      // RIPIANO, RIPIANO_BORDO, RIPIANO_INTERMEDIO and MENSOLA need physical width/depth.
+      // Vertical parts can use 0 for width/depth in our catalog seed.
+      if ((type === 'RIPIANO' || type === 'MENSOLA' || type === 'RIPIANO_BORDO' || type === 'RIPIANO_INTERMEDIO') && (widthMm <= 0 || depthMm <= 0)) {
         continue;
       }
 
@@ -89,6 +91,12 @@ export class HttpCatalogRulesProvider implements CatalogRulesProvider {
 
       if (type === 'RIPIANO') {
         shelfByWidthMm.set(widthMm, rule);
+      }
+      if (type === 'RIPIANO_BORDO') {
+        bordoByWidthMm.set(widthMm, rule);
+      }
+      if (type === 'RIPIANO_INTERMEDIO') {
+        intermezzoByWidthMm.set(widthMm, rule);
       }
       if (type === 'TERMINALE') {
         terminalHeightsMm.push(heightMm);
@@ -110,6 +118,8 @@ export class HttpCatalogRulesProvider implements CatalogRulesProvider {
 
     return {
       shelfByWidthMm,
+      bordoByWidthMm,
+      intermezzoByWidthMm,
       uprightByHeightMm,
       footByHeightMm,
       terminalHeightsMm: uniqueSorted(terminalHeightsMm),
@@ -126,7 +136,9 @@ export class HttpCatalogRulesProvider implements CatalogRulesProvider {
       type === 'MONTANTE' ||
       type === 'RIPIANO' ||
       type === 'TERMINALE' ||
-      type === 'MENSOLA'
+      type === 'MENSOLA' ||
+      type === 'RIPIANO_BORDO' ||
+      type === 'RIPIANO_INTERMEDIO'
     ) {
       return type;
     }

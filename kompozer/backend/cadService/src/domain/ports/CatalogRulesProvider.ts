@@ -1,6 +1,6 @@
 import { Category } from '../entities/Category';
 
-export type CatalogComponentType = 'PIEDINO' | 'MONTANTE' | 'RIPIANO' | 'TERMINALE' | 'MENSOLA';
+export type CatalogComponentType = 'PIEDINO' | 'MONTANTE' | 'RIPIANO' | 'TERMINALE' | 'MENSOLA' | 'RIPIANO_BORDO' | 'RIPIANO_INTERMEDIO';
 
 export interface CatalogComponentRule {
   type: CatalogComponentType;
@@ -14,6 +14,10 @@ export interface CatalogComponentRule {
 
 export interface CatalogRules {
   shelfByWidthMm: Map<number, CatalogComponentRule>;
+  /** Outer-column shelf keyed by widthMm (INTELLIGENTE) */
+  bordoByWidthMm: Map<number, CatalogComponentRule>;
+  /** Inner-column shelf keyed by widthMm (INTELLIGENTE) */
+  intermezzoByWidthMm: Map<number, CatalogComponentRule>;
   /** Smallest upright whose heightMm >= requested gap; keyed by exact heightMm */
   uprightByHeightMm: Map<number, CatalogComponentRule>;
   /** Foot rule keyed by exact heightMm */

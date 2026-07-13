@@ -107,6 +107,8 @@ export class FakeCatalogRulesProvider implements CatalogRulesProvider {
   async getRules(): Promise<CatalogRules> {
     return {
       shelfByWidthMm: new Map(this.rules.shelfByWidthMm),
+      bordoByWidthMm: new Map(this.rules.bordoByWidthMm),
+      intermezzoByWidthMm: new Map(this.rules.intermezzoByWidthMm),
       uprightByHeightMm: new Map(this.rules.uprightByHeightMm),
       footByHeightMm: new Map(this.rules.footByHeightMm),
       terminalHeightsMm: [...this.rules.terminalHeightsMm],
@@ -161,6 +163,8 @@ export function buildCatalogRules(overrides: Partial<CatalogRules> = {}): Catalo
 
   const base: CatalogRules = {
     shelfByWidthMm: shelfMap,
+    bordoByWidthMm: new Map(),
+    intermezzoByWidthMm: new Map(),
     uprightByHeightMm: uprightMap,
     footByHeightMm: footMap,
     terminalHeightsMm: [40],
@@ -171,13 +175,15 @@ export function buildCatalogRules(overrides: Partial<CatalogRules> = {}): Catalo
   };
 
   return {
-    shelfByWidthMm:   overrides.shelfByWidthMm   ? new Map(overrides.shelfByWidthMm)   : base.shelfByWidthMm,
-    uprightByHeightMm: overrides.uprightByHeightMm ? new Map(overrides.uprightByHeightMm) : base.uprightByHeightMm,
-    footByHeightMm:    overrides.footByHeightMm    ? new Map(overrides.footByHeightMm)    : base.footByHeightMm,
-    terminalHeightsMm: overrides.terminalHeightsMm ?? base.terminalHeightsMm,
-    footHeightsMm:     overrides.footHeightsMm     ?? base.footHeightsMm,
-    uprightHeightsMm:  overrides.uprightHeightsMm  ?? base.uprightHeightsMm,
-    defaultFoot:       overrides.defaultFoot       ?? base.defaultFoot,
-    defaultTerminal:   overrides.defaultTerminal   ?? base.defaultTerminal,
+    shelfByWidthMm:      overrides.shelfByWidthMm      ? new Map(overrides.shelfByWidthMm)      : base.shelfByWidthMm,
+    bordoByWidthMm:      overrides.bordoByWidthMm      ? new Map(overrides.bordoByWidthMm)      : base.bordoByWidthMm,
+    intermezzoByWidthMm: overrides.intermezzoByWidthMm ? new Map(overrides.intermezzoByWidthMm) : base.intermezzoByWidthMm,
+    uprightByHeightMm:   overrides.uprightByHeightMm   ? new Map(overrides.uprightByHeightMm)   : base.uprightByHeightMm,
+    footByHeightMm:      overrides.footByHeightMm      ? new Map(overrides.footByHeightMm)      : base.footByHeightMm,
+    terminalHeightsMm:   overrides.terminalHeightsMm   ?? base.terminalHeightsMm,
+    footHeightsMm:       overrides.footHeightsMm       ?? base.footHeightsMm,
+    uprightHeightsMm:    overrides.uprightHeightsMm    ?? base.uprightHeightsMm,
+    defaultFoot:         overrides.defaultFoot         ?? base.defaultFoot,
+    defaultTerminal:     overrides.defaultTerminal     ?? base.defaultTerminal,
   };
 }
