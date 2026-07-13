@@ -48,6 +48,10 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
   }
 
   const sortedColumns = [...columnPlan.columns].sort((a, b) => a.index - b.index);
+  const outerIndices = new Set<number>([
+    sortedColumns[0]?.index ?? -1,
+    sortedColumns[sortedColumns.length - 1]?.index ?? -1,
+  ]);
 
   for (const column of sortedColumns) {
     const design = columnDesigns.find((item) => item.columnIndex === column.index);
@@ -55,14 +59,26 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
       continue;
     }
 
-    const shelfRule = rules.shelfByWidthMm.get(column.shelfWidthMm);
-    if (!shelfRule) {
-      throw new ValidationError(
-        `No catalog shelf found for widthMm=${column.shelfWidthMm} in column ${column.index}`,
-      );
+    if (category === 'INTELLIGENTE') {
+      const isOuter = outerIndices.has(column.index);
+      const shelfRule = isOuter
+        ? rules.bordoByWidthMm.get(column.shelfWidthMm)
+        : rules.intermezzoByWidthMm.get(column.shelfWidthMm);
+      if (!shelfRule) {
+        throw new ValidationError(
+          `No catalog ${isOuter ? 'BORDO' : 'INTERMEZZO'} shelf found for widthMm=${column.shelfWidthMm} in column ${column.index}`,
+        );
+      }
+      add(shelfRule.sku, shelfRule.name, design.levelsMm.length, shelfRule.priceCents, isOuter ? 'RIPIANO_BORDO' : 'RIPIANO_INTERMEDIO');
+    } else {
+      const shelfRule = rules.shelfByWidthMm.get(column.shelfWidthMm);
+      if (!shelfRule) {
+        throw new ValidationError(
+          `No catalog shelf found for widthMm=${column.shelfWidthMm} in column ${column.index}`,
+        );
+      }
+      add(shelfRule.sku, shelfRule.name, design.levelsMm.length, shelfRule.priceCents, 'RIPIANO');
     }
-
-    add(shelfRule.sku, shelfRule.name, design.levelsMm.length, shelfRule.priceCents, 'RIPIANO');
   }
 
   if (!rules.defaultFoot) {

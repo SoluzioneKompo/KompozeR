@@ -16,6 +16,7 @@ import {
   resolveFirstLevelHeightsMm,
   SHELF_THICKNESS_MM,
   validateColumnDesigns,
+  validateSpine,
 } from '../../domain/services/SpineModel';
 import { assertStep4LogicImplemented } from '../../domain/services/Step4LogicResolver';
 import { canAccessConfiguration } from '../access';
@@ -94,11 +95,13 @@ export class UpdateDesign {
         throw new ValidationError('columnDesign references an unknown column index');
       }
 
-      const shelfRule = rules.shelfByWidthMm.get(columnPlanItem.shelfWidthMm);
-      if (!shelfRule) {
-        throw new ValidationError(
-          `No shelf rule found for width ${columnPlanItem.shelfWidthMm} in category ${configuration.category}`,
-        );
+      if (configuration.category !== 'INTELLIGENTE') {
+        const shelfRule = rules.shelfByWidthMm.get(columnPlanItem.shelfWidthMm);
+        if (!shelfRule) {
+          throw new ValidationError(
+            `No shelf rule found for width ${columnPlanItem.shelfWidthMm} in category ${configuration.category}`,
+          );
+        }
       }
 
       if (design.shelfThicknessMm !== SHELF_THICKNESS_MM) {
@@ -114,11 +117,43 @@ export class UpdateDesign {
     }
 
     const sortedColumns = [...configuration.columnPlan.columns].sort((left, right) => left.index - right.index);
-    const validation = validateColumnDesigns(
-      sortedColumns.map((column) => ({
-        levelsMm: byIndex.get(column.index)?.levelsMm ?? [],
-      })),
-      {
+
+    if (configuration.category === 'INTELLIGENTE') {
+      const outerIndicesIntelligente = new Set<number>([
+        sortedColumns[0].index,
+        sortedColumns[sortedColumns.length - 1].index,
+      ]);
+      for (const col of sortedColumns) {
+        const isOuter = outerIndicesIntelligente.has(col.index);
+        const shelfMap = isOuter ? rules.bordoByWidthMm : rules.intermezzoByWidthMm;
+        if (!shelfMap.get(col.shelfWidthMm)) {
+          throw new ValidationError(
+            `No ${isOuter ? 'BORDO' : 'INTERMEZZO'} shelf rule found for width ${col.shelfWidthMm}mm in INTELLIGENTE`,
+          );
+        }
+      }
+      const designsWithLevels = sortedColumns
+        .map((col) => byIndex.get(col.index))
+        .filter((d): d is ColumnDesign => d != null && d.levelsMm.length > 0);
+      if (designsWithLevels.length >= 2) {
+        const referenceLevels = designsWithLevels[0].levelsMm;
+        for (const design of designsWithLevels.slice(1)) {
+          if (design.levelsMm.length !== referenceLevels.length) {
+            throw new ValidationError(
+              `INTELLIGENTE: column ${design.columnIndex} has ${design.levelsMm.length} levels but column ${designsWithLevels[0].columnIndex} has ${referenceLevels.length} — all columns must be aligned`,
+            );
+          }
+          for (let i = 0; i < referenceLevels.length; i++) {
+            if (design.levelsMm[i] !== referenceLevels[i]) {
+              throw new ValidationError(
+                `INTELLIGENTE: column ${design.columnIndex} level[${i}]=${design.levelsMm[i]}mm does not match reference level[${i}]=${referenceLevels[i]}mm`,
+              );
+            }
+          }
+        }
+      }
+      // INTELLIGENTE: validate each column independently (no shared-spine adjacency check)
+      const spineRulesIntelligente = {
         footHeightsMm: resolveFirstLevelHeightsMm({
           footHeightsMm: rules.footHeightsMm,
           uprightHeightsMm: rules.uprightHeightsMm,
@@ -126,14 +161,41 @@ export class UpdateDesign {
         uprightHeightsMm: rules.uprightHeightsMm,
         terminalHeightsMm: rules.terminalHeightsMm,
         maxHeightMm: configuration.environment.maxHeightMm,
-      },
-    );
-    if (!validation.valid) {
-      throw new ValidationError(
-        validation.reason
-          ? `spine ${validation.spineIndex} is invalid: ${validation.reason}`
-          : `spine ${validation.spineIndex} is invalid`,
+      };
+      for (const col of sortedColumns) {
+        const levelsMm = byIndex.get(col.index)?.levelsMm ?? [];
+        if (levelsMm.length === 0) continue;
+        const spineValidation = validateSpine(levelsMm, spineRulesIntelligente);
+        if (!spineValidation.valid) {
+          throw new ValidationError(
+            spineValidation.reason
+              ? `column ${col.index} is invalid: ${spineValidation.reason}`
+              : `column ${col.index} is invalid`,
+          );
+        }
+      }
+    } else {
+      const validation = validateColumnDesigns(
+        sortedColumns.map((column) => ({
+          levelsMm: byIndex.get(column.index)?.levelsMm ?? [],
+        })),
+        {
+          footHeightsMm: resolveFirstLevelHeightsMm({
+            footHeightsMm: rules.footHeightsMm,
+            uprightHeightsMm: rules.uprightHeightsMm,
+          }),
+          uprightHeightsMm: rules.uprightHeightsMm,
+          terminalHeightsMm: rules.terminalHeightsMm,
+          maxHeightMm: configuration.environment.maxHeightMm,
+        },
       );
+      if (!validation.valid) {
+        throw new ValidationError(
+          validation.reason
+            ? `spine ${validation.spineIndex} is invalid: ${validation.reason}`
+            : `spine ${validation.spineIndex} is invalid`,
+        );
+      }
     }
 
     const updated: Configuration = {

@@ -8,7 +8,7 @@ Stato snapshot (aggiornato ad oggi, marcato solo su evidenze verificate):
 - [x] Test e2e mirati INTELLIGENTE (catalog + cad) verdi dopo rebuild container.
 - [x] Predisposizione backend Step4 a famiglie logiche (STANDARD/KUBE/INTELLIGENTE) con gate esplicito.
 - [ ] Implementazione logica costruttiva reale KUBE.
-- [ ] Implementazione logica costruttiva reale INTELLIGENTE.
+- [x] Implementazione logica costruttiva reale INTELLIGENTE.
 - [x] Chiusura Sprint 6 DS.
 - [ ] Integrazione chatbot con API LLM.
 
@@ -103,42 +103,42 @@ Obiettivo: trasformare il gate attuale in implementazione reale di regole costru
 
 ### 5.1 Dominio e regole
 
-- [ ] Definire regole INTELLIGENTE (vincoli aggiuntivi, eventuali componenti dedicati, BOM).
+- [x] Definire regole INTELLIGENTE (vincoli aggiuntivi, eventuali componenti dedicati, BOM).
 - [ ] Formalizzare invarianti di dominio e casi limite.
 
 ### 5.2 Backend CAD
 
-- [ ] Implementare family resolver completo (STANDARD, INTELLIGENTE).
-- [ ] Implementare ListNextOptions per INTELLIGENTE.
-- [ ] Implementare UpdateDesign per INTELLIGENTE.
-- [ ] Rimuovere NotImplemented per categorie coperte.
+- [x] Implementare family resolver completo (STANDARD, INTELLIGENTE).
+- [x] Implementare ListNextOptions per INTELLIGENTE.
+- [x] Implementare UpdateDesign per INTELLIGENTE.
+- [x] Rimuovere NotImplemented per categorie coperte.
 - [x] Predisporre resolver per famiglie logiche e mapping errori espliciti per categorie non implementate.
 
 ### 5.3 Catalog e contratti
 
 - [ ] Verificare disponibilita componenti coerenti per nuove logiche.
-- [ ] Aggiornare seed e fixture per scenario INTELLIGENTE.
+- [x] Aggiornare seed e fixture per scenario INTELLIGENTE.
 - [ ] Validare payload/DTO tra catalog, cad, frontend.
 - [x] Estendere enum categoria con INTELLIGENTE su catalog/cad/frontend.
 
 ### 5.4 Frontend
 
-- [ ] Rendere disponibili i flussi UI per INTELLIGENTE.
-- [ ] Mostrare messaggi specifici di vincolo quando una scelta non e valida.
-- [ ] Verificare completamento configurazione fino al carrello.
+- [x] Rendere disponibili i flussi UI per INTELLIGENTE.
+- [x] Mostrare messaggi specifici di vincolo quando una scelta non e valida.
+- [x] Verificare completamento configurazione fino al carrello.
 
 ### 5.5 Test
 
-- [ ] Unit test regole INTELLIGENTE.
-- [ ] e2e CAD + catalog per entrambe le categorie.
-- [ ] Test regressione su TONDO/QUADRO.
+- [x] Unit test regole INTELLIGENTE.
+- [x] e2e CAD + catalog per entrambe le categorie.
+- [x] Test regressione su TONDO/QUADRO.
 - [x] e2e mirati INTELLIGENTE (catalog create/filter + cad next-options con errore previsto) verdi.
 
 ### Exit Criteria blocco logica costruttiva
 
-- [ ] Nessun endpoint Step4 ritorna NotImplemented per INTELLIGENTE.
-- [ ] Finalize produce BOM coerente per tutte le categorie supportate.
-- [ ] e2e target verdi.
+- [x] Nessun endpoint Step4 ritorna NotImplemented per INTELLIGENTE.
+- [x] Finalize produce BOM coerente per tutte le categorie supportate.
+- [x] e2e target verdi.
 
 ---
 
@@ -211,6 +211,6 @@ Si passa al blocco successivo solo se tutti i gate del blocco corrente sono verd
 
 - [x] Gate A: Sprint 5 verde.
 - [x] Gate B: Sprint 6 verde. (2026-07-13 — 63/63 test verdi, +12 concorrenza LWW)
-- [ ] Gate C: Logica costruttiva verde.
+- [x] Gate C: Logica costruttiva verde. (2026-07-13 — INTELLIGENTE end-to-end: catalog + cadService + frontend + e2e)
 - [ ] Gate D: Sprint 7 verde.
 - [ ] Gate E: Chatbot LLM verde (opzionale per estensione).

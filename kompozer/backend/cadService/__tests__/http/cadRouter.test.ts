@@ -416,7 +416,7 @@ describe('cadRouter', () => {
     expect(res.body.error.code).toBe('CATEGORY_LOGIC_NOT_IMPLEMENTED');
   });
 
-  it('GET /cad/configurations/:id/next-options -> 501 for INTELLIGENTE (logic not implemented yet)', async () => {
+  it('GET /cad/configurations/:id/next-options -> 422 for INTELLIGENTE (BORDO shelf not in fake catalog)', async () => {
     const app = buildApp({
       configurationRepository: new FakeConfigurationRepository(),
       catalogRulesProvider: new FakeCatalogRulesProvider(),
@@ -456,8 +456,8 @@ describe('cadRouter', () => {
       .get(`/cad/configurations/${created.body.id}/next-options?columnIndex=0`)
       .set('x-user-id', 'usr_1');
 
-    expect(res.status).toBe(501);
-    expect(res.body.error.code).toBe('CATEGORY_LOGIC_NOT_IMPLEMENTED');
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
   it('POST /cad/configurations/:id/collab/sessions -> 201 and join by code from another user', async () => {

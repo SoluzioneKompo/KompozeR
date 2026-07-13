@@ -36,6 +36,7 @@ const {
   setNextOptions,
   addTopShelf,
   removeTopShelf,
+  updateDesign,
   createConfiguration,
   createName,
   finalizeSelected,
@@ -465,7 +466,10 @@ const orderedColumns = computed(() => {
 const availableShelfWidths = computed(() =>
   uniqueSortedNumeric(
     categoryCatalogItems.value
-      .filter((item) => normalizedType(item) === 'RIPIANO')
+      .filter((item) => {
+        const t = normalizedType(item);
+        return t === 'RIPIANO' || t === 'RIPIANO_BORDO' || t === 'RIPIANO_INTERMEDIO';
+      })
       .map((item) => Number(item.dimensions?.widthMm))
       .filter((value) => Number.isFinite(value) && value > 0),
   ),
@@ -506,6 +510,33 @@ const designByColumn = computed(() => {
 });
 
 const gridMaxHeight = computed(() => Math.max(environmentDraft.value.maxHeightMm || 1, 1));
+
+/** True when the selected configuration uses INTELLIGENTE logic. */
+const isIntelligente = computed(() => selected.value?.category === 'INTELLIGENTE');
+
+/**
+ * Maps each column index to its INTELLIGENTE role:
+ * outer columns (first and last) are BORDO; inner ones are INTERMEZZO.
+ */
+const columnRoles = computed((): Map<number, 'BORDO' | 'INTERMEZZO'> => {
+  const plan = selected.value?.columnPlan;
+  if (!plan || !isIntelligente.value) return new Map();
+  const sorted = plan.columns.slice().sort((a, b) => a.index - b.index);
+  const result = new Map<number, 'BORDO' | 'INTERMEZZO'>();
+  sorted.forEach((col, i) => {
+    result.set(col.index, (i === 0 || i === sorted.length - 1) ? 'BORDO' : 'INTERMEZZO');
+  });
+  return result;
+});
+
+/** True when all INTELLIGENTE columns share identical levelsMm (alignment satisfied). */
+const columnsAligned = computed((): boolean => {
+  if (!isIntelligente.value || !selected.value) return true;
+  const designs = selected.value.columnDesigns;
+  if (designs.length < 2) return true;
+  const ref = [...designs[0].levelsMm].sort((a, b) => a - b).join(',');
+  return designs.every((d) => [...d.levelsMm].sort((a, b) => a - b).join(',') === ref);
+});
 
 const canvasColumns = computed(() => {
   return orderedColumns.value.map((column) => {
@@ -595,6 +626,10 @@ function formatComponentTypeLabel(componentType?: string): string {
   switch (componentType) {
     case 'RIPIANO':
       return 'Ripiano';
+    case 'RIPIANO_BORDO':
+      return 'Ripiano Bordo';
+    case 'RIPIANO_INTERMEDIO':
+      return 'Ripiano Intermezzo';
     case 'PIEDINO':
       return 'Piedino';
     case 'MONTANTE':
@@ -857,11 +892,34 @@ async function addShelf(columnIndex: number): Promise<void> {
     ...selectedGapByColumn.value,
     [columnIndex]: gap,
   };
-  await addTopShelf(columnIndex, gap, shelfThicknessDraft.value);
-  if (selected.value) {
-    await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
+
+  if (isIntelligente.value) {
+    // INTELLIGENTE: add the same gap to ALL columns simultaneously
+    const allDesigns = (selected.value.columnPlan?.columns ?? []).map((col) => {
+      const existing = selected.value!.columnDesigns.find((d) => d.columnIndex === col.index)
+        ?? { columnIndex: col.index, levelsMm: [], shelfThicknessMm: SHELF_THICKNESS_MM };
+      const lastLevel = existing.levelsMm.length > 0 ? existing.levelsMm[existing.levelsMm.length - 1] : 0;
+      const nextLevel = existing.levelsMm.length === 0
+        ? gap
+        : lastLevel + SHELF_THICKNESS_MM + gap;
+      return {
+        ...existing,
+        shelfThicknessMm: SHELF_THICKNESS_MM,
+        levelsMm: [...existing.levelsMm, nextLevel].sort((a, b) => a - b),
+      };
+    });
+    await updateDesign(allDesigns);
+    if (selected.value) {
+      await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
+    }
+    await refreshAllNextOptions();
+  } else {
+    await addTopShelf(columnIndex, gap, shelfThicknessDraft.value);
+    if (selected.value) {
+      await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
+    }
+    await refreshOptionsAround(columnIndex);
   }
-  await refreshOptionsAround(columnIndex);
 }
 
 /** Removes top shelf from a column and refreshes dependent options. */
@@ -871,11 +929,30 @@ async function removeShelf(columnIndex: number): Promise<void> {
   }
 
   const baseVersion = selected.value.version;
-  await removeTopShelf(columnIndex, shelfThicknessDraft.value);
-  if (selected.value) {
-    await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
+
+  if (isIntelligente.value) {
+    // INTELLIGENTE: remove top shelf from ALL columns simultaneously
+    const allDesigns = (selected.value.columnPlan?.columns ?? []).map((col) => {
+      const existing = selected.value!.columnDesigns.find((d) => d.columnIndex === col.index)
+        ?? { columnIndex: col.index, levelsMm: [], shelfThicknessMm: SHELF_THICKNESS_MM };
+      return {
+        ...existing,
+        shelfThicknessMm: SHELF_THICKNESS_MM,
+        levelsMm: existing.levelsMm.slice(0, -1),
+      };
+    });
+    await updateDesign(allDesigns);
+    if (selected.value) {
+      await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
+    }
+    await refreshAllNextOptions();
+  } else {
+    await removeTopShelf(columnIndex, shelfThicknessDraft.value);
+    if (selected.value) {
+      await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
+    }
+    await refreshOptionsAround(columnIndex);
   }
-  await refreshOptionsAround(columnIndex);
 }
 
 /** Reloads currently selected configuration detail from backend source. */
@@ -1112,11 +1189,23 @@ function stepActive(index: number): boolean {
               <h3>Step 4 - Costruzione livelli (+ / -)</h3>
               <p class="mini muted">Spessore ripiano fisso: {{ shelfThicknessDraft }} mm</p>
 
+              <div v-if="isIntelligente" class="intelligente-banner" role="note">
+                <strong>Modalità INTELLIGENTE</strong> — “+ Livello” aggiunge lo stesso ripiano a <em>tutte</em> le colonne simultaneamente. Le colonne esterne usano ripiani <strong>BORDO</strong>, quelle interne <strong>INTERMEZZO</strong>.
+                <span v-if="!columnsAligned" class="alignment-warning" role="alert">
+                  ⚠️ Livelli non allineati tra colonne. Completa il design su tutte le colonne prima di finalizzare.
+                </span>
+              </div>
+
               <div class="design-columns">
                 <article v-for="column in canvasColumns" :key="`design-col-${column.index}`" class="design-column">
                   <header>
                     <strong>Colonna {{ column.index + 1 }}</strong>
                     <span>{{ column.shelfWidthMm }}mm</span>
+                    <span
+                      v-if="isIntelligente"
+                      class="role-badge"
+                      :class="columnRoles.get(column.index) === 'BORDO' ? 'role-badge--bordo' : 'role-badge--intermezzo'"
+                    >{{ columnRoles.get(column.index) ?? '' }}</span>
                   </header>
 
                   <p class="mini muted">Livelli correnti: {{ column.levels.join(', ') || 'nessuno' }}</p>
@@ -1218,7 +1307,7 @@ function stepActive(index: number): boolean {
                   <span>{{ column.levels[idx] }}mm</span>
                 </div>
               </div>
-              <div class="canvas-column__x">C{{ column.index + 1 }} · {{ column.shelfWidthMm }}mm</div>
+              <div class="canvas-column__x">C{{ column.index + 1 }} · {{ column.shelfWidthMm }}mm<span v-if="isIntelligente" class="canvas-role-label"> ({{ columnRoles.get(column.index) ?? '' }})</span></div>
               </article>
             </div>
           </div>
@@ -1654,6 +1743,48 @@ function stepActive(index: number): boolean {
 .blocked-reasons {
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.intelligente-banner {
+  background: color-mix(in srgb, var(--color-primary, #4f46e5) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary, #4f46e5) 30%, transparent);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.alignment-warning {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-warning, #b45309);
+  font-weight: 600;
+}
+
+.role-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.role-badge--bordo {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.role-badge--intermezzo {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.canvas-role-label {
+  font-size: 0.7rem;
+  opacity: 0.75;
 }
 
 .bom-list {

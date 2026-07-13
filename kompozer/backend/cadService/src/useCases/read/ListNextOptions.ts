@@ -6,8 +6,10 @@ import {
 import { CatalogRules, CatalogRulesProvider } from '../../domain/ports/CatalogRulesProvider';
 import { ConfigurationRepository } from '../../domain/ports/ConfigurationRepository';
 import {
+  computeNextLevelMm,
   resolveFirstLevelHeightsMm,
   validateColumnCandidate,
+  validateSpine,
 } from '../../domain/services/SpineModel';
 import { assertStep4LogicImplemented } from '../../domain/services/Step4LogicResolver';
 import {
@@ -81,7 +83,20 @@ export class ListNextOptions {
     }
 
     const rules = await this.catalogRulesProvider.getRules(configuration.category);
-    if (!rules.shelfByWidthMm.get(planColumn.shelfWidthMm)) {
+    if (configuration.category === 'INTELLIGENTE') {
+      const sortedColumnPlanIndices = [...columnPlan.columns]
+        .sort((a, b) => a.index - b.index)
+        .map((c) => c.index);
+      const isOuterColumn =
+        input.columnIndex === sortedColumnPlanIndices[0] ||
+        input.columnIndex === sortedColumnPlanIndices[sortedColumnPlanIndices.length - 1];
+      const shelfMap = isOuterColumn ? rules.bordoByWidthMm : rules.intermezzoByWidthMm;
+      if (!shelfMap.get(planColumn.shelfWidthMm)) {
+        throw new ValidationError(
+          `No ${isOuterColumn ? 'BORDO' : 'INTERMEZZO'} shelf rule found for width ${planColumn.shelfWidthMm} in INTELLIGENTE`,
+        );
+      }
+    } else if (!rules.shelfByWidthMm.get(planColumn.shelfWidthMm)) {
       throw new ValidationError(
         `No shelf rule found for width ${planColumn.shelfWidthMm} in category ${configuration.category}`,
       );
@@ -112,6 +127,13 @@ export class ListNextOptions {
 
     // Evaluate each candidate independently and explain exactly why it is blocked.
     // This enables the UI to present a "disabled with reason" dropdown.
+    const spineRules = {
+      footHeightsMm: firstLevelHeightsMm,
+      uprightHeightsMm: rules.uprightHeightsMm,
+      terminalHeightsMm: rules.terminalHeightsMm,
+      maxHeightMm: environment.maxHeightMm,
+    };
+
     const options: NextOptionDto[] = candidates.map((heightMm) => {
       if (heightMm <= 0 || !Number.isFinite(heightMm)) {
         return {
@@ -122,18 +144,17 @@ export class ListNextOptions {
         };
       }
 
-      const validation = validateColumnCandidate(
-        columnLevels,
-        [...columnPlan.columns].sort((left, right) => left.index - right.index)
-          .findIndex((column) => column.index === input.columnIndex),
-        heightMm,
-        {
-          footHeightsMm: firstLevelHeightsMm,
-          uprightHeightsMm: rules.uprightHeightsMm,
-          terminalHeightsMm: rules.terminalHeightsMm,
-          maxHeightMm: environment.maxHeightMm,
-        },
-      );
+      let validation;
+      if (configuration.category === 'INTELLIGENTE') {
+        // INTELLIGENTE: no shared-spine adjacency — validate target column alone
+        const nextLevelMm = computeNextLevelMm({ existingLevelsMm: levels, candidateHeightMm: heightMm });
+        validation = validateSpine([...levels, nextLevelMm], spineRules);
+      } else {
+        const columnIndexInPlan = [...columnPlan.columns]
+          .sort((left, right) => left.index - right.index)
+          .findIndex((column) => column.index === input.columnIndex);
+        validation = validateColumnCandidate(columnLevels, columnIndexInPlan, heightMm, spineRules);
+      }
 
       if (!validation.valid) {
         return {

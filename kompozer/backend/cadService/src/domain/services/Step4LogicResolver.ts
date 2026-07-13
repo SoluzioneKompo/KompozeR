@@ -21,7 +21,7 @@ export function resolveStep4LogicFamily(category: Category): Step4LogicFamily {
  */
 export function assertStep4LogicImplemented(category: Category): void {
   const logicFamily = resolveStep4LogicFamily(category);
-  if (logicFamily !== 'STANDARD') {
+  if (logicFamily !== 'STANDARD' && logicFamily !== 'INTELLIGENTE') {
     throw new CategoryLogicNotImplementedError(category);
   }
 }
