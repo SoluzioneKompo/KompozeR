@@ -4,5 +4,5 @@
     "rootDir": ".",
     "noEmit": true
   },
-  "include": ["src/**/*", "__tests__/**/*", "../shared/types/test-shims.d.ts"]
+  "include": ["src/**/*", "__tests__/**/*"]
 }

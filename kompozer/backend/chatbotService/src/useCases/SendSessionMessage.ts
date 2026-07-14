@@ -7,8 +7,9 @@ import {
   SessionNotFoundError,
   ValidationError,
 } from '../domain/entities/errors';
-import { CadConfigurationProvider } from '../domain/ports/CadConfigurationProvider';
-import { CatalogQaProvider } from '../domain/ports/CatalogQaProvider';
+import { AnswerGenerator } from '../domain/ports/AnswerGenerator';
+import { CadConfigurationProvider, CadConfigurationSnapshot } from '../domain/ports/CadConfigurationProvider';
+import { CatalogQaItem, CatalogQaProvider } from '../domain/ports/CatalogQaProvider';
 import { ChatRepository } from '../domain/ports/ChatRepository';
 import { ChatMessageDto, toMessageDto } from './types';
 
@@ -31,6 +32,7 @@ export class SendSessionMessage {
     private readonly repo: ChatRepository,
     private readonly catalog: CatalogQaProvider,
     private readonly cad?: CadConfigurationProvider,
+    private readonly answerGenerator?: AnswerGenerator,
   ) {}
 
   async execute(input: SendSessionMessageInput): Promise<SendSessionMessageOutput> {
@@ -110,6 +112,28 @@ export class SendSessionMessage {
       throw new CatalogLookupError('Unable to retrieve catalog data for chatbot response');
     }
 
+    const top = items.slice(0, 10);
+
+    if (this.answerGenerator) {
+      try {
+        return await this.answerGenerator.generate({
+          question: normalized,
+          items: top,
+          configuration: configurationContext,
+        });
+      } catch {
+        // Fall back to the deterministic template answer below.
+      }
+    }
+
+    return this.buildTemplateAnswer(top, configurationContext);
+  }
+
+  /** Deterministic answer used when no LLM is configured or the LLM fails. */
+  private buildTemplateAnswer(
+    items: CatalogQaItem[],
+    configurationContext: CadConfigurationSnapshot | null,
+  ): string {
     const contextPrefix = configurationContext
       ? `Contesto configurazione attiva: categoria ${configurationContext.category ?? 'N/D'}, stato ${configurationContext.status}, colonne ${configurationContext.columnCount}, componenti ${configurationContext.componentCount}.`
       : '';
@@ -118,8 +142,7 @@ export class SendSessionMessage {
       return `${contextPrefix}${contextPrefix ? '\n' : ''}Non trovo componenti corrispondenti alla tua domanda nel catalogo corrente.`;
     }
 
-    const top = items.slice(0, 3);
-    const lines = top.map((item) => {
+    const lines = items.map((item) => {
       const availability = item.isAvailable ? 'disponibile' : 'non disponibile';
       const euro = (item.price / 100).toFixed(2).replace('.', ',');
       return `- ${item.name} (${item.sku}): ${euro} EUR, ${availability}`;

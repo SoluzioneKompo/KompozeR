@@ -14,10 +14,17 @@ const MONGO_URI =
 const CATALOG_BASE_URL = process.env['CATALOG_BASE_URL'] ?? 'http://catalog-service:3002';
 /** Base URL for CAD configuration lookups. */
 const CAD_BASE_URL = process.env['CAD_SERVICE_URL'] ?? 'http://cad-service:3003';
+/** Mistral LLM credentials/configuration (optional: falls back to template answers). */
+const MISTRAL_API_KEY = process.env['MISTRAL_API_KEY'];
+const MISTRAL_MODEL = process.env['MISTRAL_MODEL'];
+const MISTRAL_BASE_URL = process.env['MISTRAL_BASE_URL'];
 
 const { app, deps } = buildApp({
   catalogBaseUrl: CATALOG_BASE_URL,
   cadBaseUrl: CAD_BASE_URL,
+  mistralApiKey: MISTRAL_API_KEY,
+  mistralModel: MISTRAL_MODEL,
+  mistralBaseUrl: MISTRAL_BASE_URL,
 });
 
 const httpServer = createServer(app);

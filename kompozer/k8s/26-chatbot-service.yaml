@@ -29,6 +29,13 @@ spec:
               value: "mongodb://root:$(MONGO_PASSWORD)@mongo-chat:27017/chatbotdb?authSource=admin"
             - name: CATALOG_BASE_URL
               value: "http://catalog-service:3002"
+            - name: MISTRAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mistralApiKey
+            - name: MISTRAL_MODEL
+              value: "mistral-small-latest"
           ports:
             - containerPort: 3006
           resources:

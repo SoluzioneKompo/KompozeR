@@ -26,7 +26,7 @@ export class HttpCatalogQaProvider implements CatalogQaProvider {
 
   async search(query: string): Promise<CatalogQaItem[]> {
     const encoded = encodeURIComponent(query);
-    const url = new URL(`/catalog?search=${encoded}&limit=5`, this.catalogBaseUrl);
+    const url = new URL(`/catalog?search=${encoded}&limit=10`, this.catalogBaseUrl);
 
     const payload = await this.getJson<CatalogListResponse>(url);
     const items = payload.items ?? [];

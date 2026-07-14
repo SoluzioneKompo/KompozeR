@@ -110,7 +110,7 @@ Vedi [observability/README.md](observability/README.md) per dettagli su query e 
 ## Struttura Repository
 
 - `kompozer/`: codice applicativo (frontend, backend, e2e, compose, script workspace)
-  - `observability/`: config Loki/Promtail/Grafana
+- `observability/`: config Loki/Promtail/Grafana
 - `ReportASW/`: relazione ASW in LaTeX
 - `ReportDS/`: relazione DS in LaTeX
 - `utilities/`: artefatti di analisi e documentazione tecnica

@@ -4,6 +4,7 @@ import { HttpCadConfigurationProvider } from './adapters/httpClient/HttpCadConfi
 import { buildChatbotRouter } from './adapters/http/chatbotRouter';
 import { errorMiddleware } from './adapters/http/errorMiddleware';
 import { HttpCatalogQaProvider } from './adapters/httpClient/HttpCatalogQaProvider';
+import { MistralAnswerGenerator } from './adapters/httpClient/MistralAnswerGenerator';
 import { MongoChatRepository } from './adapters/persistence/MongoChatRepository';
 import { CloseSession } from './useCases/CloseSession';
 import { CreateSession } from './useCases/CreateSession';
@@ -15,6 +16,9 @@ import { SendSessionMessage } from './useCases/SendSessionMessage';
 export interface ChatbotAppConfig {
   catalogBaseUrl?: string;
   cadBaseUrl?: string;
+  mistralApiKey?: string;
+  mistralModel?: string;
+  mistralBaseUrl?: string;
 }
 
 /** Builds the Express app and its use-case wiring for the chatbot service. */
@@ -23,11 +27,19 @@ export function buildApp(config: ChatbotAppConfig = {}) {
   const catalog = new HttpCatalogQaProvider(config.catalogBaseUrl ?? 'http://catalog-service:3002');
   const cad = new HttpCadConfigurationProvider(config.cadBaseUrl ?? 'http://cad-service:3003');
 
+  const answerGenerator = config.mistralApiKey?.trim()
+    ? new MistralAnswerGenerator({
+        apiKey: config.mistralApiKey,
+        model: config.mistralModel,
+        baseUrl: config.mistralBaseUrl,
+      })
+    : undefined;
+
   const createSession = new CreateSession(repo);
   const getSession = new GetSession(repo);
   const listSessionMessages = new ListSessionMessages(repo);
   const closeSession = new CloseSession(repo);
-  const sendSessionMessage = new SendSessionMessage(repo, catalog, cad);
+  const sendSessionMessage = new SendSessionMessage(repo, catalog, cad, answerGenerator);
 
   const deps = {
     createSession,
