@@ -14,7 +14,7 @@ Stato snapshot (aggiornato 2026-07-14, marcato solo su evidenze verificate):
 - [x] Stack observability (Loki + Promtail + Grafana) integrato in docker-compose.dev.
 - [x] Checkpoint/recovery collaborativo + replay eventi su stable storage (Mongo caddb).
 - [x] mongo-cad Replica Set PSA con failover automatico e consistenza configurabile (CAD_WRITE_CONCERN/CAD_READ_CONCERN).
-- [x] Manifest Kubernetes/Minikube + guida operativa (kompozer/k8s: replica set CAD via StatefulSet, gateway NodePort, demo failover/recovery).
+- [x] Manifest Kubernetes/Minikube + guida operativa (kompozer/k8s: replica set CAD via StatefulSet, frontend nginx + reverse-proxy /api, stack observability Loki/Promtail/Grafana, gateway NodePort, demo failover/recovery).
 - [ ] Integrazione chatbot con API LLM. (SendSessionMessage ancora rule-based)
 
 ---
@@ -156,7 +156,7 @@ Obiettivo: fault tolerance, deployment e chiusura formale della consegna.
 - [x] Checkpoint periodico stato collaborativo. (Mongo caddb: collab_checkpoints + collab_events, interval CAD_CHECKPOINT_INTERVAL_MS default 10s)
 - [x] Recovery da checkpoint + replay eventi. (recoverSessions all'avvio cadService + resync client via cad:collab:resync)
 - [x] Replica DB/failover minimo dimostrabile. (mongo-cad Replica Set PSA cadrs: elezione nuovo primary allo stop + rientro nodo come secondary verificati)
-- [x] Manifest Kubernetes/Minikube e guida operativa. (kompozer/k8s: 00-30 + kustomization + README; replica set CAD via StatefulSet 3 membri PSS + Job rs.initiate)
+- [x] Manifest Kubernetes/Minikube e guida operativa. (kompozer/k8s: 00-42 + kustomization + README; replica set CAD StatefulSet 3 PSS + Job rs.initiate, frontend nginx SPA+proxy, observability Loki/Promtail DaemonSet/Grafana; cluster autosufficiente)
 - [x] Stack observability log-centric (Loki + Promtail + Grafana) su docker-compose.dev con datasource pre-provisioned.
 
 ### Exit Criteria Sprint 7

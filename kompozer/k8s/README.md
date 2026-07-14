@@ -16,10 +16,15 @@ della sessione collaborativa.
 | `12-mongo-cad-rs.yaml` | Replica set CAD (StatefulSet 3 membri PSS) + Job di init |
 | `20..27-*.yaml` | Microservizi backend |
 | `30-api-gateway.yaml` | API Gateway (NodePort 30000) |
+| `31-frontend.yaml` | Frontend SPA (nginx) + reverse-proxy `/api` (NodePort 30080) |
+| `40-observability-loki.yaml` | Loki (log storage) |
+| `41-observability-promtail.yaml` | Promtail DaemonSet (scrape log dei pod) + RBAC |
+| `42-observability-grafana.yaml` | Grafana (NodePort 30030) |
 | `kustomization.yaml` | Aggrega tutte le risorse |
 
-Il frontend non ha ancora un'immagine dedicata: eseguilo in locale con
-`npm --prefix frontend run dev` puntandolo all'URL del gateway (vedi sotto).
+Il frontend gira nel cluster come immagine nginx che serve la build statica e
+fa da reverse-proxy verso l'API Gateway su `/api` (incluso l'upgrade WebSocket
+per socket.io). È il punto d'ingresso principale dell'applicazione.
 
 ## Prerequisiti
 
@@ -32,27 +37,26 @@ minikube start --driver=docker --memory=6144 --cpus=4
 
 ## 1) Build delle immagini nel Docker di Minikube
 
-Le immagini vengono costruite direttamente nel demone Docker di Minikube
-(`imagePullPolicy: Never`), evitando un registry esterno.
-
-PowerShell (Windows):
+Le immagini vengono costruite direttamente nello store di Minikube
+(`imagePullPolicy: Never`), evitando un registry esterno. Il metodo più
+affidabile su Windows è `minikube image build` (non richiede `docker-env`):
 
 ```powershell
-& minikube -p minikube docker-env --shell powershell | Invoke-Expression
 cd kompozer
-docker build -t kompozer/auth-service:latest        ./backend/authenticationService
-docker build -t kompozer/catalog-service:latest     ./backend/catalogService
-docker build -t kompozer/cart-service:latest        ./backend/cartService
-docker build -t kompozer/order-service:latest       ./backend/orderService
-docker build -t kompozer/cad-service:latest         ./backend/cadService
-docker build -t kompozer/notification-service:latest ./backend/notificationService
-docker build -t kompozer/chatbot-service:latest     ./backend/chatbotService
-docker build -t kompozer/reporting-service:latest   ./backend/reportingService
-docker build -t kompozer/api-gateway:latest         ./backend/apiGateway
+minikube image build -t kompozer/auth-service:latest         ./backend/authenticationService
+minikube image build -t kompozer/catalog-service:latest      ./backend/catalogService
+minikube image build -t kompozer/cart-service:latest         ./backend/cartService
+minikube image build -t kompozer/order-service:latest        ./backend/orderService
+minikube image build -t kompozer/cad-service:latest          ./backend/cadService
+minikube image build -t kompozer/notification-service:latest ./backend/notificationService
+minikube image build -t kompozer/chatbot-service:latest      ./backend/chatbotService
+minikube image build -t kompozer/reporting-service:latest    ./backend/reportingService
+minikube image build -t kompozer/api-gateway:latest          ./backend/apiGateway
+minikube image build -t kompozer/frontend:latest             ./frontend
 ```
 
-Bash (Linux/macOS): sostituisci la prima riga con
-`eval $(minikube docker-env)` e lascia invariati i `docker build`.
+Le immagini di Loki, Promtail, Grafana, Redis e MongoDB vengono scaricate
+automaticamente dai registry pubblici al primo deploy.
 
 ## 2) Deploy
 
@@ -74,15 +78,17 @@ eletto: è atteso e si stabilizza da solo.
 
 ## 3) Accesso
 
+Applicazione completa (SPA + API + WebSocket) via il frontend:
+
 ```powershell
-minikube service api-gateway -n kompozer --url
+minikube service frontend -n kompozer --url
 ```
 
-Usa l'URL restituito come base API. Per il frontend locale:
+Altri endpoint utili:
 
 ```powershell
-# imposta VITE_API_BASE_URL sull'URL del gateway, poi:
-npm --prefix kompozer/frontend run dev
+minikube service api-gateway -n kompozer --url   # API dirette (debug)
+minikube service grafana -n kompozer --url       # Grafana (log Loki, Explore)
 ```
 
 ## 4) Demo DS — Failover del replica set CAD

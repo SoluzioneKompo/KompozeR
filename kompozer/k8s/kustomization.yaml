@@ -16,3 +16,7 @@ resources:
   - 26-chatbot-service.yaml
   - 27-reporting-service.yaml
   - 30-api-gateway.yaml
+  - 31-frontend.yaml
+  - 40-observability-loki.yaml
+  - 41-observability-promtail.yaml
+  - 42-observability-grafana.yaml
