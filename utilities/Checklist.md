@@ -158,13 +158,12 @@ Obiettivo: fault tolerance, deployment e chiusura formale della consegna.
 - [x] Replica DB/failover minimo dimostrabile. (mongo-cad Replica Set PSA cadrs: elezione nuovo primary allo stop + rientro nodo come secondary verificati)
 - [x] Manifest Kubernetes/Minikube e guida operativa. (kompozer/k8s: 00-30 + kustomization + README; replica set CAD via StatefulSet 3 membri PSS + Job rs.initiate)
 - [x] Stack observability log-centric (Loki + Promtail + Grafana) su docker-compose.dev con datasource pre-provisioned.
-- [ ] Rifinitura report finale e allineamento con demo.
 
 ### Exit Criteria Sprint 7
 
 - [x] Crash/restart con recupero consistente verificato. (unit test collabCheckpointRecovery: convergenza checkpoint+replay, troncamento, cleanup, scarto checkpoint scaduti)
 - [x] Failover testato almeno su scenario minimo. (Docker Compose: mongo-cad-1 stop -> mongo-cad-2 eletto PRIMARY, poi rientro come SECONDARY. Kubernetes/Minikube live: 19 pod Ready, replica set cadrs 1 PRIMARY + 2 SECONDARY; delete pod primary -> nuovo primary eletto con cad-service sempre disponibile; StatefulSet ricrea il pod che rientra e riacquisisce PRIMARY)
-- [x] Pacchetto consegna completo e ripetibile. (docker-compose dev/prod + manifest Kubernetes kompozer/k8s con guida operativa; resta solo la rifinitura del report finale)
+- [x] Pacchetto consegna completo e ripetibile. (docker-compose dev/prod + manifest Kubernetes kompozer/k8s con guida operativa, deploy live su Minikube validato)
 
 ---
 
@@ -218,5 +217,5 @@ Si passa al blocco successivo solo se tutti i gate del blocco corrente sono verd
 - [x] Gate A: Sprint 5 verde.
 - [x] Gate B: Sprint 6 verde. (2026-07-13 — 63/63 test verdi, +12 concorrenza LWW)
 - [x] Gate C: Logica costruttiva verde. (2026-07-13 — INTELLIGENTE end-to-end: catalog + cadService + frontend + e2e)
-- [~] Gate D: Sprint 7 — checkpoint/recovery + replica set/failover + manifest Kubernetes verdi (2026-07-14); deploy live su Minikube validato (19 pod Ready, failover CAD dimostrato). Resta solo la rifinitura del report finale.
+- [x] Gate D: Sprint 7 verde. (2026-07-14 — checkpoint/recovery + replica set/failover + manifest Kubernetes; deploy live su Minikube validato: 19 pod Ready, failover CAD dimostrato)
 - [ ] Gate E: Chatbot LLM verde (opzionale per estensione).
