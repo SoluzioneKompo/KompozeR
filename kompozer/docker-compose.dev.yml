@@ -79,23 +79,88 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  mongo-cad:
+  # ── CAD replica set (PSA: 2 data + 1 arbiter) ───────────────────────────────
+  # DS fault-tolerance: caddb is replicated to demonstrate automatic primary
+  # failover and an explicit, configurable consistency/availability trade-off
+  # (see cad-service CAD_WRITE_CONCERN / CAD_READ_CONCERN). Runs keyless to keep
+  # the local replica set simple; the pattern generalizes to a keyfile-secured
+  # deployment. NOTE (PSA caveat): with a data-bearing node down, w:"majority"
+  # writes block until it recovers — switch CAD_WRITE_CONCERN=1 to trade
+  # consistency for availability.
+  mongo-cad-1:
     image: mongo:7
+    command: ["mongod", "--replSet", "cadrs", "--bind_ip_all", "--port", "27017"]
     ports:
-      - "27020:27017"          # Compass: mongodb://root:changeme@localhost:27020/?authSource=admin
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: changeme
-      MONGO_INITDB_DATABASE: caddb
+      - "27020:27017"          # Compass: mongodb://localhost:27020/?replicaSet=cadrs
     volumes:
-      - mongo-cad-data:/data/db
+      - mongo-cad1-data:/data/db
     healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" mongodb://root:changeme@localhost:27017/admin -u root -p changeme | grep 1"]
+      test: ["CMD-SHELL", "mongosh --quiet --port 27017 --eval \"db.adminCommand('ping').ok\" | grep 1"]
       interval: 5s
       timeout: 3s
-      retries: 20
-      start_period: 10s
+      retries: 30
+      start_period: 5s
     restart: unless-stopped
+
+  mongo-cad-2:
+    image: mongo:7
+    command: ["mongod", "--replSet", "cadrs", "--bind_ip_all", "--port", "27017"]
+    ports:
+      - "27024:27017"          # Compass: mongodb://localhost:27024/?replicaSet=cadrs
+    volumes:
+      - mongo-cad2-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --port 27017 --eval \"db.adminCommand('ping').ok\" | grep 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+
+  mongo-cad-arb:
+    image: mongo:7
+    command: ["mongod", "--replSet", "cadrs", "--bind_ip_all", "--port", "27017"]
+    volumes:
+      - mongo-cadarb-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --port 27017 --eval \"db.adminCommand('ping').ok\" | grep 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+
+  # One-shot: initiates the replica set once every member responds to ping.
+  mongo-cad-init:
+    image: mongo:7
+    depends_on:
+      mongo-cad-1:
+        condition: service_healthy
+      mongo-cad-2:
+        condition: service_healthy
+      mongo-cad-arb:
+        condition: service_healthy
+    restart: "no"
+    entrypoint:
+      - bash
+      - -c
+      - |
+        mongosh --host mongo-cad-1:27017 --quiet --eval '
+          try {
+            rs.status();
+            print("replica set cadrs already initiated");
+          } catch (e) {
+            print("initiating replica set cadrs...");
+            rs.initiate({
+              _id: "cadrs",
+              members: [
+                { _id: 0, host: "mongo-cad-1:27017", priority: 2 },
+                { _id: 1, host: "mongo-cad-2:27017", priority: 1 },
+                { _id: 2, host: "mongo-cad-arb:27017", arbiterOnly: true }
+              ]
+            });
+          }
+        '
 
   mongo-notification:
     image: mongo:7
@@ -207,12 +272,17 @@ services:
     build: ./backend/cadService
     environment:
       PORT: "3003"
-      MONGO_URI: "mongodb://root:changeme@mongo-cad:27017/caddb?authSource=admin"
+      CAD_MONGO_URI: "mongodb://mongo-cad-1:27017,mongo-cad-2:27017/caddb?replicaSet=cadrs"
+      # Consistency/availability trade-off, explicit and configurable:
+      CAD_WRITE_CONCERN: "majority"
+      CAD_READ_CONCERN: "majority"
+      CAD_READ_PREFERENCE: "primaryPreferred"
+      CAD_CHECKPOINT_INTERVAL_MS: "10000"
       CATALOG_BASE_URL: "http://catalog-service:3002"
       CART_BASE_URL: "http://cart-service:3004"
     depends_on:
-      mongo-cad:
-        condition: service_healthy
+      mongo-cad-init:
+        condition: service_completed_successfully
       catalog-service:
         condition: service_started
       cart-service:
@@ -226,14 +296,14 @@ services:
       MONGO_URI: "mongodb://root:changeme@mongo-notification:27017/notificationdb?authSource=admin"
       REDIS_URL: "redis://redis:6379"
       CART_MONGO_URI: "mongodb://root:changeme@mongo-cart:27017/cartdb?authSource=admin"
-      CAD_MONGO_URI: "mongodb://root:changeme@mongo-cad:27017/caddb?authSource=admin"
+      CAD_MONGO_URI: "mongodb://mongo-cad-1:27017,mongo-cad-2:27017/caddb?replicaSet=cadrs"
     depends_on:
       mongo-notification:
         condition: service_healthy
       mongo-cart:
         condition: service_healthy
-      mongo-cad:
-        condition: service_healthy
+      mongo-cad-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     restart: unless-stopped
@@ -346,7 +416,9 @@ volumes:
   mongo-auth-data:
   mongo-catalog-data:
   mongo-cart-data:
-  mongo-cad-data:
+  mongo-cad1-data:
+  mongo-cad2-data:
+  mongo-cadarb-data:
   mongo-notification-data:
   mongo-chat-data:
   mongo-order-data:

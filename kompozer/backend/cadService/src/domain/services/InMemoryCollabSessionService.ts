@@ -14,6 +14,8 @@ import {
   SessionExpiredError,
   ValidationError,
 } from '../entities/errors';
+import { CollabCheckpoint, CollabCheckpointStore } from '../ports/CollabCheckpointStore';
+import { CollabEventLog } from '../ports/CollabEventLog';
 import { ConfigurationRepository } from '../ports/ConfigurationRepository';
 
 export type CollabFieldPath = 'name' | 'category' | 'environment' | 'columnPlan' | 'columnDesigns';
@@ -88,6 +90,15 @@ type SessionState = {
   expiresAtMs: number;
   appliedOpIds: Set<string>;
   fieldClocks: Map<CollabFieldPath, SessionFieldClock>;
+  lastEventSeq: number;
+};
+
+type MutationOperation = {
+  opId: string;
+  lamport: number;
+  fieldPath: CollabFieldPath;
+  value: unknown;
+  actorId: string;
 };
 
 const SUPPORTED_FIELD_PATHS: CollabFieldPath[] = [
@@ -116,6 +127,8 @@ export class InMemoryCollabSessionService {
     private readonly configurationRepository: ConfigurationRepository,
     private readonly ttlMs: number = 15 * 60 * 1000,
     private readonly now: () => number = () => Date.now(),
+    private readonly checkpointStore?: CollabCheckpointStore,
+    private readonly eventLog?: CollabEventLog,
   ) {}
 
   /**
@@ -172,9 +185,11 @@ export class InMemoryCollabSessionService {
       expiresAtMs: nowMs + this.ttlMs,
       appliedOpIds: new Set(),
       fieldClocks: new Map(),
+      lastEventSeq: 0,
     };
 
     this.sessions.set(sessionCode, state);
+    void this.persistCheckpoint(state);
     return this.toOutput(state);
   }
 
@@ -236,6 +251,7 @@ export class InMemoryCollabSessionService {
 
     if (session.participants.size === 0 || session.hostUserId === input.userId) {
       this.sessions.delete(session.sessionCode);
+      await this.cleanupPersistence(session.sessionCode);
       return;
     }
 
@@ -282,20 +298,23 @@ export class InMemoryCollabSessionService {
       };
     }
 
-    session.appliedOpIds.add(input.opId);
+    const mustApply = this.mutateFromOperation(session, {
+      opId: input.opId,
+      lamport: input.lamport,
+      fieldPath: input.fieldPath,
+      value: input.value,
+      actorId: input.userId,
+    });
 
-    const previousClock = session.fieldClocks.get(input.fieldPath);
-    const mustApply = this.shouldApply(previousClock, { lamport: input.lamport, actorId: input.userId });
-
-    if (mustApply) {
-      this.applyFieldMutation(session.snapshot, input.fieldPath, input.value);
-      this.applyStatusTransition(session.snapshot, input.fieldPath);
-      session.snapshot.version += 1;
-      session.snapshot.updatedAt = new Date(this.now());
-      validateConfigurationModel(session.snapshot);
-      session.fieldClocks.set(input.fieldPath, {
-        lamport: input.lamport,
+    if (mustApply && this.eventLog) {
+      session.lastEventSeq = await this.eventLog.append({
+        sessionCode: session.sessionCode,
+        opId: input.opId,
         actorId: input.userId,
+        lamport: input.lamport,
+        fieldPath: input.fieldPath,
+        value: input.value,
+        resultingVersion: session.snapshot.version,
       });
     }
 
@@ -310,6 +329,35 @@ export class InMemoryCollabSessionService {
     };
   }
 
+  /**
+   * Applies an accepted (non-duplicate) operation to the session snapshot using
+   * the Lamport + LWW field-level rule. Shared by live edits and crash replay so
+   * that recovered state is identical to pre-crash state.
+   */
+  private mutateFromOperation(session: SessionState, operation: MutationOperation): boolean {
+    session.appliedOpIds.add(operation.opId);
+
+    const previousClock = session.fieldClocks.get(operation.fieldPath);
+    const mustApply = this.shouldApply(previousClock, {
+      lamport: operation.lamport,
+      actorId: operation.actorId,
+    });
+
+    if (mustApply) {
+      this.applyFieldMutation(session.snapshot, operation.fieldPath, operation.value);
+      this.applyStatusTransition(session.snapshot, operation.fieldPath);
+      session.snapshot.version += 1;
+      session.snapshot.updatedAt = new Date(this.now());
+      validateConfigurationModel(session.snapshot);
+      session.fieldClocks.set(operation.fieldPath, {
+        lamport: operation.lamport,
+        actorId: operation.actorId,
+      });
+    }
+
+    return mustApply;
+  }
+
   /** Returns true when the given user is the owner of the specified session. */
   isOwner(sessionCode: string, userId: string): boolean {
     const session = this.sessions.get(sessionCode);
@@ -322,6 +370,7 @@ export class InMemoryCollabSessionService {
    */
   destroySession(sessionCode: string): void {
     this.sessions.delete(sessionCode);
+    void this.cleanupPersistence(sessionCode);
   }
 
   /** Returns all active session codes owned by the given user. */
@@ -334,6 +383,126 @@ export class InMemoryCollabSessionService {
       }
     }
     return codes;
+  }
+
+  /**
+   * Periodic checkpoint: persists every active session to stable storage and
+   * truncates the events already folded into each checkpoint snapshot.
+   */
+  async checkpointAllSessions(): Promise<void> {
+    if (!this.checkpointStore) {
+      return;
+    }
+    this.pruneExpiredSessions();
+    for (const session of this.sessions.values()) {
+      await this.persistCheckpoint(session);
+    }
+  }
+
+  /**
+   * Crash recovery: rebuilds in-memory sessions from the latest checkpoints and
+   * replays the events logged after each checkpoint. Expired sessions are
+   * discarded and their persisted state removed. Returns the recovered codes.
+   */
+  async recoverSessions(): Promise<string[]> {
+    if (!this.checkpointStore) {
+      return [];
+    }
+
+    const checkpoints = await this.checkpointStore.loadAllCheckpoints();
+    const recovered: string[] = [];
+    const nowMs = this.now();
+
+    for (const checkpoint of checkpoints) {
+      if (checkpoint.expiresAtMs <= nowMs) {
+        await this.cleanupPersistence(checkpoint.sessionCode);
+        continue;
+      }
+
+      const session = this.fromCheckpoint(checkpoint);
+
+      if (this.eventLog) {
+        const events = await this.eventLog.readSince(checkpoint.sessionCode, checkpoint.lastEventSeq);
+        for (const event of events) {
+          this.mutateFromOperation(session, {
+            opId: event.opId,
+            lamport: event.lamport,
+            fieldPath: event.fieldPath as CollabFieldPath,
+            value: event.value,
+            actorId: event.actorId,
+          });
+          session.lamport = Math.max(session.lamport, event.lamport + 1);
+          session.lastEventSeq = Math.max(session.lastEventSeq, event.seq);
+        }
+      }
+
+      this.sessions.set(session.sessionCode, session);
+      recovered.push(session.sessionCode);
+    }
+
+    return recovered;
+  }
+
+  private async persistCheckpoint(session: SessionState): Promise<void> {
+    if (!this.checkpointStore) {
+      return;
+    }
+    await this.checkpointStore.saveCheckpoint(this.toCheckpoint(session));
+    if (this.eventLog) {
+      await this.eventLog.truncateUpTo(session.sessionCode, session.lastEventSeq);
+    }
+  }
+
+  private async cleanupPersistence(sessionCode: string): Promise<void> {
+    if (this.checkpointStore) {
+      await this.checkpointStore.deleteCheckpoint(sessionCode);
+    }
+    if (this.eventLog) {
+      await this.eventLog.deleteForSession(sessionCode);
+    }
+  }
+
+  private toCheckpoint(session: SessionState): CollabCheckpoint {
+    return {
+      sessionCode: session.sessionCode,
+      configurationId: session.configurationId,
+      hostUserId: session.hostUserId,
+      participants: [...session.participants],
+      snapshot: this.cloneConfiguration(session.snapshot),
+      lamport: session.lamport,
+      expiresAtMs: session.expiresAtMs,
+      appliedOpIds: [...session.appliedOpIds],
+      fieldClocks: [...session.fieldClocks.entries()].map(([fieldPath, clock]) => ({
+        fieldPath,
+        lamport: clock.lamport,
+        actorId: clock.actorId,
+      })),
+      lastEventSeq: session.lastEventSeq,
+      checkpointedAt: new Date(this.now()),
+    };
+  }
+
+  private fromCheckpoint(checkpoint: CollabCheckpoint): SessionState {
+    const fieldClocks = new Map<CollabFieldPath, SessionFieldClock>();
+    for (const clock of checkpoint.fieldClocks) {
+      fieldClocks.set(clock.fieldPath as CollabFieldPath, {
+        lamport: clock.lamport,
+        actorId: clock.actorId,
+      });
+    }
+
+    return {
+      sessionCode: checkpoint.sessionCode,
+      configurationId: checkpoint.configurationId,
+      hostUserId: checkpoint.hostUserId,
+      participants: new Set(checkpoint.participants),
+      snapshot: this.cloneConfiguration(checkpoint.snapshot),
+      lamport: checkpoint.lamport,
+      expiresAtMs: checkpoint.expiresAtMs,
+      appliedOpIds: new Set(checkpoint.appliedOpIds),
+      fieldClocks,
+      lastEventSeq: checkpoint.lastEventSeq,
+    };
   }
 
   private shouldApply(previous: SessionFieldClock | undefined, incoming: SessionFieldClock): boolean {

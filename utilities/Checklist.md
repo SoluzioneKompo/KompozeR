@@ -2,15 +2,20 @@
 
 Obiettivo: chiudere il progetto in modo dimostrabile, con priorita su consegna esame e rischio tecnico sotto controllo.
 
-Stato snapshot (aggiornato ad oggi, marcato solo su evidenze verificate):
+Stato snapshot (aggiornato 2026-07-14, marcato solo su evidenze verificate):
 
 - [x] Allineamento categoria INTELLIGENTE tra servizi principali (catalog + cad + frontend).
 - [x] Test e2e mirati INTELLIGENTE (catalog + cad) verdi dopo rebuild container.
 - [x] Predisposizione backend Step4 a famiglie logiche (STANDARD/KUBE/INTELLIGENTE) con gate esplicito.
-- [ ] Implementazione logica costruttiva reale KUBE.
+- [ ] Implementazione logica costruttiva reale KUBE. (resolver lancia ancora CategoryLogicNotImplementedError)
 - [x] Implementazione logica costruttiva reale INTELLIGENTE.
-- [x] Chiusura Sprint 6 DS.
-- [ ] Integrazione chatbot con API LLM.
+- [x] Logica STANDARD estesa per consentire i bridge tra colonne.
+- [x] Chiusura Sprint 6 DS + hardening validazione sessioni collaborative.
+- [x] Stack observability (Loki + Promtail + Grafana) integrato in docker-compose.dev.
+- [x] Checkpoint/recovery collaborativo + replay eventi su stable storage (Mongo caddb).
+- [x] mongo-cad Replica Set PSA con failover automatico e consistenza configurabile (CAD_WRITE_CONCERN/CAD_READ_CONCERN).
+- [ ] Manifest Kubernetes/Minikube (rinviato per scelta: stop prima di Kubernetes).
+- [ ] Integrazione chatbot con API LLM. (SendSessionMessage ancora rule-based)
 
 ---
 
@@ -148,17 +153,18 @@ Obiettivo: fault tolerance, deployment e chiusura formale della consegna.
 
 ### Backlog Sprint 7
 
-- [ ] Checkpoint periodico stato collaborativo.
-- [ ] Recovery da checkpoint + replay eventi.
-- [ ] Replica DB/failover minimo dimostrabile.
-- [ ] Manifest Kubernetes/Minikube e guida operativa.
+- [x] Checkpoint periodico stato collaborativo. (Mongo caddb: collab_checkpoints + collab_events, interval CAD_CHECKPOINT_INTERVAL_MS default 10s)
+- [x] Recovery da checkpoint + replay eventi. (recoverSessions all'avvio cadService + resync client via cad:collab:resync)
+- [x] Replica DB/failover minimo dimostrabile. (mongo-cad Replica Set PSA cadrs: elezione nuovo primary allo stop + rientro nodo come secondary verificati)
+- [ ] Manifest Kubernetes/Minikube e guida operativa. (rinviato: stop prima di Kubernetes)
+- [x] Stack observability log-centric (Loki + Promtail + Grafana) su docker-compose.dev con datasource pre-provisioned.
 - [ ] Rifinitura report finale e allineamento con demo.
 
 ### Exit Criteria Sprint 7
 
-- [ ] Crash/restart con recupero consistente verificato.
-- [ ] Failover testato almeno su scenario minimo.
-- [ ] Pacchetto consegna completo e ripetibile.
+- [x] Crash/restart con recupero consistente verificato. (unit test collabCheckpointRecovery: convergenza checkpoint+replay, troncamento, cleanup, scarto checkpoint scaduti)
+- [x] Failover testato almeno su scenario minimo. (mongo-cad-1 stop -> mongo-cad-2 eletto PRIMARY, poi rientro come SECONDARY)
+- [ ] Pacchetto consegna completo e ripetibile. (mancano manifest Kubernetes e report finale)
 
 ---
 
@@ -212,5 +218,5 @@ Si passa al blocco successivo solo se tutti i gate del blocco corrente sono verd
 - [x] Gate A: Sprint 5 verde.
 - [x] Gate B: Sprint 6 verde. (2026-07-13 — 63/63 test verdi, +12 concorrenza LWW)
 - [x] Gate C: Logica costruttiva verde. (2026-07-13 — INTELLIGENTE end-to-end: catalog + cadService + frontend + e2e)
-- [ ] Gate D: Sprint 7 verde.
+- [~] Gate D: Sprint 7 — checkpoint/recovery + replica set/failover verdi (2026-07-14); resta solo Kubernetes/Minikube + report finale.
 - [ ] Gate E: Chatbot LLM verde (opzionale per estensione).

@@ -288,4 +288,12 @@ export class CollabSocketHub {
       });
     });
   }
+
+  /**
+   * Notifies participants of a recovered session that they must resynchronise
+   * (re-fetch the snapshot) after a server crash + checkpoint restore.
+   */
+  broadcastResync(sessionCode: string): void {
+    this.io.to(roomOf(sessionCode)).emit('cad:collab:resync', { sessionCode });
+  }
 }

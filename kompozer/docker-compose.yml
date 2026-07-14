@@ -13,13 +13,72 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       MONGO_INITDB_DATABASE: authdb
 
-  mongo-cad:
+  # CAD replica set (PSA: 2 data + 1 arbiter) — DS fault-tolerance / failover.
+  # Keyless to keep the replica set self-contained; consistency is configurable
+  # via cad-service env (CAD_WRITE_CONCERN / CAD_READ_CONCERN). PSA caveat: with
+  # a data node down, w:"majority" writes block — set CAD_WRITE_CONCERN=1 to
+  # trade consistency for availability.
+  mongo-cad-1:
     image: mongo:7
+    command: ["mongod", "--replSet", "cadrs", "--bind_ip_all", "--port", "27017"]
     ports: ["27020:27017"]
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
-      MONGO_INITDB_DATABASE: caddb
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --port 27017 --eval \"db.adminCommand('ping').ok\" | grep 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  mongo-cad-2:
+    image: mongo:7
+    command: ["mongod", "--replSet", "cadrs", "--bind_ip_all", "--port", "27017"]
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --port 27017 --eval \"db.adminCommand('ping').ok\" | grep 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  mongo-cad-arb:
+    image: mongo:7
+    command: ["mongod", "--replSet", "cadrs", "--bind_ip_all", "--port", "27017"]
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --port 27017 --eval \"db.adminCommand('ping').ok\" | grep 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  mongo-cad-init:
+    image: mongo:7
+    restart: "no"
+    depends_on:
+      mongo-cad-1:
+        condition: service_healthy
+      mongo-cad-2:
+        condition: service_healthy
+      mongo-cad-arb:
+        condition: service_healthy
+    entrypoint:
+      - bash
+      - -c
+      - |
+        mongosh --host mongo-cad-1:27017 --quiet --eval '
+          try {
+            rs.status();
+            print("replica set cadrs already initiated");
+          } catch (e) {
+            print("initiating replica set cadrs...");
+            rs.initiate({
+              _id: "cadrs",
+              members: [
+                { _id: 0, host: "mongo-cad-1:27017", priority: 2 },
+                { _id: 1, host: "mongo-cad-2:27017", priority: 1 },
+                { _id: 2, host: "mongo-cad-arb:27017", arbiterOnly: true }
+              ]
+            });
+          }
+        '
 
   mongo-cart:
     image: mongo:7
@@ -76,11 +135,21 @@ services:
     build: ./backend/cadService
     env_file: .env
     environment:
-      MONGO_URI: ${CAD_MONGO_URI}
+      CAD_MONGO_URI: "mongodb://mongo-cad-1:27017,mongo-cad-2:27017/caddb?replicaSet=cadrs"
+      CAD_WRITE_CONCERN: ${CAD_WRITE_CONCERN:-majority}
+      CAD_READ_CONCERN: ${CAD_READ_CONCERN:-majority}
+      CAD_READ_PREFERENCE: ${CAD_READ_PREFERENCE:-primaryPreferred}
+      CAD_CHECKPOINT_INTERVAL_MS: ${CAD_CHECKPOINT_INTERVAL_MS:-10000}
       PORT: ${CAD_PORT}
       CATALOG_BASE_URL: http://catalog-service:${CATALOG_PORT}
       CART_BASE_URL: http://cart-service:${CART_PORT}
-    depends_on: [mongo-cad, redis, catalog-service]
+    depends_on:
+      mongo-cad-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      catalog-service:
+        condition: service_started
 
   cart-service:
     build: ./backend/cartService
