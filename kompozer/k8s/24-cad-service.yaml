@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cad-service
+  namespace: kompozer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cad-service
+  template:
+    metadata:
+      labels:
+        app: cad-service
+    spec:
+      containers:
+        - name: cad-service
+          image: kompozer/cad-service:latest
+          imagePullPolicy: Never
+          env:
+            - name: PORT
+              value: "3003"
+            # Replica-set connection string (keyless). Seeds all 3 data members.
+            - name: CAD_MONGO_URI
+              value: "mongodb://mongo-cad-0.mongo-cad:27017,mongo-cad-1.mongo-cad:27017,mongo-cad-2.mongo-cad:27017/caddb?replicaSet=cadrs"
+            # Consistency/availability trade-off — explicit and configurable.
+            - name: CAD_WRITE_CONCERN
+              value: "majority"
+            - name: CAD_READ_CONCERN
+              value: "majority"
+            - name: CAD_READ_PREFERENCE
+              value: "primaryPreferred"
+            - name: CAD_CHECKPOINT_INTERVAL_MS
+              value: "10000"
+            - name: CATALOG_BASE_URL
+              value: "http://catalog-service:3002"
+            - name: CART_BASE_URL
+              value: "http://cart-service:3004"
+          ports:
+            - containerPort: 3003
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 12
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cad-service
+  namespace: kompozer
+spec:
+  selector:
+    app: cad-service
+  ports:
+    - port: 3003
+      targetPort: 3003

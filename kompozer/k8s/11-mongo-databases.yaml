@@ -1,0 +1,441 @@
+# Single-node MongoDB instances (one per bounded context).
+# The CAD database is separate — it runs as a replica set (see 12-mongo-cad-rs.yaml).
+# Each instance uses root auth from the shared secret and a 1Gi PVC.
+
+# ── mongo-auth (authdb) ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-auth-pvc
+  namespace: kompozer
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-auth
+  namespace: kompozer
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mongo-auth
+  template:
+    metadata:
+      labels:
+        app: mongo-auth
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7
+          args: ["--bind_ip_all"]
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mongoRootUser
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mongoRootPassword
+            - name: MONGO_INITDB_DATABASE
+              value: authdb
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          readinessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mongo-auth-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-auth
+  namespace: kompozer
+spec:
+  selector:
+    app: mongo-auth
+  ports:
+    - port: 27017
+      targetPort: 27017
+---
+# ── mongo-catalog (catalogdb) ────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-catalog-pvc
+  namespace: kompozer
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-catalog
+  namespace: kompozer
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mongo-catalog
+  template:
+    metadata:
+      labels:
+        app: mongo-catalog
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7
+          args: ["--bind_ip_all"]
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mongoRootUser
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mongoRootPassword
+            - name: MONGO_INITDB_DATABASE
+              value: catalogdb
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          readinessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mongo-catalog-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-catalog
+  namespace: kompozer
+spec:
+  selector:
+    app: mongo-catalog
+  ports:
+    - port: 27017
+      targetPort: 27017
+---
+# ── mongo-cart (cartdb) ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-cart-pvc
+  namespace: kompozer
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-cart
+  namespace: kompozer
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mongo-cart
+  template:
+    metadata:
+      labels:
+        app: mongo-cart
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7
+          args: ["--bind_ip_all"]
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mongoRootUser
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mongoRootPassword
+            - name: MONGO_INITDB_DATABASE
+              value: cartdb
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          readinessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mongo-cart-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-cart
+  namespace: kompozer
+spec:
+  selector:
+    app: mongo-cart
+  ports:
+    - port: 27017
+      targetPort: 27017
+---
+# ── mongo-notification (notificationdb) ──────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-notification-pvc
+  namespace: kompozer
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-notification
+  namespace: kompozer
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mongo-notification
+  template:
+    metadata:
+      labels:
+        app: mongo-notification
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7
+          args: ["--bind_ip_all"]
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mongoRootUser
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mongoRootPassword
+            - name: MONGO_INITDB_DATABASE
+              value: notificationdb
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          readinessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mongo-notification-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-notification
+  namespace: kompozer
+spec:
+  selector:
+    app: mongo-notification
+  ports:
+    - port: 27017
+      targetPort: 27017
+---
+# ── mongo-chat (chatbotdb) ───────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-chat-pvc
+  namespace: kompozer
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-chat
+  namespace: kompozer
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mongo-chat
+  template:
+    metadata:
+      labels:
+        app: mongo-chat
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7
+          args: ["--bind_ip_all"]
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mongoRootUser
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mongoRootPassword
+            - name: MONGO_INITDB_DATABASE
+              value: chatbotdb
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          readinessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mongo-chat-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-chat
+  namespace: kompozer
+spec:
+  selector:
+    app: mongo-chat
+  ports:
+    - port: 27017
+      targetPort: 27017
+---
+# ── mongo-order (orderdb) ────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-order-pvc
+  namespace: kompozer
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-order
+  namespace: kompozer
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mongo-order
+  template:
+    metadata:
+      labels:
+        app: mongo-order
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7
+          args: ["--bind_ip_all"]
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mongoRootUser
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mongoRootPassword
+            - name: MONGO_INITDB_DATABASE
+              value: orderdb
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          readinessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mongo-order-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-order
+  namespace: kompozer
+spec:
+  selector:
+    app: mongo-order
+  ports:
+    - port: 27017
+      targetPort: 27017

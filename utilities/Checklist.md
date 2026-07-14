@@ -14,7 +14,7 @@ Stato snapshot (aggiornato 2026-07-14, marcato solo su evidenze verificate):
 - [x] Stack observability (Loki + Promtail + Grafana) integrato in docker-compose.dev.
 - [x] Checkpoint/recovery collaborativo + replay eventi su stable storage (Mongo caddb).
 - [x] mongo-cad Replica Set PSA con failover automatico e consistenza configurabile (CAD_WRITE_CONCERN/CAD_READ_CONCERN).
-- [ ] Manifest Kubernetes/Minikube (rinviato per scelta: stop prima di Kubernetes).
+- [x] Manifest Kubernetes/Minikube + guida operativa (kompozer/k8s: replica set CAD via StatefulSet, gateway NodePort, demo failover/recovery).
 - [ ] Integrazione chatbot con API LLM. (SendSessionMessage ancora rule-based)
 
 ---
@@ -156,7 +156,7 @@ Obiettivo: fault tolerance, deployment e chiusura formale della consegna.
 - [x] Checkpoint periodico stato collaborativo. (Mongo caddb: collab_checkpoints + collab_events, interval CAD_CHECKPOINT_INTERVAL_MS default 10s)
 - [x] Recovery da checkpoint + replay eventi. (recoverSessions all'avvio cadService + resync client via cad:collab:resync)
 - [x] Replica DB/failover minimo dimostrabile. (mongo-cad Replica Set PSA cadrs: elezione nuovo primary allo stop + rientro nodo come secondary verificati)
-- [ ] Manifest Kubernetes/Minikube e guida operativa. (rinviato: stop prima di Kubernetes)
+- [x] Manifest Kubernetes/Minikube e guida operativa. (kompozer/k8s: 00-30 + kustomization + README; replica set CAD via StatefulSet 3 membri PSS + Job rs.initiate)
 - [x] Stack observability log-centric (Loki + Promtail + Grafana) su docker-compose.dev con datasource pre-provisioned.
 - [ ] Rifinitura report finale e allineamento con demo.
 
@@ -164,7 +164,7 @@ Obiettivo: fault tolerance, deployment e chiusura formale della consegna.
 
 - [x] Crash/restart con recupero consistente verificato. (unit test collabCheckpointRecovery: convergenza checkpoint+replay, troncamento, cleanup, scarto checkpoint scaduti)
 - [x] Failover testato almeno su scenario minimo. (mongo-cad-1 stop -> mongo-cad-2 eletto PRIMARY, poi rientro come SECONDARY)
-- [ ] Pacchetto consegna completo e ripetibile. (mancano manifest Kubernetes e report finale)
+- [x] Pacchetto consegna completo e ripetibile. (docker-compose dev/prod + manifest Kubernetes kompozer/k8s con guida operativa; resta solo la rifinitura del report finale)
 
 ---
 
@@ -218,5 +218,5 @@ Si passa al blocco successivo solo se tutti i gate del blocco corrente sono verd
 - [x] Gate A: Sprint 5 verde.
 - [x] Gate B: Sprint 6 verde. (2026-07-13 — 63/63 test verdi, +12 concorrenza LWW)
 - [x] Gate C: Logica costruttiva verde. (2026-07-13 — INTELLIGENTE end-to-end: catalog + cadService + frontend + e2e)
-- [~] Gate D: Sprint 7 — checkpoint/recovery + replica set/failover verdi (2026-07-14); resta solo Kubernetes/Minikube + report finale.
+- [~] Gate D: Sprint 7 — checkpoint/recovery + replica set/failover + manifest Kubernetes verdi (2026-07-14); resta solo la rifinitura del report finale.
 - [ ] Gate E: Chatbot LLM verde (opzionale per estensione).

@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart-service
+  namespace: kompozer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cart-service
+  template:
+    metadata:
+      labels:
+        app: cart-service
+    spec:
+      containers:
+        - name: cart-service
+          image: kompozer/cart-service:latest
+          imagePullPolicy: Never
+          env:
+            - name: PORT
+              value: "3004"
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mongoRootPassword
+            - name: MONGO_URI
+              value: "mongodb://root:$(MONGO_PASSWORD)@mongo-cart:27017/cartdb?authSource=admin"
+            - name: CATALOG_BASE_URL
+              value: "http://catalog-service:3002"
+            - name: ORDER_BASE_URL
+              value: "http://order-service:3008"
+          ports:
+            - containerPort: 3004
+          readinessProbe:
+            tcpSocket:
+              port: 3004
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cart-service
+  namespace: kompozer
+spec:
+  selector:
+    app: cart-service
+  ports:
+    - port: 3004
+      targetPort: 3004

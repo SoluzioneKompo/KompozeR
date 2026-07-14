@@ -1,0 +1,104 @@
+# CAD database as a MongoDB replica set (DS fault-tolerance requirement).
+# 3 data-bearing members (PSS) give automatic primary election on failure while
+# keeping w:"majority" available when a single member is down.
+# Stable pod DNS: mongo-cad-{0,1,2}.mongo-cad.kompozer.svc.cluster.local
+# Runs keyless to keep the replica set self-contained on Minikube.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-cad
+  namespace: kompozer
+  labels:
+    app: mongo-cad
+spec:
+  clusterIP: None          # headless: needed for stable per-pod DNS
+  selector:
+    app: mongo-cad
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: mongo
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongo-cad
+  namespace: kompozer
+spec:
+  serviceName: mongo-cad
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mongo-cad
+  template:
+    metadata:
+      labels:
+        app: mongo-cad
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: mongo
+          image: mongo:7
+          command: ["mongod", "--replSet", "cadrs", "--bind_ip_all", "--port", "27017"]
+          ports:
+            - containerPort: 27017
+              name: mongo
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          readinessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--port", "27017", "--eval", "db.adminCommand('ping').ok"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi
+---
+# One-shot initiator: waits for the primary-candidate pod, then rs.initiate
+# (idempotent). Retried by the Job controller until the members are reachable.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongo-cad-init
+  namespace: kompozer
+spec:
+  backoffLimit: 30
+  template:
+    metadata:
+      labels:
+        app: mongo-cad-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: mongo:7
+          command:
+            - bash
+            - -c
+            - |
+              echo "waiting for mongo-cad-0 to answer ping..."
+              until mongosh --host mongo-cad-0.mongo-cad:27017 --quiet --eval 'db.adminCommand("ping").ok' >/dev/null 2>&1; do
+                sleep 3
+              done
+              mongosh --host mongo-cad-0.mongo-cad:27017 --quiet --eval '
+                try {
+                  rs.status();
+                  print("replica set cadrs already initiated");
+                } catch (e) {
+                  print("initiating replica set cadrs...");
+                  rs.initiate({
+                    _id: "cadrs",
+                    members: [
+                      { _id: 0, host: "mongo-cad-0.mongo-cad:27017", priority: 2 },
+                      { _id: 1, host: "mongo-cad-1.mongo-cad:27017", priority: 1 },
+                      { _id: 2, host: "mongo-cad-2.mongo-cad:27017", priority: 1 }
+                    ]
+                  });
+                }'
