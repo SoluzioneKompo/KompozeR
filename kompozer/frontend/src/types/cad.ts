@@ -40,12 +40,20 @@ export interface BomItem {
   quantity: number;
   unitPrice?: number;
   unitPriceCents?: number;
-  componentType?: 'RIPIANO' | 'PIEDINO' | 'MONTANTE' | 'TERMINALE';
+  componentType?:
+    | 'RIPIANO'
+    | 'PIEDINO'
+    | 'MONTANTE'
+    | 'TERMINALE'
+    | 'MENSOLA'
+    | 'RIPIANO_BORDO'
+    | 'RIPIANO_INTERMEDIO';
 }
 
 export interface ConfigurationDto {
   id: string;
   ownerId: string;
+  collaborators?: string[];
   name: string;
   status: ConfigurationStatus;
   category: Category | null;

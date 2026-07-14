@@ -1,3 +1,4 @@
+import { AnswerGenerator } from '../../src/domain/ports/AnswerGenerator';
 import { SessionClosedError } from '../../src/domain/entities/errors';
 import { CreateSession } from '../../src/useCases/CreateSession';
 import { SendSessionMessage } from '../../src/useCases/SendSessionMessage';
@@ -59,5 +60,53 @@ describe('SendSessionMessage', () => {
         content: 'ciao',
       }),
     ).rejects.toBeInstanceOf(SessionClosedError);
+  });
+
+  it('uses the LLM answer when an answer generator is provided', async () => {
+    const repo = new FakeChatRepository();
+    const catalog = new FakeCatalogQaProvider();
+    catalog.setItems([
+      { id: 'cmp_1', sku: 'SKU-001', name: 'Ripiano 80', price: 1990, isAvailable: true },
+    ]);
+    const llm: AnswerGenerator = {
+      generate: async () => 'Risposta generata dall LLM',
+    };
+
+    const createSession = new CreateSession(repo);
+    const sendSessionMessage = new SendSessionMessage(repo, catalog, undefined, llm);
+
+    const session = await createSession.execute({ userId: 'usr_1' });
+    const output = await sendSessionMessage.execute({
+      userId: 'usr_1',
+      sessionId: session.id,
+      content: 'Consigliami un ripiano',
+    });
+
+    expect(output.botMessage.content).toBe('Risposta generata dall LLM');
+  });
+
+  it('falls back to the template answer when the LLM fails', async () => {
+    const repo = new FakeChatRepository();
+    const catalog = new FakeCatalogQaProvider();
+    catalog.setItems([
+      { id: 'cmp_1', sku: 'SKU-001', name: 'Ripiano 80', price: 1990, isAvailable: true },
+    ]);
+    const llm: AnswerGenerator = {
+      generate: async () => {
+        throw new Error('LLM unavailable');
+      },
+    };
+
+    const createSession = new CreateSession(repo);
+    const sendSessionMessage = new SendSessionMessage(repo, catalog, undefined, llm);
+
+    const session = await createSession.execute({ userId: 'usr_1' });
+    const output = await sendSessionMessage.execute({
+      userId: 'usr_1',
+      sessionId: session.id,
+      content: 'Consigliami un ripiano',
+    });
+
+    expect(output.botMessage.content).toContain('SKU-001');
   });
 });

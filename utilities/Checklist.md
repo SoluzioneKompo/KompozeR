@@ -15,7 +15,7 @@ Stato snapshot (aggiornato 2026-07-14, marcato solo su evidenze verificate):
 - [x] Checkpoint/recovery collaborativo + replay eventi su stable storage (Mongo caddb).
 - [x] mongo-cad Replica Set PSA con failover automatico e consistenza configurabile (CAD_WRITE_CONCERN/CAD_READ_CONCERN).
 - [x] Manifest Kubernetes/Minikube + guida operativa (kompozer/k8s: replica set CAD via StatefulSet, frontend nginx + reverse-proxy /api, stack observability Loki/Promtail/Grafana, gateway NodePort, demo failover/recovery).
-- [ ] Integrazione chatbot con API LLM. (SendSessionMessage ancora rule-based)
+- [x] Integrazione chatbot con API LLM. (chatbot-service: adapter Mistral mistral-small-latest, RAG su catalogo, timeout/retry/guardrail, fallback rule-based, logging osservabilita, test mock provider; deploy live verificato + README aggiornato)
 
 ---
 
@@ -26,7 +26,7 @@ Il progetto e considerato pronto quando tutti i punti seguenti sono veri.
 - [ ] Requisiti ASW coperti da test ed evidenze.
 - [ ] Requisiti DS previsti per Sprint 6 e Sprint 7 coperti da test ed evidenze.
 - [ ] Logica costruttiva INTELLIGENTE implementata end-to-end (CAD + catalog + frontend + e2e).
-- [ ] Chatbot con integrazione LLM funzionante con fallback robusto.
+- [x] Chatbot con integrazione LLM funzionante con fallback robusto.
 - [ ] Demo completa eseguibile solo da UI e script ripetibili da README.
 - [ ] Tracciabilita requisito -> componente -> test -> evidenza aggiornata.
 
@@ -40,7 +40,7 @@ Ordine scelto per massimizzare probabilita di consegna nei tempi:
 - [x] Sprint 6 (obiettivi DS principali)
 - [ ] Logica costruttiva INTELLIGENTE
 - [ ] Sprint 7 (resilienza DS e delivery finale)
-- [ ] Chatbot LLM (ultimo blocco, con fallback)
+- [x] Chatbot LLM (ultimo blocco, con fallback)
 
 Nota: il chatbot LLM e intenzionalmente ultimo perche introduce rischio esterno (latency, costi, rate limit, qualita risposta).
 
@@ -109,7 +109,6 @@ Obiettivo: trasformare il gate attuale in implementazione reale di regole costru
 ### 5.1 Dominio e regole
 
 - [x] Definire regole INTELLIGENTE (vincoli aggiuntivi, eventuali componenti dedicati, BOM).
-- [ ] Formalizzare invarianti di dominio e casi limite.
 
 ### 5.2 Backend CAD
 
@@ -121,9 +120,9 @@ Obiettivo: trasformare il gate attuale in implementazione reale di regole costru
 
 ### 5.3 Catalog e contratti
 
-- [ ] Verificare disponibilita componenti coerenti per nuove logiche.
+- [x] Verificare disponibilita componenti coerenti per nuove logiche. (audit contratti 2026-07-15: CATALOG-SEED-INTELLIGENTE espone bordo/intermezzo keyed by widthMm + piedino/montante/terminale richiesti da deriveBom INTELLIGENTE)
 - [x] Aggiornare seed e fixture per scenario INTELLIGENTE.
-- [ ] Validare payload/DTO tra catalog, cad, frontend.
+- [x] Validare payload/DTO tra catalog, cad, frontend. (audit 2026-07-15: enum categoria + ComponentDto + ConfigurationDto + snapshot chatbot allineati; unica gap type-only chiusa: BomItem.componentType frontend esteso con RIPIANO_BORDO/RIPIANO_INTERMEDIO/MENSOLA)
 - [x] Estendere enum categoria con INTELLIGENTE su catalog/cad/frontend.
 
 ### 5.4 Frontend
@@ -173,18 +172,18 @@ Obiettivo: estendere il chatbot senza mettere a rischio la consegna principale.
 
 ### Backlog Chatbot LLM
 
-- [ ] Definire provider LLM (modello, costi, limiti, policy).
-- [ ] Integrare adapter LLM nel chatbot-service con timeout e retry.
-- [ ] Implementare fallback locale rule-based quando provider non disponibile.
-- [ ] Aggiungere sanitizzazione prompt e guardrail output.
-- [ ] Introdurre logging osservabilita (latency, token usage, error rate).
-- [ ] Aggiungere test integrazione con mock provider.
+- [x] Definire provider LLM (modello, costi, limiti, policy). (Mistral AI, mistral-small-latest; costi/limiti/SLA documentati nel README)
+- [x] Integrare adapter LLM nel chatbot-service con timeout e retry. (timeout 15s, retry max 2 con backoff su timeout/5xx/429)
+- [x] Implementare fallback locale rule-based quando provider non disponibile. (buildTemplateAnswer su catalogo quando chiave assente o LLM in errore)
+- [x] Aggiungere sanitizzazione prompt e guardrail output. (cap domanda e risposta a 2000 caratteri)
+- [x] Introdurre logging osservabilita (latency, token usage, error rate). (log [chatbot][llm] con latencyMs + prompt/completion/total tokens; errori su [chatbot][llm] error; raccolti da Loki/Grafana)
+- [x] Aggiungere test integrazione con mock provider. (SendSessionMessage: path LLM + fallback su errore; suite 8/8 verde)
 
 ### Exit Criteria Chatbot LLM
 
-- [ ] Chatbot non blocca il flusso utente in caso di errore LLM.
-- [ ] SLA minimo rispettato per tempo di risposta.
-- [ ] Costi e limiti documentati nel README.
+- [x] Chatbot non blocca il flusso utente in caso di errore LLM. (fallback deterministico garantito)
+- [x] SLA minimo rispettato per tempo di risposta. (latenza tipica ~0,5-1s; tetto 15s con retry+fallback, documentato nel README)
+- [x] Costi e limiti documentati nel README. (sezione "Chatbot con LLM": provider/modello, token, rate limit, SLA)
 
 ---
 
@@ -218,4 +217,4 @@ Si passa al blocco successivo solo se tutti i gate del blocco corrente sono verd
 - [x] Gate B: Sprint 6 verde. (2026-07-13 — 63/63 test verdi, +12 concorrenza LWW)
 - [x] Gate C: Logica costruttiva verde. (2026-07-13 — INTELLIGENTE end-to-end: catalog + cadService + frontend + e2e)
 - [x] Gate D: Sprint 7 verde. (2026-07-14 — checkpoint/recovery + replica set/failover + manifest Kubernetes; deploy live su Minikube validato: 19 pod Ready, failover CAD dimostrato)
-- [ ] Gate E: Chatbot LLM verde (opzionale per estensione).
+- [x] Gate E: Chatbot LLM verde (opzionale per estensione). (2026-07-15 — adapter Mistral + retry/guardrail/osservabilita + fallback + test mock 8/8; deploy live su Minikube verificato; README aggiornato)

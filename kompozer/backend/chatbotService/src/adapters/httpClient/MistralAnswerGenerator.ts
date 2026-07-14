@@ -12,6 +12,12 @@ export interface MistralAnswerGeneratorOptions {
   model?: string;
   baseUrl?: string;
   timeoutMs?: number;
+  /** Max transient-failure retries (network/5xx/429/timeout). Default 2. */
+  maxRetries?: number;
+  /** Guardrail: max characters of the user question forwarded to the LLM. Default 2000. */
+  maxQuestionChars?: number;
+  /** Guardrail: max characters kept from the LLM answer. Default 2000. */
+  maxAnswerChars?: number;
 }
 
 type MistralChatResponse = {
@@ -20,7 +26,24 @@ type MistralChatResponse = {
       content?: string;
     };
   }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
 };
+
+/** Error carrying whether a failed Mistral request is worth retrying. */
+class MistralRequestError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean,
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = 'MistralRequestError';
+  }
+}
 
 /**
  * Generates chatbot answers with the Mistral chat-completions API, grounded on
@@ -31,6 +54,9 @@ export class MistralAnswerGenerator implements AnswerGenerator {
   private readonly model: string;
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
+  private readonly maxRetries: number;
+  private readonly maxQuestionChars: number;
+  private readonly maxAnswerChars: number;
 
   constructor(options: MistralAnswerGeneratorOptions) {
     if (!options.apiKey?.trim()) {
@@ -40,6 +66,9 @@ export class MistralAnswerGenerator implements AnswerGenerator {
     this.model = options.model ?? 'mistral-small-latest';
     this.baseUrl = options.baseUrl ?? 'https://api.mistral.ai';
     this.timeoutMs = options.timeoutMs ?? 15000;
+    this.maxRetries = options.maxRetries ?? 2;
+    this.maxQuestionChars = options.maxQuestionChars ?? 2000;
+    this.maxAnswerChars = options.maxAnswerChars ?? 2000;
   }
 
   async generate(context: AnswerGenerationContext): Promise<string> {
@@ -53,14 +82,57 @@ export class MistralAnswerGenerator implements AnswerGenerator {
       ],
     });
 
-    const payload = await this.postJson<MistralChatResponse>('/v1/chat/completions', body);
-    const answer = payload.choices?.[0]?.message?.content;
+    const startedAt = Date.now();
+    let attempt = 0;
 
-    if (typeof answer !== 'string' || !answer.trim()) {
-      throw new Error('Mistral returned an empty answer');
+    for (;;) {
+      attempt += 1;
+      try {
+        const payload = await this.postJson<MistralChatResponse>('/v1/chat/completions', body);
+        const raw = payload.choices?.[0]?.message?.content;
+
+        if (typeof raw !== 'string' || !raw.trim()) {
+          throw new MistralRequestError('Mistral returned an empty answer', false);
+        }
+
+        const usage = payload.usage;
+        console.log(
+          `[chatbot][llm] ok model=${this.model} attempt=${attempt} latencyMs=${Date.now() - startedAt} ` +
+            `promptTokens=${usage?.prompt_tokens ?? '?'} completionTokens=${usage?.completion_tokens ?? '?'} ` +
+            `totalTokens=${usage?.total_tokens ?? '?'}`,
+        );
+        return this.applyOutputGuardrail(raw);
+      } catch (error) {
+        const retryable = error instanceof MistralRequestError ? error.retryable : false;
+        const message = error instanceof Error ? error.message : 'unknown error';
+
+        if (retryable && attempt <= this.maxRetries) {
+          const backoffMs = 200 * attempt;
+          console.warn(
+            `[chatbot][llm] retry attempt=${attempt}/${this.maxRetries} in ${backoffMs}ms reason="${message}"`,
+          );
+          await this.sleep(backoffMs);
+          continue;
+        }
+
+        console.error(
+          `[chatbot][llm] error model=${this.model} attempt=${attempt} latencyMs=${Date.now() - startedAt} reason="${message}"`,
+        );
+        throw error instanceof Error ? error : new Error(message);
+      }
     }
+  }
 
-    return answer.trim();
+  /** Guardrail: trim and cap the answer to a safe maximum length. */
+  private applyOutputGuardrail(answer: string): string {
+    const trimmed = answer.trim();
+    return trimmed.length > this.maxAnswerChars
+      ? `${trimmed.slice(0, this.maxAnswerChars)}\u2026`
+      : trimmed;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /** System instruction: keep the assistant grounded and on-topic. */
@@ -76,7 +148,11 @@ export class MistralAnswerGenerator implements AnswerGenerator {
 
   /** Builds the grounded prompt from the retrieved context. */
   private buildUserPrompt(context: AnswerGenerationContext): string {
-    const parts: string[] = [`Domanda dell'utente: ${context.question}`];
+    const question =
+      context.question.length > this.maxQuestionChars
+        ? context.question.slice(0, this.maxQuestionChars)
+        : context.question;
+    const parts: string[] = [`Domanda dell'utente: ${question}`];
 
     if (context.configuration) {
       const cfg = context.configuration;
@@ -132,14 +208,16 @@ export class MistralAnswerGenerator implements AnswerGenerator {
 
           res.on('end', () => {
             if (status >= 400) {
-              reject(new Error(`Mistral API returned ${status}`));
+              // 5xx and 429 are transient and worth retrying; other 4xx are not.
+              const retryable = status >= 500 || status === 429;
+              reject(new MistralRequestError(`Mistral API returned ${status}`, retryable, status));
               return;
             }
 
             try {
               resolve(JSON.parse(raw) as T);
             } catch {
-              reject(new Error('Invalid JSON from Mistral API'));
+              reject(new MistralRequestError('Invalid JSON from Mistral API', false));
             }
           });
         },
@@ -147,11 +225,11 @@ export class MistralAnswerGenerator implements AnswerGenerator {
 
       req.on('timeout', () => {
         req.destroy();
-        reject(new Error('Mistral API request timed out'));
+        reject(new MistralRequestError('Mistral API request timed out', true));
       });
 
       req.on('error', () => {
-        reject(new Error('Mistral API request failed'));
+        reject(new MistralRequestError('Mistral API request failed', true));
       });
 
       req.write(body);

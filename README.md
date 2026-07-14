@@ -107,6 +107,52 @@ Lo stack include **Grafana** + **Loki** + **Promtail** per centralizzare i log d
 
 Vedi [observability/README.md](observability/README.md) per dettagli su query e troubleshooting.
 
+## Chatbot con LLM
+
+Il `chatbotService` genera le risposte tramite un LLM, mantenendo il **grounding sul catalogo** (approccio RAG): recupera i componenti pertinenti dal `catalogService` e l'eventuale contesto della configurazione CAD, poi lascia all'LLM la sola formulazione della risposta. Questo evita allucinazioni su prezzi e disponibilità.
+
+**Provider e modello:**
+
+- Provider: [Mistral AI](https://mistral.ai) (API chat-completions `/v1/chat/completions`)
+- Modello di default: `mistral-small-latest` (economico, adatto a Q&A brevi)
+
+**Configurazione (variabili d'ambiente):**
+
+| Variabile | Obbligatoria | Default | Descrizione |
+| --- | --- | --- | --- |
+| `MISTRAL_API_KEY` | No | — | Chiave API Mistral. Se assente, il chatbot usa il fallback rule-based. |
+| `MISTRAL_MODEL` | No | `mistral-small-latest` | Modello da usare. |
+| `MISTRAL_BASE_URL` | No | `https://api.mistral.ai` | Base URL API (override per test/mock). |
+
+In locale la chiave si passa via env; in Kubernetes è iniettata dal Secret `kompozer-secrets` (chiave `mistralApiKey`) — vedi [kompozer/k8s/README.md](kompozer/k8s/README.md). **Non committare la chiave in chiaro.**
+
+**Resilienza (fallback robusto):**
+
+- **Timeout** per richiesta: 15s.
+- **Retry** automatico (max 2) con backoff sugli errori transitori (timeout, `5xx`, `429`); nessun retry sugli errori client (`4xx`, es. chiave non valida).
+- **Guardrail**: la domanda utente e la risposta generata sono limitate a 2000 caratteri.
+- **Fallback deterministico**: se la chiave manca o l'LLM fallisce, il servizio risponde con una risposta rule-based basata sul catalogo. Il flusso utente non viene mai bloccato da un errore LLM.
+
+**Osservabilità:**
+
+Ogni chiamata emette una riga di log strutturata, raccolta da Loki/Grafana:
+
+```
+[chatbot][llm] ok model=mistral-small-latest attempt=1 latencyMs=646 promptTokens=145 completionTokens=33 totalTokens=178
+```
+
+Sono tracciati esito, tentativi (retry), latenza e utilizzo token; gli errori sono loggati con `[chatbot][llm] error ...`.
+
+**Costi e limiti:**
+
+- Il costo dipende dai token consumati (prompt + completion) secondo il [pricing Mistral](https://mistral.ai/pricing); `mistral-small-latest` è la fascia a basso costo. L'utilizzo token è visibile nei log sopra.
+- I **rate limit** dipendono dal piano dell'account Mistral (vedi [documentazione Mistral](https://docs.mistral.ai)). In caso di `429` il servizio ritenta e, se persiste, ricade sul fallback.
+
+**SLA di risposta:**
+
+- Latenza tipica osservata: ~0,5–1s per messaggio con `mistral-small-latest`.
+- Limite massimo per tentativo: 15s (timeout); oltre tale soglia scatta il retry e infine il fallback, garantendo una risposta all'utente anche in caso di degrado del provider.
+
 ## Struttura Repository
 
 - `kompozer/`: codice applicativo (frontend, backend, e2e, compose, script workspace)
