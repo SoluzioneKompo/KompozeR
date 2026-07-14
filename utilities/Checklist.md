@@ -163,7 +163,7 @@ Obiettivo: fault tolerance, deployment e chiusura formale della consegna.
 ### Exit Criteria Sprint 7
 
 - [x] Crash/restart con recupero consistente verificato. (unit test collabCheckpointRecovery: convergenza checkpoint+replay, troncamento, cleanup, scarto checkpoint scaduti)
-- [x] Failover testato almeno su scenario minimo. (mongo-cad-1 stop -> mongo-cad-2 eletto PRIMARY, poi rientro come SECONDARY)
+- [x] Failover testato almeno su scenario minimo. (Docker Compose: mongo-cad-1 stop -> mongo-cad-2 eletto PRIMARY, poi rientro come SECONDARY. Kubernetes/Minikube live: 19 pod Ready, replica set cadrs 1 PRIMARY + 2 SECONDARY; delete pod primary -> nuovo primary eletto con cad-service sempre disponibile; StatefulSet ricrea il pod che rientra e riacquisisce PRIMARY)
 - [x] Pacchetto consegna completo e ripetibile. (docker-compose dev/prod + manifest Kubernetes kompozer/k8s con guida operativa; resta solo la rifinitura del report finale)
 
 ---
@@ -218,5 +218,5 @@ Si passa al blocco successivo solo se tutti i gate del blocco corrente sono verd
 - [x] Gate A: Sprint 5 verde.
 - [x] Gate B: Sprint 6 verde. (2026-07-13 — 63/63 test verdi, +12 concorrenza LWW)
 - [x] Gate C: Logica costruttiva verde. (2026-07-13 — INTELLIGENTE end-to-end: catalog + cadService + frontend + e2e)
-- [~] Gate D: Sprint 7 — checkpoint/recovery + replica set/failover + manifest Kubernetes verdi (2026-07-14); resta solo la rifinitura del report finale.
+- [~] Gate D: Sprint 7 — checkpoint/recovery + replica set/failover + manifest Kubernetes verdi (2026-07-14); deploy live su Minikube validato (19 pod Ready, failover CAD dimostrato). Resta solo la rifinitura del report finale.
 - [ ] Gate E: Chatbot LLM verde (opzionale per estensione).
