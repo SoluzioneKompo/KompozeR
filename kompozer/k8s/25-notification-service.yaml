@@ -35,6 +35,13 @@ spec:
               value: "mongodb://mongo-cad-0.mongo-cad:27017,mongo-cad-1.mongo-cad:27017,mongo-cad-2.mongo-cad:27017/caddb?replicaSet=cadrs"
           ports:
             - containerPort: 3005
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "96Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
           readinessProbe:
             tcpSocket:
               port: 3005

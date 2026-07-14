@@ -84,6 +84,13 @@ spec:
         - name: promtail
           image: grafana/promtail:3.0.0
           args: ["-config.file=/etc/promtail/config.yml"]
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
           volumeMounts:
             - name: config
               mountPath: /etc/promtail

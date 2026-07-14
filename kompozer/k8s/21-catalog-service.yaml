@@ -32,6 +32,13 @@ spec:
               value: "redis://redis:6379"
           ports:
             - containerPort: 3002
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "96Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
           readinessProbe:
             tcpSocket:
               port: 3002

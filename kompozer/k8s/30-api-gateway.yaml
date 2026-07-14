@@ -43,6 +43,13 @@ spec:
               value: "http://reporting-service:3007"
           ports:
             - containerPort: 3000
+          resources:
+            requests:
+              cpu: "75m"
+              memory: "96Mi"
+            limits:
+              cpu: "400m"
+              memory: "256Mi"
           readinessProbe:
             tcpSocket:
               port: 3000

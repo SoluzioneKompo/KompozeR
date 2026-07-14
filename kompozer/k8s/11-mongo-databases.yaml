@@ -50,6 +50,13 @@ spec:
               value: authdb
           ports:
             - containerPort: 27017
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
           volumeMounts:
             - name: data
               mountPath: /data/db
@@ -123,6 +130,13 @@ spec:
               value: catalogdb
           ports:
             - containerPort: 27017
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
           volumeMounts:
             - name: data
               mountPath: /data/db
@@ -196,6 +210,13 @@ spec:
               value: cartdb
           ports:
             - containerPort: 27017
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
           volumeMounts:
             - name: data
               mountPath: /data/db
@@ -269,6 +290,13 @@ spec:
               value: notificationdb
           ports:
             - containerPort: 27017
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
           volumeMounts:
             - name: data
               mountPath: /data/db
@@ -342,6 +370,13 @@ spec:
               value: chatbotdb
           ports:
             - containerPort: 27017
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
           volumeMounts:
             - name: data
               mountPath: /data/db
@@ -415,6 +450,13 @@ spec:
               value: orderdb
           ports:
             - containerPort: 27017
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
           volumeMounts:
             - name: data
               mountPath: /data/db
