@@ -54,6 +54,16 @@ export class SetColumnPlan {
     const seen = new Set<number>();
     let widthTotal = 0;
 
+    // INTELLIGENTE columns use BORDO shelves on the outer columns (first and last)
+    // and INTERMEZZO shelves on the inner ones, so their widths live in dedicated
+    // catalog maps rather than the plain RIPIANO map used by the other categories.
+    const isIntelligente = configuration.category === 'INTELLIGENTE';
+    const sortedIndices = [...input.columnPlan.columns]
+      .map((column) => column.index)
+      .sort((a, b) => a - b);
+    const firstIndex = sortedIndices[0];
+    const lastIndex = sortedIndices[sortedIndices.length - 1];
+
     for (const column of input.columnPlan.columns) {
       if (column.index < 0) {
         throw new ValidationError('column index must be >= 0');
@@ -66,7 +76,16 @@ export class SetColumnPlan {
       if (column.shelfWidthMm <= 0) {
         throw new ValidationError('column shelfWidthMm must be > 0');
       }
-      if (!rules.shelfByWidthMm.has(column.shelfWidthMm)) {
+      let widthAvailable: boolean;
+      if (isIntelligente) {
+        const isOuterColumn = column.index === firstIndex || column.index === lastIndex;
+        widthAvailable = isOuterColumn
+          ? rules.bordoByWidthMm.has(column.shelfWidthMm)
+          : rules.intermezzoByWidthMm.has(column.shelfWidthMm);
+      } else {
+        widthAvailable = rules.shelfByWidthMm.has(column.shelfWidthMm);
+      }
+      if (!widthAvailable) {
         throw new ValidationError(
           `column shelfWidthMm ${column.shelfWidthMm} is not available for category ${configuration.category}`,
         );

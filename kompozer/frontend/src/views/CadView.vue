@@ -189,14 +189,17 @@ async function startCollabSession(): Promise<void> {
 /** Participant: joins an existing session by entering the code. */
 async function joinByCode(): Promise<void> {
   const code = joinCodeInput.value.trim().toUpperCase();
-  if (!code || !selected.value) {
+  if (!code) {
     notifications.addToast('error', 'Inserisci un codice valido');
     return;
   }
 
   joinLoading.value = true;
   try {
-    const res = await fetch(`/api/cad/configurations/${selected.value.id}/collab/join/${code}`, {
+    // A participant joins purely by session code; the owner's configuration id is
+    // resolved server-side from the code, so the path id is only a placeholder here.
+    const joinPathId = selected.value?.id ?? 'join';
+    const res = await fetch(`/api/cad/configurations/${joinPathId}/collab/join/${code}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
