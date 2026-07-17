@@ -1,101 +1,228 @@
 \section{Requirements Elicitation and Analysis}\label{requirements}
 
-\begin{itemize}
-  \item The requirements must explain \textbf{what} (not how) the software
-  being produced should do.
-  %
-  \begin{itemize}
-    \item you should not focus on the particular problems, but exclusively on
-    what you want the application to do.
-  \end{itemize}
+This chapter states \emph{what} KompozeR must do, independently of how it is
+implemented. Requirements are elicited from the stakeholders (customers,
+recurring registered customers, catalog administrators) and from a small set of
+representative scenarios: configuring a shelving unit, asking the chatbot for
+contextual help, saving and resuming a configuration, being notified of a
+price/availability change, administering the catalog, and consulting order
+trends. They are grouped into \emph{functional}, \emph{non-functional}, and
+\emph{implementation} requirements, each with an identifier and an acceptance
+criterion used during validation (\cref{validation}).
 
-  \item Requirements must be clearly identified, and possibly numbered
+\subsection{Glossary}\label{glossary}
 
-  \item Requirements are divided into:
-  %
-  \begin{itemize}
-    \item \textbf{Functional}: some functionality the software should provide to the user
+\begin{description}
+  \item[Component] a single catalog item (e.g.~a shelf, an upright), identified
+  by a SKU and belonging to a product family.
+  \item[Product family] one of the three mutually incompatible catalogs
+  (Tondo, Quadro, Qube); components of different families cannot be combined.
+  \item[Configuration] a work-in-progress or saved shelving design owned by the
+  CAD context, with a state, a column plan, and a derived Bill of Materials.
+  \item[BOM] Bill of Materials: the list of components (with quantities) that a
+  configuration resolves to, and the basis for its price.
+  \item[Subscription] a user's interest in a specific SKU, used to notify the
+  user when that SKU changes price or availability.
+  \item[Role] the authorisation level of a principal: \texttt{GUEST},
+  \texttt{BASE} (authenticated customer), or \texttt{ADMIN}.
+\end{description}
 
-    \item \textbf{Non-functional}: requirements that do not directly concern behavioural aspects, such as consistency, availability, etc.
+\subsection{Functional requirements}\label{functional-requirements}
 
-    \item \textbf{Implementation}: constrain the entire phase of system realization, 
-    for instance by requiring the use of a specific programming language and/or a specific software tool
-    %
-    \begin{itemize}
-      \item these constraints should be adequately justified by political / economic / administrative reasons\ldots{}
-      \item \ldots{} otherwise, implementation choices should emerge \emph{as  a consequence of} design
-    \end{itemize}
-  \end{itemize}
+\begin{description}
+  \item[FR1 --- Visual configurator] The system shall provide a visual
+  configurator to compose a shelving unit within a selected product family.
+  \emph{Acceptance:} starting a session and adding compatible components yields
+  a coherent configuration that can be persisted and retrieved.
 
-  \item If there are domain-specific terms, these should be explained in a glossary
-  
-  \item Each requirement must have its own \textbf{acceptance criterion}
-  %
-  \begin{itemize}
-    \item these will be important for the validation phase
-  \end{itemize}
-\end{itemize}
+  \item[FR2 --- Live preview] The system shall update the configuration preview
+  after every change made in the configurator. \emph{Acceptance:} adding,
+  removing, or replacing a component is reflected in the returned configuration
+  snapshot.
+
+  \item[FR3 --- Live price] The system shall update the estimated price of the
+  configuration after every change. \emph{Acceptance:} the price returned for a
+  configuration equals the sum derived from its current BOM and catalog prices.
+
+  \item[FR4 --- Add to cart] The system shall allow a finalised configuration to
+  be added to the cart. \emph{Acceptance:} finalising a configuration produces a
+  cart whose items match the configuration BOM (SKU, quantity, unit price).
+
+  \item[FR5 --- Contextual chatbot] The system shall provide an integrated
+  chatbot answering contextual questions about component prices.
+  \emph{Acceptance:} a price question about a known component returns the
+  current catalog price for that component within the user's own session.
+
+  \item[FR6 --- Save configuration] The system shall let authenticated users
+  save a configuration under their profile. \emph{Acceptance:} a saved
+  configuration is associated with the owner and appears in that user's list.
+
+  \item[FR7 --- Resume configuration] The system shall let authenticated users
+  list and resume previously saved configurations. \emph{Acceptance:} a user
+  retrieves only their own configurations and can reopen one for editing.
+
+  \item[FR8 --- Change notifications] The system shall notify authenticated
+  users of price or availability changes affecting their active or saved
+  configurations. \emph{Acceptance:} an administrative change to a subscribed
+  SKU results in exactly one notification delivered to each affected user, and
+  to no other user.
+
+  \item[FR9 --- Family compatibility] The system shall prevent composing a
+  configuration that mixes components of different product families.
+  \emph{Acceptance:} attempting to add an incompatible component is rejected and
+  the configuration is left unchanged.
+
+  \item[FR10 --- Catalog administration] The system shall let administrators
+  update catalog data, including component price and availability.
+  \emph{Acceptance:} an authorised admin update is persisted and becomes visible
+  to catalog reads and triggers the corresponding domain event.
+
+  \item[FR11 --- Orders and reporting] The system shall provide administrators
+  with an order view and a synthetic sales-trend report. \emph{Acceptance:} an
+  authorised admin obtains order data and an aggregated trend over a selected
+  period.
+\end{description}
+
+\subsection{Non-functional requirements}\label{non-functional-requirements}
+
+Several non-functional requirements are inherently distributed-system concerns;
+they are highlighted and later mapped to design choices in \cref{design}.
+
+\begin{description}
+  \item[NFR1 --- Consistency of shared catalog] Price and availability changes
+  shall be propagated consistently to every context that depends on them (cart,
+  notifications). \emph{Acceptance:} after a catalog change, dependent contexts
+  eventually reflect the new value, and each change is applied at most once
+  (idempotent event handling).
+
+  \item[NFR2 --- Real-time delivery] Notifications and chatbot replies shall be
+  delivered to the interested user in near real time, without client polling.
+  \emph{Acceptance:} a subscribed, connected user receives a push within a short
+  bound of the triggering event.
+
+  \item[NFR3 --- Fault tolerance of the core workflow] The configuration
+  context shall tolerate the loss of a single database node without data loss
+  and without permanent unavailability. \emph{Acceptance:} killing one replica
+  member triggers automatic election of a new primary and writes resume.
+
+  \item[NFR4 --- Recoverability] The collaborative configuration session state
+  shall survive a service crash. \emph{Acceptance:} after crashing and
+  restarting the service, the last checkpointed session state is recovered.
+
+  \item[NFR5 --- Security / authorisation] Administrative functionality shall be
+  accessible only to authenticated users with an authorised role, and users
+  shall only access their own resources. \emph{Acceptance:} unauthenticated or
+  \texttt{BASE} access to admin endpoints is rejected; cross-user access to
+  configurations, orders, chat, and notifications is denied.
+
+  \item[NFR6 --- Data minimisation / privacy] The system shall store only the
+  data required to operate accounts, saved configurations, and application
+  operations. \emph{Acceptance:} persisted schemas contain no data beyond what
+  the use cases require.
+
+  \item[NFR7 --- Maintainability / evolvability] Configuration, catalog,
+  notifications, and reporting shall remain independently deployable and
+  separately owned. \emph{Acceptance:} each context is a separate service with
+  its own database and can be built, tested, and deployed independently.
+
+  \item[NFR8 --- Usability and responsiveness] The interface shall give
+  immediate feedback on relevant actions and be usable on desktop and mobile.
+  \emph{Acceptance:} configuration, saving, and price updates produce visible
+  feedback; core flows work at desktop and mobile breakpoints.
+\end{description}
+
+\subsection{Implementation requirements}\label{implementation-requirements}
+
+These constraints bound the realisation of the system. They are motivated by
+the academic context of the project (Distributed Systems and ASW courses),
+which asks for a genuinely distributed, containerised system, and by the reuse
+of a common technology baseline across the team.
+
+\begin{description}
+  \item[IR1 --- Distributed architecture] The system shall be realised as
+  multiple, independently deployable services rather than a monolith, to
+  exercise distributed-systems concerns (course constraint).
+
+  \item[IR2 --- Containerisation] Every component shall be packaged as a
+  container and be reproducibly deployable via a declarative orchestration
+  (Docker Compose for development, Kubernetes for a production-like setup).
+
+  \item[IR3 --- Technology baseline] Backend services shall be implemented in
+  Node.js/TypeScript with Express, and the frontend as a Vue~3 SPA, to share a
+  single toolchain and skill set within the team.
+
+  \item[IR4 --- Persistence] Persistent state shall be stored in MongoDB, one
+  logical database per service, honouring the database-per-service constraint.
+
+  \item[IR5 --- Automated validation] The system shall be covered by automated
+  unit, integration, and end-to-end tests runnable from the command line.
+\end{description}
 
 \subsection{Relevant Distributed System Features}
 \label{ds-features}
 
-Motivate which distributed system features are relevant for your project, and which are not.
-%
+This section motivates which distributed-system features are central to
+KompozeR and which are secondary.
+
+\paragraph{Highly relevant.}
 \begin{itemize}
-  \item transparency
-  \begin{itemize}
-    \item does your system need to hide distribution details from users or developers?
-    \item is it important that failures, location, or replication are invisible?
-  \end{itemize}
+  \item \textbf{Resource sharing} --- \emph{central}. A single authoritative
+  catalog (prices, availability) is shared by many concurrent users and by
+  several contexts (configurator, cart, notifications, chatbot, reporting). Much
+  of the design revolves around sharing this resource without letting contexts
+  read each other's private state.
 
-  \item fault tolerance, dependability -- availability, reliability, integrity, maintainability, safety
-  \begin{itemize}
-    \item what happens if a component fails? is uninterrupted service required?
-    \item is data loss or corruption unacceptable?
-    \item how quickly must the system recover from faults?
-  \end{itemize}
+  \item \textbf{Fault tolerance and dependability} --- \emph{central} for the
+  core configuration workflow. Losing a configuration is unacceptable, so its
+  persistence is replicated and must survive a node failure; the collaborative
+  session state must be recoverable after a crash (NFR3, NFR4). For non-core
+  contexts, availability is desirable but not critical.
 
-  \item scalability
-  \begin{itemize}
-    \item will the system need to handle increasing numbers of users, requests, or data?
-    \item is it expected to grow over time?
-  \end{itemize}
+  \item \textbf{Consistency / data management} --- \emph{central}. Catalog
+  changes must reach dependent contexts reliably and be applied exactly once
+  (NFR1). The system favours \emph{eventual consistency} across contexts via
+  events, while keeping strong consistency \emph{within} the core context via a
+  configurable write/read concern on the replica set.
 
-  \item security, trust
-  \begin{itemize}
-    \item is sensitive data being processed or stored?
-    \item are there multiple user roles with different permissions?
-    \item is authentication or authorization required?
-  \end{itemize}
+  \item \textbf{Security and trust} --- \emph{central}. The system stores
+  personal and order data, distinguishes roles, and must isolate users from one
+  another (NFR5). Authentication and authorisation are enforced at the gateway
+  and re-checked by services.
 
-  \item resource sharing
-  \begin{itemize}
-    \item do multiple users or components need access to shared resources?
-    \item is coordination or synchronization needed?
-  \end{itemize}
+  \item \textbf{Evolvability / maintainability} --- \emph{central}, and a
+  primary reason for choosing microservices (NFR7, IR1): each bounded context
+  evolves and deploys independently.
+\end{itemize}
 
-  \item openness, interoperability, heterogeneity of components
-  \begin{itemize}
-    \item Will your system interact with external systems or use components built with different technologies?
-    \item Is standardization or compatibility important?
-  \end{itemize}
+\paragraph{Relevant but bounded.}
+\begin{itemize}
+  \item \textbf{Scalability} --- \emph{relevant}. The workload is many
+  independent, read-heavy sessions; the stateless service tier behind the
+  gateway can scale horizontally. Extreme, global-scale elasticity is out of
+  scope.
 
-  \item evolvability, maintainability
-  \begin{itemize}
-    \item Will the system need to be updated or extended after deployment?
-    \item Is long-term maintenance a concern?
-  \end{itemize}
+  \item \textbf{Transparency} --- \emph{relevant}. Location and access
+  transparency are provided to clients: they only know the gateway and are
+  unaware of service placement, replication of the CAD database, or which node
+  is primary. Full failure transparency is only pursued for the core workflow.
 
-  \item performance, concurrency, computation / communication efficiency, bandwidth
-  \begin{itemize}
-    \item Are there strict requirements on response time or throughput?
-    \item Will many operations happen in parallel?
-    \item Is network usage a concern?
-  \end{itemize}
+  \item \textbf{Openness / interoperability / heterogeneity} --- \emph{partially
+  relevant}. Services interoperate through plain HTTP/JSON and Socket.IO, which
+  keeps them loosely coupled and language-agnostic; however the stack is
+  deliberately homogeneous (Node.js), so heterogeneity is not exploited.
 
-  \item economy, costs  
-  \begin{itemize}
-    \item Are there budget constraints for development, deployment, or operation?
-    \item Is minimizing resource usage important?
-  \end{itemize}
+  \item \textbf{Performance / concurrency / efficiency} --- \emph{relevant}.
+  Perceived responsiveness of preview/price updates and real-time delivery
+  matter (NFR2, NFR8), and many sessions run concurrently; hard real-time or
+  high-throughput bandwidth optimisation is not a goal.
+\end{itemize}
+
+\paragraph{Secondary.}
+\begin{itemize}
+  \item \textbf{Geographic distribution} --- the deployment is logically
+  centralised (single cluster); components are distributed across
+  containers/pods, not across datacenters or continents.
+
+  \item \textbf{Economy / cost} --- beyond running on a modest, single-cluster
+  footprint, cost optimisation is not a design driver in this academic setting.
 \end{itemize}

@@ -1,37 +1,86 @@
 \section{Concept}\label{concept}
 
-Here you should explain:
+\subsection{Product type}
+
+KompozeR is a \textbf{web application} (a browser-based Single Page Application)
+backed by a set of cooperating \textbf{web services}. The end user interacts
+with a graphical interface; the business logic is provided by several
+independent backend services exposed through a single API Gateway.
+
+The product extends a classic e-commerce scenario with a domain-specific
+feature: a guided, visual \emph{configurator} (referred to as the CAD service)
+that lets a customer compose a modular shelving unit out of individual
+components. The catalog is organised in three mutually incompatible product
+families (Tondo, Quadro, Qube), and the configurator enforces the domain
+constraint that components of different families cannot be mixed in the same
+configuration.
+
+\subsection{Use case}
 
 \begin{itemize}
-  \item The type of product developed with that project, for example (non-exhaustive):
-  %
-  \begin{itemize}
-    \item Application (with GUI, be it mobile, web, or desktop)
-    \item Command-line application (CLI could be used by humans or scripts)
-    \item Library
-    \item Web-service(s)
-  \end{itemize}
+  \item \textbf{What} the software does: it lets users browse a component
+  catalog, interactively build a valid shelving configuration while seeing an
+  up-to-date preview and price, save configurations to their profile, add them
+  to a cart, and place orders. It keeps saved configurations consistent with
+  the catalog, notifying users in real time when a component they depend on
+  changes price or becomes unavailable. A contextual chatbot assists users
+  during configuration, and administrators manage the catalog and inspect
+  order trends.
 
-  \item Use case description:
-  %
-  \begin{itemize}
-    \item \emph{what} is the software doing?
-    \item \emph{where} are the users?
-    \item \emph{when} and \emph{how frequently} do they interact with the system?
-    \item \emph{how} do they \emph{interact} with the system? which \emph{devices} are they using?
-    \item does the system need to \emph{store} user's \textbf{data}? \emph{which}? \emph{where}?
-    \item most likely, there will be \emph{multiple} \textbf{roles}
-  \end{itemize}
+  \item \textbf{Where} the users are: users are geographically distributed and
+  reach the system over the public Internet from their own devices. Servers are
+  centralised (a single logical deployment), while clients are remote.
 
-  \item Why is distribution needed?
-  %
-  \begin{itemize}
-    \item geographically distributed environments?
-    \item computation speedup?
-    \item resource sharing?
-    \item fault tolerance?
-    \item other reasons?
-  \end{itemize}
-  %
-  In any case, please elaborate.
+  \item \textbf{When and how frequently}: interaction is on-demand and
+  session-based. A configuration session is a relatively long, interactive
+  activity; administrative catalog updates happen occasionally but must
+  propagate promptly to every affected user.
+
+  \item \textbf{How they interact / devices}: through a web browser (desktop or
+  mobile) talking to the SPA. Communication is mostly request/response over
+  HTTP; real-time channels (WebSocket via Socket.IO) are used for notifications
+  and the chatbot.
+
+  \item \textbf{Data to store}: yes. The system persists users and sessions,
+  the component catalog, configurations and their bill of materials (BOM),
+  carts, orders, notifications and subscriptions, and chat sessions. Each kind
+  of data is owned and stored by the service responsible for it
+  (database-per-service).
+
+  \item \textbf{Roles}: the system distinguishes multiple roles ---
+  \texttt{GUEST}, \texttt{BASE} (authenticated customer), and \texttt{ADMIN}
+  (catalog and back-office operator) --- with different permissions.
 \end{itemize}
+
+\subsection{Why distribution is needed}
+
+Distribution in KompozeR is a design consequence of the domain, not an end in
+itself. The main motivations are:
+
+\begin{itemize}
+  \item \textbf{Resource sharing}: a single, authoritative catalog and its
+  price/availability information must be shared among many concurrent users and
+  among several application contexts (configurator, cart, notifications,
+  chatbot, reporting).
+
+  \item \textbf{Evolvability and separation of concerns}: the problem naturally
+  decomposes into distinct bounded contexts (authentication, catalog,
+  configuration, cart, orders, notifications, chatbot, reporting). Realising
+  each as an independently deployable service allows them to evolve, scale, and
+  be tested in isolation.
+
+  \item \textbf{Fault tolerance}: the configuration workflow is the core of the
+  product. Its persistence is backed by a replicated MongoDB replica set that
+  survives the loss of a node through automatic primary election, and the
+  collaborative session state is protected through checkpoint/recovery.
+
+  \item \textbf{Scalability}: the load is dominated by many independent,
+  read-heavy configuration sessions. A stateless service tier behind a gateway
+  can be scaled horizontally to absorb an increasing number of users and
+  requests.
+\end{itemize}
+
+Geographic distribution of servers and heavy shared computation are \emph{not}
+primary drivers: the deployment is logically centralised, and the interesting
+distributed-systems challenges are consistency of shared catalog data,
+event-driven propagation of changes, and fault tolerance of the core workflow.

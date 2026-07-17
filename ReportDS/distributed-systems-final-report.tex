@@ -9,8 +9,8 @@
 \newcommand{\emailaddr}[1]{\href{mailto:#1}{\texttt{#1}}}
 
 \title{\LARGE
-    Final Report Template\\
-    (replace with your project name)
+    KompozeR\\
+    A Microservice Platform for Guided Configuration of Modular Shelving
 }
 \subtitle{Final Report for the Distributed Systems Course [Your academic year here]}
 
@@ -33,7 +33,23 @@
 \maketitle
 
 \begin{abstract}
-    Up to $\sim$2000 characters briefly describing the project.
+    KompozeR is a web platform that lets customers interactively design and
+    purchase modular shelving units. Starting from an e-commerce scenario, the
+    system provides a visual configurator (CAD) that composes a product out of
+    compatible components, keeps price and availability aligned with the
+    catalog in real time, and notifies users when a saved configuration is
+    affected by catalog changes. The system is built as a constellation of
+    Node.js microservices coordinated by an API Gateway, each owning its own
+    MongoDB database (\emph{database-per-service}). Services communicate through
+    synchronous REST for commands and queries, asynchronous Redis pub/sub for
+    domain events (price and availability changes), and Socket.IO for real-time
+    delivery of notifications and chatbot messages. Distribution is motivated by
+    the need for independent evolvability of bounded contexts, resource sharing
+    of a common catalog across many concurrent users, and fault tolerance of the
+    core configuration workflow, which is backed by a replicated MongoDB replica
+    set with failover and checkpoint/recovery. This report describes the
+    requirements, the design of the distributed system, its implementation, its
+    validation, and how to deploy it both with Docker Compose and on Kubernetes.
 \end{abstract}
 
 \section*{Disclaimer (if needed)}

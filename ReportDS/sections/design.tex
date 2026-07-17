@@ -14,42 +14,103 @@ in \cref{requirements} and \cref{ds-features}.
 
 \subsection{Architecture}\label{architecture}
 
+KompozeR adopts a \textbf{microservice} architectural style behind an
+\textbf{API Gateway}, with a \textbf{client--server} interaction between the
+browser SPA and the backend. This style was chosen as a direct consequence of
+the analysis: the domain decomposes cleanly into loosely-coupled bounded
+contexts (\cref{modelling}), and the non-functional requirements of
+evolvability and independent scalability (\cref{ds-features}) are best served
+by independently deployable services, each owning its own data
+(\emph{database-per-service}).
+
+The system is composed of the following logical tiers:
+
 \begin{itemize}
-  \item Which architectural style?
-  %
-  \begin{itemize}
-    \item why?
-  \end{itemize}
+  \item \textbf{Presentation}: a Single Page Application served to the browser.
+  It never talks to the services directly; every request goes through the
+  gateway.
+
+  \item \textbf{Gateway}: a single entry point that routes REST calls to the
+  downstream services, proxies the WebSocket channel, enforces authentication
+  and role checks, normalises identity headers, and centralises error handling.
+  It also exposes a small number of Backend-for-Frontend (BFF) endpoints that
+  aggregate data from several services for specific screens.
+
+  \item \textbf{Domain services}: one service per bounded context ---
+  \emph{authentication}, \emph{catalog}, \emph{CAD} (configuration),
+  \emph{cart}, \emph{order}, \emph{notification}, \emph{chatbot}, and
+  \emph{reporting}. Each service is autonomous, owns its schema, and exposes a
+  REST API; a few of them additionally publish or consume asynchronous events.
+
+  \item \textbf{Data and messaging}: a dedicated MongoDB database per service
+  and a Redis instance used as an event bus (publish/subscribe) and cache.
 \end{itemize}
+
+Three communication styles coexist, each used where it fits best:
+
+\begin{itemize}
+  \item \textbf{Synchronous REST} for commands and queries (the default
+  interaction);
+  \item \textbf{Asynchronous events} over Redis pub/sub for domain events that
+  must be propagated to several contexts (notably catalog
+  \texttt{PRICE\_CHANGED} and \texttt{AVAILABILITY\_CHANGED});
+  \item \textbf{Real-time push} over Socket.IO (WebSocket) for notifications and
+  chatbot messages, so users receive updates without polling.
+\end{itemize}
+
+Keeping the domain interaction predominantly request/response, and confining
+asynchronous and real-time mechanisms to the areas that genuinely benefit from
+them (event propagation and push delivery), keeps the distributed complexity
+localised and the overall design easier to reason about.
+
+\begin{quote}
+Component diagrams are welcome here
+\end{quote}
 
 \subsection{Infrastructure}\label{infrastructure}
 
+The system introduces the following infrastructural components:
+
 \begin{itemize}
-  \item are there \emph{infrastructural components} that need to be introduced? \emph{how many}?
-  %
-  \begin{itemize}
-    \item e.g.~\emph{clients}, \emph{servers}, \emph{load balancers},
-    \emph{caches}, \emph{databases}, \emph{message brokers},
-    \emph{queues}, \emph{workers}, \emph{proxies}, \emph{firewalls},
-    \emph{CDNs}, \emph{etc.}
-  \end{itemize}
+  \item \textbf{Clients}: web browsers running the SPA.
 
-  \item how do components \emph{distribute} over the network? \emph{where}?
-  %
-  \begin{itemize}
-    \item e.g.~do servers / brokers / databases / etc. sit on the same
-    machine? on the same network? on the same datacenter? on the same
-    continent?
-  \end{itemize}
+  \item \textbf{Reverse proxy / static server}: an nginx instance serves the
+  static SPA build and reverse-proxies \texttt{/api} (including the WebSocket
+  upgrade) to the gateway, acting as the single public entry point of the
+  application.
 
-  \item how do components \emph{find} each other?
-  %
-  \begin{itemize}
-    \item how to \emph{name} components?
-    \item e.g.~DNS, \emph{service discovery}, \emph{load balancing},
-    \emph{etc.}
-  \end{itemize}
+  \item \textbf{API Gateway}: one instance, the only component reachable by
+  clients for API traffic.
+
+  \item \textbf{Domain services}: eight stateless backend services
+  (authentication, catalog, CAD, cart, order, notification, chatbot,
+  reporting).
+
+  \item \textbf{Databases}: one MongoDB deployment per service. Most contexts
+  use a single-node MongoDB; the \emph{CAD} context, being the core workflow,
+  uses a \textbf{MongoDB replica set} for fault tolerance.
+
+  \item \textbf{Message broker / cache}: a single \textbf{Redis} instance used
+  both as a pub/sub event bus between services and as a cache.
 \end{itemize}
+
+\paragraph{Distribution over the network.} In the reference deployment all
+components run as containers within a single logical environment (a Docker
+Compose stack for development, a Kubernetes namespace for a production-like
+setup). Clients are remote and reach the system over the Internet; services,
+brokers and databases sit on the same cluster network but in separate
+containers/pods, so that each can fail, restart, and scale independently. The
+CAD replica set is deliberately spread over three separate members (two
+data-bearing nodes plus an arbiter in Compose, three data-bearing nodes in
+Kubernetes) to tolerate the loss of a node.
+
+\paragraph{Naming and discovery.} Components find each other by logical name
+rather than by address. Within the container network, services are reached
+through their service name resolved by the platform DNS (Docker Compose's
+embedded DNS, or Kubernetes \texttt{Service} DNS), and each service is
+configured with the base URLs of its collaborators. Clients only ever know a
+single name --- the gateway --- which decouples them from the internal topology
+and lets services move or scale without affecting the front end.
 
 \begin{quote}
 Component diagrams are welcome here
