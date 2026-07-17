@@ -1,0 +1,101 @@
+\section{Requirements Elicitation and Analysis}\label{requirements}
+
+\begin{itemize}
+  \item The requirements must explain \textbf{what} (not how) the software
+  being produced should do.
+  %
+  \begin{itemize}
+    \item you should not focus on the particular problems, but exclusively on
+    what you want the application to do.
+  \end{itemize}
+
+  \item Requirements must be clearly identified, and possibly numbered
+
+  \item Requirements are divided into:
+  %
+  \begin{itemize}
+    \item \textbf{Functional}: some functionality the software should provide to the user
+
+    \item \textbf{Non-functional}: requirements that do not directly concern behavioural aspects, such as consistency, availability, etc.
+
+    \item \textbf{Implementation}: constrain the entire phase of system realization, 
+    for instance by requiring the use of a specific programming language and/or a specific software tool
+    %
+    \begin{itemize}
+      \item these constraints should be adequately justified by political / economic / administrative reasons\ldots{}
+      \item \ldots{} otherwise, implementation choices should emerge \emph{as  a consequence of} design
+    \end{itemize}
+  \end{itemize}
+
+  \item If there are domain-specific terms, these should be explained in a glossary
+  
+  \item Each requirement must have its own \textbf{acceptance criterion}
+  %
+  \begin{itemize}
+    \item these will be important for the validation phase
+  \end{itemize}
+\end{itemize}
+
+\subsection{Relevant Distributed System Features}
+\label{ds-features}
+
+Motivate which distributed system features are relevant for your project, and which are not.
+%
+\begin{itemize}
+  \item transparency
+  \begin{itemize}
+    \item does your system need to hide distribution details from users or developers?
+    \item is it important that failures, location, or replication are invisible?
+  \end{itemize}
+
+  \item fault tolerance, dependability -- availability, reliability, integrity, maintainability, safety
+  \begin{itemize}
+    \item what happens if a component fails? is uninterrupted service required?
+    \item is data loss or corruption unacceptable?
+    \item how quickly must the system recover from faults?
+  \end{itemize}
+
+  \item scalability
+  \begin{itemize}
+    \item will the system need to handle increasing numbers of users, requests, or data?
+    \item is it expected to grow over time?
+  \end{itemize}
+
+  \item security, trust
+  \begin{itemize}
+    \item is sensitive data being processed or stored?
+    \item are there multiple user roles with different permissions?
+    \item is authentication or authorization required?
+  \end{itemize}
+
+  \item resource sharing
+  \begin{itemize}
+    \item do multiple users or components need access to shared resources?
+    \item is coordination or synchronization needed?
+  \end{itemize}
+
+  \item openness, interoperability, heterogeneity of components
+  \begin{itemize}
+    \item Will your system interact with external systems or use components built with different technologies?
+    \item Is standardization or compatibility important?
+  \end{itemize}
+
+  \item evolvability, maintainability
+  \begin{itemize}
+    \item Will the system need to be updated or extended after deployment?
+    \item Is long-term maintenance a concern?
+  \end{itemize}
+
+  \item performance, concurrency, computation / communication efficiency, bandwidth
+  \begin{itemize}
+    \item Are there strict requirements on response time or throughput?
+    \item Will many operations happen in parallel?
+    \item Is network usage a concern?
+  \end{itemize}
+
+  \item economy, costs  
+  \begin{itemize}
+    \item Are there budget constraints for development, deployment, or operation?
+    \item Is minimizing resource usage important?
+  \end{itemize}
+\end{itemize}

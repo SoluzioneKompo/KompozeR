@@ -1,0 +1,219 @@
+\section{Design}\label{design}
+
+This chapter explains the strategies used to meet the requirements identified in the analysis. 
+%
+Ideally, the design should be the same, regardless of the technological choices made during the implementation phase.
+
+\begin{quote}
+You can re-arrange the sections as you prefer, but all the sections must be present in the end
+\end{quote}
+
+\noindent
+\textbf{Important:} try to motivate your design choices in relation to the requirements and features identified 
+in \cref{requirements} and \cref{ds-features}.
+
+\subsection{Architecture}\label{architecture}
+
+\begin{itemize}
+  \item Which architectural style?
+  %
+  \begin{itemize}
+    \item why?
+  \end{itemize}
+\end{itemize}
+
+\subsection{Infrastructure}\label{infrastructure}
+
+\begin{itemize}
+  \item are there \emph{infrastructural components} that need to be introduced? \emph{how many}?
+  %
+  \begin{itemize}
+    \item e.g.~\emph{clients}, \emph{servers}, \emph{load balancers},
+    \emph{caches}, \emph{databases}, \emph{message brokers},
+    \emph{queues}, \emph{workers}, \emph{proxies}, \emph{firewalls},
+    \emph{CDNs}, \emph{etc.}
+  \end{itemize}
+
+  \item how do components \emph{distribute} over the network? \emph{where}?
+  %
+  \begin{itemize}
+    \item e.g.~do servers / brokers / databases / etc. sit on the same
+    machine? on the same network? on the same datacenter? on the same
+    continent?
+  \end{itemize}
+
+  \item how do components \emph{find} each other?
+  %
+  \begin{itemize}
+    \item how to \emph{name} components?
+    \item e.g.~DNS, \emph{service discovery}, \emph{load balancing},
+    \emph{etc.}
+  \end{itemize}
+\end{itemize}
+
+\begin{quote}
+Component diagrams are welcome here
+\end{quote}
+
+\subsection{Modelling}\label{modelling}
+
+\begin{itemize}
+  \item which \textbf{domain entities} are there?
+  %
+  \begin{itemize}
+    \item e.g.~\emph{users}, \emph{products}, \emph{orders}, \emph{etc.}
+  \end{itemize}
+  
+  \item how do \emph{domain entities} \textbf{map to} \emph{infrastructural components}?
+  %
+  \begin{itemize}
+    \item e.g.~state of a video game on central server, while inputs/representations on clients
+    \item e.g.~where to store messages in an IM app? for how long?
+  \end{itemize}
+
+  \item which \textbf{domain events} are there?
+  %
+  \begin{itemize}
+    \item e.g.~\emph{user registered}, \emph{product added to cart}, \emph{order placed}, \emph{etc.}
+  \end{itemize}
+  
+  \item which sorts of \textbf{messages} are exchanged?
+  %
+  \begin{itemize}
+    \item e.g.~\emph{commands}, \emph{events}, \emph{queries}, \emph{etc.}
+  \end{itemize}
+
+  \item what information does the \textbf{state} of the system comprehend
+  %
+  \begin{itemize}
+    \item e.g.~\emph{users' data}, \emph{products' data}, \emph{orders' data}, \emph{etc.}
+  \end{itemize}
+\end{itemize}
+
+\begin{quote}
+Class diagram are welcome here
+\end{quote}
+
+\subsection{Interaction}\label{interaction}
+
+\begin{itemize}
+  \item how do components \emph{communicate}? \emph{when}? \emph{what}?
+  \item \emph{which} \textbf{interaction patterns} do they enact?
+\end{itemize}
+
+\begin{quote}
+Sequence diagrams are welcome here
+\end{quote}
+
+\subsection{Behaviour}\label{behaviour}
+
+\begin{itemize}
+  \item how does \emph{each} component \textbf{behave} individually (e.g.~in \emph{response} to \emph{events} or messages)?
+  \begin{itemize}
+    \item some components may be \emph{stateful}, others \emph{stateless}
+  \end{itemize}
+
+  \item which components are in charge of updating the \textbf{state} of the system? \emph{when}? \emph{how}?
+\end{itemize}
+
+\begin{quote}
+State diagrams are welcome here
+\end{quote}
+
+\subsection{Data and Consistency Issues}\label{data-and-consistency-issues}
+
+\begin{itemize}
+  \item Is there any data that needs to be stored?
+  %
+  \begin{itemize}
+    \item \emph{what} data? \emph{where}? \emph{why}?
+  \end{itemize}
+  
+  \item how should \emph{persistent data} be \textbf{stored}?
+  %
+  \begin{itemize}
+    \item e.g.~relations, documents, key-value, graph, etc.
+    \item why?
+  \end{itemize}
+  
+  \item Which components perform queries on the database?
+  %
+  \begin{itemize}
+    \item \emph{when}? \emph{which} queries? \emph{why}?
+    \item concurrent read? concurrent write? why?
+  \end{itemize}
+  
+  \item Is there any data that needs to be shared between components?
+  %
+  \begin{itemize}
+    \item \emph{why}? \emph{what} data?
+  \end{itemize}
+\end{itemize}
+
+\subsection{Fault-Tolerance}\label{fault-tolerance}
+
+\begin{itemize}
+  \item Is there any form of data \textbf{replication} / federation / sharing?
+  %
+  \begin{itemize}
+    \item \emph{why}? \emph{how} does it work?
+  \end{itemize}
+  
+  \item Is there any \textbf{heart-beating}, \textbf{timeout}, \textbf{retry mechanism}?
+  %
+  \begin{itemize}
+    \item \emph{why}? \emph{among} which components? \emph{how} does it work?
+  \end{itemize}
+  
+  \item Is there any form of \textbf{error handling}?
+  %
+  \begin{itemize}
+    \item \emph{what} happens when a component fails? \emph{why}? \emph{how}?
+  \end{itemize}
+\end{itemize}
+
+\subsection{Availability}\label{availability}
+
+\begin{itemize}
+  \item Is there any \textbf{caching} mechanism?
+  %
+  \begin{itemize}
+    \item \emph{where}? \emph{why}?
+  \end{itemize}
+  
+  \item Is there any form of \textbf{load balancing}?
+  %
+  \begin{itemize}
+    \item \emph{where}? \emph{why}?
+  \end{itemize}
+
+  \item In case of \textbf{network partitioning}, how does the system behave?
+  %
+  \begin{itemize}
+    \item \emph{why}? \emph{how}?
+  \end{itemize}
+\end{itemize}
+
+\subsection{Security}\label{security}
+
+\begin{itemize}
+  \item Is there any form of \textbf{authentication}?
+  %
+  \begin{itemize}
+    \item \emph{where}? \emph{why}?
+  \end{itemize}
+
+  \item Is there any form of \textbf{authorization}?
+  %
+  \begin{itemize}
+    \item which sort of \emph{access control}?
+    \item which sorts of users / \emph{roles}? which \emph{access rights}?
+  \end{itemize}
+
+  \item Are \textbf{cryptographic schemas} being used?
+  %
+  \begin{itemize}
+    \item e.g.~token verification,
+    \item e.g.~data encryption, etc.
+  \end{itemize}
+\end{itemize}
