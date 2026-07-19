@@ -3,24 +3,19 @@
 \subsection{Product type}
 
 KompozeR is a \textbf{web application} (a browser-based Single Page Application)
-backed by a set of cooperating \textbf{web services}. The end user interacts
-with a graphical interface; the business logic is provided by several
-independent backend services exposed through a single API Gateway.
-
-The product extends a classic e-commerce scenario with a domain-specific
+that extends a classic e-commerce scenario with a domain-specific
 feature: a guided, visual \emph{configurator} (referred to as the CAD service)
 that lets a customer compose a modular shelving unit out of individual
-components. The catalog is organised in three mutually incompatible product
-families (Tondo, Quadro, Qube), and the configurator enforces the domain
+components. The catalog is organised in four product
+categories (Tondo, Quadro, Intelligente and Kube), and the configurator enforces the domain
 constraint that components of different families cannot be mixed in the same
 configuration.
 
-\subsection{Use case}
+\subsection{Application scenario}
 
 \begin{itemize}
-  \item \textbf{What} the software does: it lets users browse a component
-  catalog, interactively build a valid shelving configuration while seeing an
-  up-to-date preview and price, save configurations to their profile, add them
+  \item \textbf{What} the software does: it lets users build a valid shelving configuration while seeing an
+  up-to-date preview and price, automatically save configurations to their profile, add them
   to a cart, and place orders. It keeps saved configurations consistent with
   the catalog, notifying users in real time when a component they depend on
   changes price or becomes unavailable. A contextual chatbot assists users
@@ -38,10 +33,11 @@ configuration.
 
   \item \textbf{How they interact / devices}: through a web browser (desktop or
   mobile) talking to the SPA. Communication is mostly request/response over
-  HTTP; real-time channels (WebSocket via Socket.IO) are used for notifications
-  and the chatbot.
+  HTTP; real-time channels (WebSocket via Socket.IO) are used for notifications,
+  the chatbot, and the collaborative CAD sessions, where several users edit the
+  same configuration and see each other's changes in real time.
 
-  \item \textbf{Data to store}: yes. The system persists users and sessions,
+  \item \textbf{Data to store}: the system persists users and sessions,
   the component catalog, configurations and their bill of materials (BOM),
   carts, orders, notifications and subscriptions, and chat sessions. Each kind
   of data is owned and stored by the service responsible for it
@@ -54,19 +50,18 @@ configuration.
 
 \subsection{Why distribution is needed}
 
-Distribution in KompozeR is a design consequence of the domain, not an end in
-itself. The main motivations are:
+Distribution in KompozeR is a design consequence of the domain. The main motivations are:
 
 \begin{itemize}
-  \item \textbf{Resource sharing}: a single, authoritative catalog and its
+  \item \textbf{Resource sharing}: a single update of the catalog and its
   price/availability information must be shared among many concurrent users and
   among several application contexts (configurator, cart, notifications,
   chatbot, reporting).
 
   \item \textbf{Evolvability and separation of concerns}: the problem naturally
   decomposes into distinct bounded contexts (authentication, catalog,
-  configuration, cart, orders, notifications, chatbot, reporting). Realising
-  each as an independently deployable service allows them to evolve, scale, and
+  configuration, cart, orders, notifications, chatbot, reporting). Designing
+  each of them as an independently deployable service allows them to evolve, scale, and
   be tested in isolation.
 
   \item \textbf{Fault tolerance}: the configuration workflow is the core of the
@@ -80,7 +75,6 @@ itself. The main motivations are:
   requests.
 \end{itemize}
 
-Geographic distribution of servers and heavy shared computation are \emph{not}
-primary drivers: the deployment is logically centralised, and the interesting
+The deployment is logically centralised, and the interesting
 distributed-systems challenges are consistency of shared catalog data,
 event-driven propagation of changes, and fault tolerance of the core workflow.
