@@ -1,17 +1,154 @@
 \section{Deployment}\label{deployment}
 
-\begin{itemize}
-  \item should one install your software from scratch, how to do it?
-  %
-  \begin{itemize}
-    \item provide instructions
-    \item provide expected outcomes
-  \end{itemize}
+The system can be brought up in two ways: \textbf{Docker Compose}, for local
+development and for running the automated test suites of \cref{validation},
+and \textbf{Kubernetes} (via Kustomize), for a production-like deployment
+exercising replication and self-healing. Both are declarative: bringing the
+system up or down is a single command, with no manual per-service setup.
 
-  \item what software should be installed on the machines to run your project? which versions?
-  
-  \item should one set environment variables or configuration files?
-  
-  \item if you're using containerization (e.g.~Docker), 
-  describe how you engineered your deployment scrips (e.g. \texttt{docker-compose.yml} files)
+\subsection{Prerequisites}\label{deployment-prerequisites}
+
+No Node.js version is declared in any \texttt{package.json} (no
+\texttt{engines} field, no \texttt{.nvmrc}); the authoritative version is
+fixed at the container level instead --- every backend service and the
+frontend build \texttt{FROM node:24-alpine}, so \textbf{Node.js~24} is what
+actually runs, whether or not it is installed on the host. Consequently, the
+only host-level prerequisites are:
+
+\begin{itemize}
+  \item \textbf{Docker} and \textbf{Docker Compose} (v2 syntax), for the
+  Compose path;
+  \item \textbf{Minikube} and \textbf{kubectl}, for the Kubernetes path ---
+  Kustomize support is built into recent \texttt{kubectl}, so no separate
+  Kustomize binary is required.
 \end{itemize}
+
+Node.js is only needed on the host if one wants to run a service or the test
+suites outside a container (e.g.\ from an IDE); the reference workflows below
+do not require it.
+
+\subsection{Running with Docker Compose}\label{deployment-compose}
+
+\begin{sloppypar}
+\paragraph{Configuration.} Copy \texttt{kompozer/.env.example} to
+\texttt{kompozer/.env} and adjust it if needed; the defaults are sufficient
+to bring the system up locally. The file groups its variables by concern:
+shared credentials and infrastructure (\texttt{MONGO\_ROOT\_USER},
+\texttt{MONGO\_ROOT\_PASSWORD}, \texttt{JWT\_SECRET}, \texttt{REDIS\_URL}),
+one MongoDB connection string per service (\texttt{*\_MONGO\_URI}), and one
+HTTP port per service. The chatbot's optional third-party integration
+(Mistral AI, \cref{technological-details}) is configured separately via
+\texttt{MISTRAL\_API\_KEY}/\texttt{MISTRAL\_MODEL}: if unset, the chatbot
+falls back to template-based answers instead of failing.
+\end{sloppypar}
+
+\paragraph{Two Compose files, two purposes.} \texttt{docker-compose.yml} is
+the leaner, env-file-driven topology (eight backend services, no
+observability stack, ephemeral Mongo containers with no volumes) closer to a
+minimal reproduction of the design; \texttt{docker-compose.dev.yml} is the
+actively maintained development environment and the one the end-to-end
+suite of \cref{validation} targets: it adds the \texttt{order-service},
+gives every MongoDB container a named volume and a health check, exposes
+every database on a host port for inspection with a GUI client such as
+MongoDB Compass, and additionally runs the observability stack (below).
+Both provision the CAD context as a genuine three-member replica set rather
+than a single node (two data-bearing members plus an arbiter, matching
+\cref{fault-tolerance}), initialised by a one-shot, idempotent
+\texttt{mongo-cad-init} job that waits for all three members to be healthy
+before calling \texttt{rs.initiate}.
+
+\begin{sloppypar}
+\paragraph{Bringing it up.} From \texttt{kompozer/}:
+\begin{quote}
+\texttt{docker compose -f docker-compose.dev.yml up --build}
+\end{quote}
+Expected outcome: every container reports healthy, the CAD replica set
+finishes electing a primary within a few seconds, and the API gateway
+becomes reachable at \url{http://localhost:3000} (health check:
+\texttt{GET /health} returns the aggregated status of
+\cref{fault-tolerance}). The frontend is served separately in this
+environment (\texttt{npm run dev:frontend} from the workspace root, a Vite
+dev server on \url{http://localhost:5173} proxying \texttt{/api} to the
+gateway); the automated test suites can then be run as described in
+\cref{validation}. Tearing down: \texttt{docker compose -f
+docker-compose.dev.yml down -v} (the \texttt{-v} also removes the named
+volumes, i.e.\ a full data reset).
+\end{sloppypar}
+
+\subsection{Deploying to Kubernetes}\label{deployment-kubernetes}
+
+\paragraph{Layout.} All manifests live in \texttt{kompozer/k8s/}, numbered to
+convey dependency order and aggregated by a single
+\texttt{kustomization.yaml} (namespace \texttt{kompozer}): a namespace and a
+\texttt{Secret} (credentials and the JWT/Mistral keys, sourced from the
+environment rather than committed values in a real deployment); Redis; six
+single-node MongoDB \texttt{Deployment}s (one per non-core context) plus a
+three-member CAD MongoDB \texttt{StatefulSet} with its own init
+\texttt{Job}; one \texttt{Deployment}+\texttt{Service} pair per backend
+component; the frontend (an nginx image serving the built SPA and
+reverse-proxying \texttt{/api}, including WebSocket upgrades, exactly as
+described in \cref{infrastructure}); and the observability stack (below).
+The gateway and the frontend are the only two \texttt{NodePort} Services ---
+every other Service is a \texttt{ClusterIP}, unreachable from outside the
+cluster, matching the single-entry-point design of \cref{architecture}.
+
+\begin{sloppypar}
+\paragraph{Bringing it up.} On a machine with Minikube:
+\begin{quote}
+\texttt{minikube start --driver=docker --memory=6144 --cpus=4}\\
+\emph{(build every service image directly into Minikube's Docker store)}\\
+\texttt{minikube image build ...} \emph{(once per service/frontend image)}\\
+\texttt{kubectl apply -k kompozer/k8s}
+\end{quote}
+Images are built locally and loaded straight into Minikube rather than
+pulled from a registry (every application \texttt{Deployment} sets
+\texttt{imagePullPolicy: Never}); only the infrastructure images (MongoDB,
+Redis, Loki, Promtail, Grafana) are pulled from public registries as usual.
+Expected outcome, checked with \texttt{kubectl rollout status
+\url{statefulset/mongo-cad}} and \texttt{kubectl wait
+--for=condition=complete \url{job/mongo-cad-init}}: the CAD replica set is
+initialised and every Deployment reaches its desired replica count; the
+application is then reachable via \texttt{minikube service frontend -n
+kompozer --url} (and, separately, \texttt{api-gateway}/\texttt{grafana} the
+same way). Tearing down: \texttt{kubectl delete -k kompozer/k8s}.
+\end{sloppypar}
+
+\paragraph{Demonstrating the distributed-systems properties.} Because this
+deployment is closer to production than Compose, it is also where the
+fault-tolerance guarantees of \cref{fault-tolerance} can be exercised against
+a real node/process failure rather than a fake: killing the current CAD
+primary (\texttt{kubectl delete pod mongo-cad-0}) shows automatic re-election
+and writes resuming (NFR3); killing the CAD service pod (\texttt{kubectl
+delete pod -l app=cad-service}) shows an open collaborative session recover
+via checkpoint/replay after Kubernetes restarts it (NFR4). The
+consistency/availability trade-off of \cref{data-and-consistency-issues} is
+also directly tunable here by editing \texttt{CAD\_WRITE\_CONCERN} (e.g.\
+from \texttt{majority} down to \texttt{1}) in \texttt{24-cad-service.yaml}
+and observing the effect on write latency versus durability.
+
+\subsection{Observability}\label{deployment-observability}
+
+Both environments can additionally run a log-aggregation stack ---
+\textbf{Grafana}, \textbf{Loki} and \textbf{Promtail} --- explicitly scoped
+to development/troubleshooting rather than production use (in-memory index,
+filesystem storage, anonymous admin access). Promtail runs once per Docker
+host (reading the Docker socket) in Compose, and as a Kubernetes
+\texttt{DaemonSet} (reading \texttt{/var/log/pods} via a dedicated
+\texttt{ServiceAccount}/RBAC role) in the cluster deployment, shipping every
+container's logs to Loki; Grafana is pre-provisioned with Loki as a
+datasource, so logs from any of the nine backend components can be filtered
+and correlated (e.g.\ by service name or error level) from a single
+dashboard during manual testing (\cref{validation}) --- the CAD checkpoint
+log lines (\cref{fault-tolerance}) were, in practice, mostly inspected this
+way while validating the crash-recovery behaviour by hand.
+
+\subsection{Maintenance conventions}\label{deployment-maintenance}
+
+\texttt{kompozer/howToUpgrade.md} documents the project's internal
+conventions for future changes: the directory layout each service follows
+(\texttt{domain}/\texttt{useCases}/\texttt{adapters},
+\cref{technological-details}), the REST-vs-event decision rule, and a
+checklist for adding a new route, a new domain event, or an entirely new
+service (including registering its Mongo URI and port in \texttt{.env.example}
+and its manifest in \texttt{k8s/kustomization.yaml}) --- kept as a living
+document rather than duplicated here.

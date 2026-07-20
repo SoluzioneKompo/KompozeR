@@ -1,7 +1,7 @@
 \section{Requirements Elicitation and Analysis}\label{requirements}
 
 This chapter states \emph{what} KompozeR must do, independently of how it is
-implemented. Requirements are elicited from the stakeholders (customers,
+implemented. Requirements are derived from the stakeholders (customers,
 recurring registered customers, catalog administrators) and from a small set of
 representative scenarios: configuring a shelving unit, asking the chatbot for
 contextual help, saving and resuming a configuration, being notified of a
@@ -15,14 +15,14 @@ criterion used during validation (\cref{validation}).
 \begin{description}
   \item[Component] a single catalog item (e.g.~a shelf, an upright), identified
   by a SKU and belonging to a product family.
-  \item[Product family] one of the three mutually incompatible catalogs
-  (Tondo, Quadro, Qube); components of different families cannot be combined.
+  \item[Product family] one of the four mutually incompatible catalogs
+  (Tondo, Quadro, Intelligente and Kube); components of different families cannot be combined.
   \item[Configuration] a work-in-progress or saved shelving design owned by the
   CAD context, with a state, a column plan, and a derived Bill of Materials.
   \item[BOM] Bill of Materials: the list of components (with quantities) that a
   configuration resolves to, and the basis for its price.
-  \item[Subscription] a user's interest in a specific SKU, used to notify the
-  user when that SKU changes price or availability.
+  \item[Subscription] a user's interest in a specific component (due to have it in the configuration), used to notify the
+  user when that component changes price or availability.
   \item[Role] the authorisation level of a principal: \texttt{GUEST},
   \texttt{BASE} (authenticated customer), or \texttt{ADMIN}.
 \end{description}
@@ -85,8 +85,6 @@ criterion used during validation (\cref{validation}).
 
 \subsection{Non-functional requirements}\label{non-functional-requirements}
 
-Several non-functional requirements are inherently distributed-system concerns;
-they are highlighted and later mapped to design choices in \cref{design}.
 
 \begin{description}
   \item[NFR1 --- Consistency of shared catalog] Price and availability changes
@@ -133,10 +131,6 @@ they are highlighted and later mapped to design choices in \cref{design}.
 
 \subsection{Implementation requirements}\label{implementation-requirements}
 
-These constraints bound the realisation of the system. They are motivated by
-the academic context of the project (Distributed Systems and ASW courses),
-which asks for a genuinely distributed, containerised system, and by the reuse
-of a common technology baseline across the team.
 
 \begin{description}
   \item[IR1 --- Distributed architecture] The system shall be realised as
@@ -148,8 +142,7 @@ of a common technology baseline across the team.
   (Docker Compose for development, Kubernetes for a production-like setup).
 
   \item[IR3 --- Technology baseline] Backend services shall be implemented in
-  Node.js/TypeScript with Express, and the frontend as a Vue~3 SPA, to share a
-  single toolchain and skill set within the team.
+  Node.js/TypeScript with Express, and the frontend as a Vue~3 SPA.
 
   \item[IR4 --- Persistence] Persistent state shall be stored in MongoDB, one
   logical database per service, honouring the database-per-service constraint.
@@ -168,7 +161,7 @@ KompozeR and which are secondary.
 \begin{itemize}
   \item \textbf{Resource sharing} --- \emph{central}. A single authoritative
   catalog (prices, availability) is shared by many concurrent users and by
-  several contexts (configurator, cart, notifications, chatbot, reporting). Much
+  several contexts (configurator, cart, notifications, chatbot). Much
   of the design revolves around sharing this resource without letting contexts
   read each other's private state.
 
@@ -198,14 +191,12 @@ KompozeR and which are secondary.
 \begin{itemize}
   \item \textbf{Scalability} --- \emph{relevant}. The workload is many
   independent, read-heavy sessions; the stateless service tier behind the
-  gateway can scale horizontally. Extreme, global-scale elasticity is out of
-  scope.
+  gateway can scale horizontally. 
 
   \item \textbf{Transparency} --- \emph{relevant}. Location and access
   transparency are provided to clients: they only know the gateway and are
   unaware of service placement, replication of the CAD database, or which node
-  is primary. Full failure transparency is only pursued for the core workflow.
-
+  is primary. 
   \item \textbf{Openness / interoperability / heterogeneity} --- \emph{partially
   relevant}. Services interoperate through plain HTTP/JSON and Socket.IO, which
   keeps them loosely coupled and language-agnostic; however the stack is
@@ -213,8 +204,7 @@ KompozeR and which are secondary.
 
   \item \textbf{Performance / concurrency / efficiency} --- \emph{relevant}.
   Perceived responsiveness of preview/price updates and real-time delivery
-  matter (NFR2, NFR8), and many sessions run concurrently; hard real-time or
-  high-throughput bandwidth optimisation is not a goal.
+  matter (NFR2, NFR8), and many sessions run concurrently.
 \end{itemize}
 
 \paragraph{Secondary.}

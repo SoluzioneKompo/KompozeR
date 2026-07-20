@@ -2,42 +2,121 @@
 
 \subsection{Automatic Testing}\label{automatic-testing}
 
-\begin{itemize}
-  \item how were individual components \textbf{\emph{unit}-test}ed?
-  
-  \item how was communication, interaction, and/or integration among components tested?
-  
-  \item how to \textbf{\emph{end-to-end}-test} the system?
-  %
-  \begin{itemize}
-    \item e.g.~production vs.~test environment
-  \end{itemize}
+Testing is organised in three tiers, all written with \textbf{Jest~29} and
+\texttt{ts-jest}, one tier per granularity of the system under test.
 
-  \item for each test specify:
-  %
-  \begin{itemize}
-    \item rationale of individual tests
-    \item how were the test automated
-    \item how to run them
-    \item which requirement they are testing, if any
-  \end{itemize}
-\end{itemize}
+\begin{sloppypar}
+\paragraph{Unit tests.} Every one of the nine backend components (the gateway
+and the eight domain services) has its own, fully isolated Jest
+configuration and a \texttt{\_\_tests\_\_} folder, for a total of \textbf{44
+test files}. Consistent with the hexagonal layering of
+\cref{technological-details}, these tests never touch a real MongoDB or
+Redis: each service provides a \texttt{\_\_tests\_\_/helpers/fakes.ts} with
+in-memory implementations of its domain ports (e.g.\ cadService's
+\texttt{FakeConfigurationRepository}, backed by a \texttt{Map} and cloning on
+every read/write to emulate persistence isolation; \texttt{FakePasswordHasher},
+\texttt{FakeTokenSigner}, \texttt{FakeClock}, \texttt{FakeIdGenerator} for
+authenticationService), so a use-case test exercises real business logic
+against a fast, deterministic double instead of infrastructure. Two kinds of
+targets are covered: \emph{use-cases} (e.g.\ \texttt{CreateComponent},
+\texttt{UpdateComponent} in catalogService --- the latter with a test
+explicitly asserting the optimistic-concurrency rule, version incrementing
+1$\to$2 and a rejected stale update, tagged \texttt{[DS]} in the test name)
+and \emph{pure domain functions} (e.g.\ \texttt{deriveBom}, tested against
+both the TONDO/QUADRO/KUBE rules and, separately, the more complex
+INTELLIGENTE bridging logic, asserting exact BOM component counts by type).
+HTTP adapters are also unit-tested, with \texttt{supertest} driving an
+Express app built purely from fakes (\texttt{buildTestApp.ts}), so a router
+test verifies status codes, validation and role/ownership rejection without
+any real dependency. Coverage is measured (\texttt{jest --coverage},
+Istanbul/\texttt{lcov} output) but no threshold is enforced --- coverage is
+informative, not a merge gate, since there is no CI (below).
+\end{sloppypar}
 
-\begin{quote}
-recall that \emph{deployment} \textbf{automation} is commonly used to \emph{test} the system in \emph{production-like} environment
-\end{quote}
+\paragraph{Domain-level concurrency tests.} The most distributed-systems-relevant
+unit tests are cadService's \texttt{collabConcurrency.test.ts} and
+\texttt{collabCheckpointRecovery.test.ts}, which exercise
+\texttt{InMemoryCollabSessionService} (\cref{fault-tolerance}) directly
+against fakes. The first covers twelve scenarios of the Lamport/LWW conflict
+rule: a higher Lamport timestamp wins, a tie is broken by actor id,
+independent fields converge independently, a duplicate \texttt{opId} is
+acknowledged without being re-applied, a stale \texttt{baseVersion} is
+rejected, and the outcome is independent of the arrival order of two
+concurrent operations (commutativity) --- i.e.\ exactly the properties NFR1
+and the field-level OCC design of \cref{data-and-consistency-issues} require.
+The second test drives a full crash/recovery cycle: it checkpoints a
+session, creates a \emph{brand-new} \texttt{InMemoryCollabSessionService}
+instance sharing the same checkpoint/event-log fakes (simulating a process
+restart), calls \texttt{recoverSessions()}, and asserts the rebuilt state
+(name, category, version, participants) is identical to the pre-crash state
+--- a direct, automated test of NFR4.
 
-\begin{quote}
-recall to test corner cases (crashes, errors, etc.)
-\end{quote}
+\begin{sloppypar}
+\paragraph{Integration tests (``e2e'').} A separate, top-level \texttt{e2e/}
+package runs black-box HTTP tests against the \emph{real}, dockerised stack
+(Node's built-in \texttt{http} module, not \texttt{supertest}, since there is
+no Express app in scope --- only the network). Its
+\texttt{globalSetup.js} polls the gateway's aggregated \texttt{/health}
+(\cref{fault-tolerance}) until the stack is up, obtains a guest JWT, and
+idempotently seeds an \texttt{ADMIN} dev user before the suite runs. Eight
+spec files (\texttt{auth}, \texttt{cad}, \texttt{cart}, \texttt{catalog},
+\texttt{chatbot}, \texttt{notifications}, \texttt{order},
+\texttt{reporting.integration.test.ts}), each tagged \texttt{[INT]}, cover:
+registration/login/session/logout; a full configurator flow for both the
+TONDO and the more complex INTELLIGENTE product family (environment
+$\to$ category $\to$ column plan $\to$ design $\to$ finalize, asserting the
+returned BOM); cart CRUD; catalog CRUD restricted to \texttt{ADMIN} plus an
+explicit \texttt{[DS]} case (\texttt{PUT /catalog/:id} against a stale
+version $\to$ \texttt{409 VERSION\_CONFLICT}); chatbot session/Q\&A; the full
+event-driven notification path (an admin price change eventually visible to
+a subscribed user, polling with retry, \cref{interaction}); order placement
+and admin status changes; and the admin-only reporting endpoint. Ownership
+isolation (403/404 on another user's resource) and role rejection are
+asserted throughout, directly validating NFR5. Each of these maps to one or
+more requirements from \cref{requirements} (FR1--FR11, NFR1, NFR5).
+\end{sloppypar}
+
+\begin{sloppypar}
+\paragraph{How to run them.} Every service exposes \texttt{npm test}
+(\texttt{jest --runInBand}) and \texttt{npm run test:coverage}; the workspace
+root aggregates all nine with \texttt{npm run test:backend}, the black-box
+suite with \texttt{npm run test:e2e} (which requires
+\texttt{docker compose -f docker-compose.dev.yml up} to already be running),
+and \texttt{npm run test:baseline} chains both. There is currently
+\textbf{no continuous-integration pipeline} running any of this
+automatically on push or before merge --- tests are entirely
+developer-triggered, a gap noted for future work (\cref{future-works}).
+\end{sloppypar}
 
 \subsection{Acceptance test}\label{acceptance-test}
 
-\begin{itemize}
-  \item did you perform any \emph{manual} testing?
-  %
-  \begin{itemize}
-    \item what did you test?
-    \item why wasn't it automatic?
-  \end{itemize}
-\end{itemize}
+Two kinds of manual verification complement the automated suites, since
+neither is easily expressed as a Jest assertion.
+
+\paragraph{Manual UI testing.} The Vue frontend has no automated test suite
+(\cref{technological-details}), so every user-facing flow described in
+\cref{user-guide} --- registration/guest access, the full configurator
+wizard for each of the four product families, the collaborative session
+(joining from a second browser tab/profile to see real-time synchronisation
+and the Lamport-based conflict resolution in practice), cart/checkout, the
+notification bell and toast pushes, the chatbot, and the three admin screens
+--- was exercised manually against the Docker Compose stack. This was the
+pragmatic choice given the project's scope and time-box (a component/E2E UI
+framework such as Cypress or Playwright was not introduced,
+\cref{future-works}), and it is the only place role-based UI gating
+(\cref{security}) was actually verified end-to-end from a browser rather
+than only at the HTTP layer.
+
+\paragraph{Production-like deployment as a test.} Following the hint that
+deployment automation doubles as a test of a production-like environment,
+the two distributed-systems properties that automated tests can only
+approximate with fakes were also demonstrated manually on the Kubernetes
+deployment (\cref{deployment}): killing the current CAD MongoDB primary
+(\texttt{kubectl delete pod mongo-cad-0}) and observing the replica set
+elect a new primary and writes resume, validating NFR3 under an actual node
+failure rather than a simulated one; and killing the running
+\texttt{cad-service} pod (\texttt{kubectl delete pod -l app=cad-service}) and
+observing an open collaborative session survive via checkpoint/replay
+(\cref{fault-tolerance}), validating NFR4 against a real process crash and
+Kubernetes-driven restart, not just the fake-backed
+\texttt{collabCheckpointRecovery} unit test.

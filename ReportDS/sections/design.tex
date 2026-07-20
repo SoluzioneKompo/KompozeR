@@ -118,163 +118,699 @@ Component diagrams are welcome here
 
 \subsection{Modelling}\label{modelling}
 
-\begin{itemize}
-  \item which \textbf{domain entities} are there?
-  %
-  \begin{itemize}
-    \item e.g.~\emph{users}, \emph{products}, \emph{orders}, \emph{etc.}
-  \end{itemize}
-  
-  \item how do \emph{domain entities} \textbf{map to} \emph{infrastructural components}?
-  %
-  \begin{itemize}
-    \item e.g.~state of a video game on central server, while inputs/representations on clients
-    \item e.g.~where to store messages in an IM app? for how long?
-  \end{itemize}
+\paragraph{Domain entities.} Following \emph{database-per-service}, every
+bounded context owns a disjoint set of MongoDB collections; entities are never
+shared across service boundaries, only their identifiers are.
+\Cref{fig:class-diagram} summarises the entities owned by each context:
 
-  \item which \textbf{domain events} are there?
-  %
-  \begin{itemize}
-    \item e.g.~\emph{user registered}, \emph{product added to cart}, \emph{order placed}, \emph{etc.}
-  \end{itemize}
-  
-  \item which sorts of \textbf{messages} are exchanged?
-  %
-  \begin{itemize}
-    \item e.g.~\emph{commands}, \emph{events}, \emph{queries}, \emph{etc.}
-  \end{itemize}
+\begin{description}
+  \item[Authentication] \emph{User} (username, email, password hash, role
+  $\in\{$\texttt{GUEST}, \texttt{BASE}, \texttt{ADMIN}$\}$) and \emph{Session}
+  (token id, expiry, revocation flag), used to issue and invalidate JWTs.
 
-  \item what information does the \textbf{state} of the system comprehend
-  %
-  \begin{itemize}
-    \item e.g.~\emph{users' data}, \emph{products' data}, \emph{orders' data}, \emph{etc.}
-  \end{itemize}
-\end{itemize}
+  \item[Catalog] \emph{Component} (SKU, category/family, type, price,
+  availability, dimensions, compatible SKUs, an optimistic-concurrency
+  \texttt{version}) --- the single source of truth for price and availability.
 
-\begin{quote}
-Class diagram are welcome here
-\end{quote}
+  \item[CAD] \emph{Configuration} (owner, collaborators, lifecycle
+  \texttt{status}, environment constraints, column plan, per-column design,
+  derived BOM, \texttt{version}); plus two supporting collections used only for
+  collaborative-session recovery (\cref{fault-tolerance}): \emph{CollabCheckpoint}
+  (last known session snapshot and Lamport clocks) and \emph{CollabEvent} (an
+  append-only log of accepted edits since the last checkpoint).
+
+  \item[Cart] \emph{Cart} (one per user: line items with SKU/quantity/price,
+  and a side-map of items removed because they became unavailable).
+
+  \item[Order] \emph{Order} (owner, shipping information, line items snapshot,
+  status $\in\{$\texttt{SUBMITTED}, \texttt{DONE}, \texttt{CANCELLED}$\}$).
+
+  \item[Notification] \emph{Notification} (recipient, type, related SKU,
+  originating context), \emph{Subscription} (a user's interest in a
+  component), and \emph{ProcessedEvent} (an idempotency ledger, keyed by event
+  id).
+
+  \item[Chatbot] \emph{ChatSession} and \emph{ChatMessage} (role
+  \texttt{USER}/\texttt{BOT}, content), optionally linked to a configuration.
+
+  \item[Reporting] a read-only \emph{Order} projection (status, total,
+  submission date) used only for aggregation queries, never written by this
+  service.
+\end{description}
+
+\paragraph{Mapping to infrastructural components.} Each entity lives
+exclusively in its owning service's MongoDB database and is mutated only by
+that service; other contexts that need the data either \emph{copy} the
+relevant identifiers/values at write time (e.g.\ a cart line item stores its
+own \texttt{sku}, \texttt{name} and \texttt{unitPrice} snapshot, an order
+freezes the cart at submission time) or \emph{query it on demand} over REST
+(e.g.\ the CAD service asks the catalog for current component rules whenever
+it derives a BOM, \cref{data-and-consistency-issues}). The one deliberate
+exception is the CAD collaborative session: while a session is open, its
+authoritative state lives in the memory of the single \texttt{cadService}
+instance that hosts it (not in MongoDB), because it changes many times per
+second and every participant needs the same in-process view; MongoDB is used
+only as a periodic, recoverable checkpoint of that in-memory state, not as its
+primary store.
+
+\paragraph{Domain events.} Two contexts publish domain events on Redis
+pub/sub, both carrying an \texttt{eventId} used for idempotent handling:
+
+\begin{description}
+  \item[\texttt{catalog:events}] published by the catalog service whenever an
+  admin update changes a component: \texttt{PRICE\_CHANGED} (old/new price) or
+  \texttt{AVAILABILITY\_CHANGED} (old/new availability). Consumed by the cart
+  service (to restore previously removed items once a SKU becomes available
+  again) and by the notification service (to compute and push notifications,
+  \cref{fault-tolerance}).
+
+  \item[\texttt{cart:events}] published by the cart service for every
+  cart-affecting action (item added/removed, cart synchronised from a
+  configuration, items removed/restored due to availability, prices updated,
+  order requested). No other service currently subscribes to this channel; it
+  exists for traceability/observability and as an extension point.
+\end{description}
+
+\paragraph{Messages exchanged.} Three kinds of messages appear in the system,
+matching the three communication styles of \cref{architecture}: \emph{commands
+and queries} as synchronous REST request/response (JSON bodies, e.g.\
+``update component'', ``get cart''); \emph{domain events} as asynchronous,
+fire-and-forget JSON messages on Redis pub/sub (no persistence of undelivered
+messages: a consumer that is down when an event is published misses it,
+\cref{fault-tolerance}); and \emph{real-time messages} over Socket.IO, both
+one-off pushes (a notification, a chatbot answer) and fine-grained
+\emph{operations} in the CAD collaborative editor (one message per field
+changed, carrying an operation id, a Lamport timestamp and the base version it
+was computed against).
+
+\paragraph{System state.} The overall state of KompozeR comprehends: account
+and session data (authentication); the catalog of components and their price
+and availability (catalog); in-progress and saved configurations, their BOM,
+and --- transiently --- open collaborative sessions (CAD); carts (cart);
+placed orders (order); notifications and subscriptions, plus the ledger of
+already-processed catalog events (notification); chat transcripts (chatbot);
+and derived, read-only sales aggregates (reporting). There is no single
+component holding a global view of this state: each context is authoritative
+for its own slice, and the gateway never persists anything itself.
+
+\begin{figure}[htb]
+\centering
+\newcommand{\refnote}[1]{{\tiny\itshape\color{gray!60!black}#1}}%
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  entitybox/.style={draw, rounded corners, align=left, font=\scriptsize, inner sep=5pt, text width=4.3cm},
+  ref/.style={-{Latex[length=2mm]}, dashed, thick, gray!60!black, font=\tiny},
+  projref/.style={-{Latex[length=2mm]}, dotted, thick, gray!60!black, font=\tiny},
+]
+\node[entitybox] (auth) at (0,5) {
+  \textbf{Authentication}\\
+  User(username, email,\\ passwordHash, role)\\
+  Session(userId, tokenId)
+};
+\node[entitybox] (catalog) at (6.4,5) {
+  \textbf{Catalog}\\
+  Component(sku, category,\\ price, isAvailable, version)
+};
+\node[entitybox] (cad) at (12.8,5) {
+  \textbf{CAD}\\
+  Configuration(ownerId,\\ status, columnPlan,\\ components, version)\\
+  CollabCheckpoint(snapshot)\\
+  CollabEvent(seq, opId)\\
+  \begin{minipage}{\linewidth}\refnote{refs: ownerId $\to$ User; catalog rules via REST}\end{minipage}
+};
+\node[entitybox] (cart) at (0,1.5) {
+  \textbf{Cart}\\
+  Cart(userId,\\ items[sku, qty, unitPrice])\\
+  \begin{minipage}{\linewidth}\refnote{refs: userId $\to$ User; sku $\to$ Component}\end{minipage}
+};
+\node[entitybox] (order) at (6.4,1.5) {
+  \textbf{Order}\\
+  Order(userId, items[], status)\\
+  \begin{minipage}{\linewidth}\refnote{refs: userId $\to$ User; sku $\to$ Component}\end{minipage}
+};
+\node[entitybox] (notif) at (12.8,1.5) {
+  \textbf{Notification}\\
+  Notification(userId, sku, type)\\
+  Subscription(userId, targetId)\\
+  ProcessedEvent(eventId)\\
+  \begin{minipage}{\linewidth}\refnote{refs: userId $\to$ User; sku/targetId $\to$ Component}\end{minipage}
+};
+\node[entitybox] (chat) at (3.2,-2.4) {
+  \textbf{Chatbot}\\
+  ChatSession(userId,\\ configurationId)\\
+  ChatMessage(sessionId, role)\\
+  \begin{minipage}{\linewidth}\refnote{refs: userId $\to$ User; configurationId $\to$ Configuration}\end{minipage}
+};
+\node[entitybox] (report) at (9.6,-2.4) {
+  \textbf{Reporting}\\
+  Order(status, total,\\ submittedAt) [projection]\\
+  \begin{minipage}{\linewidth}\refnote{same physical collection as Order (read-only)}\end{minipage}
+};
+
+\draw[ref] (cart.north) -- node[left]{userId} (auth.south);
+\draw[ref] (cart.east) to[bend left=12] node[above, sloped]{sku} (catalog.south west);
+\draw[projref] (order.south east) to[bend right=10] node[below, sloped]{projection} (report.north west);
+\end{tikzpicture}%
+}
+\caption{Entities owned by each bounded context (database-per-service). Solid
+boxes never share a database; the small italic \emph{refs} note in each box
+lists the identifiers it holds towards entities owned by another context.
+Two dashed arrows illustrate the general pattern concretely (Cart referencing
+User and Component by id only, never by foreign key or join); the dotted
+arrow marks the one deliberate exception, where Reporting reads the Order
+service's own collection directly as a read-only projection.}
+\label{fig:class-diagram}
+\end{figure}
 
 \subsection{Interaction}\label{interaction}
 
-\begin{itemize}
-  \item how do components \emph{communicate}? \emph{when}? \emph{what}?
-  \item \emph{which} \textbf{interaction patterns} do they enact?
-\end{itemize}
+Components communicate through the three channels introduced in
+\cref{architecture}, each enacting a different interaction pattern:
 
-\begin{quote}
-Sequence diagrams are welcome here
-\end{quote}
+\begin{description}
+  \item[Request/reply over REST] is the default: the SPA calls the gateway,
+  which forwards the call (adding trusted identity headers) to exactly one
+  domain service and returns its JSON response synchronously. This is used for
+  every command and query that has a single, well-identified owner (read/write
+  the catalog, edit a configuration, manage a cart, place an order).
+
+  \item[Scatter/gather at the edge] is used by the gateway's
+  Backend-for-Frontend endpoints (e.g.\ the dashboard, the configurator
+  screen), which fan a single client request out to several domain services in
+  parallel and gather the results with \texttt{Promise.allSettled}: a failing
+  or slow service degrades its own field of the response instead of failing
+  the whole call, trading a little staleness/incompleteness for availability.
+
+  \item[Publish/subscribe over Redis] decouples the catalog (the producer of
+  \texttt{PRICE\_CHANGED} and \texttt{AVAILABILITY\_CHANGED}) from the cart and
+  notification services (the consumers). This is a genuinely asynchronous,
+  at-most-once channel: Redis pub/sub does not queue messages for a consumer
+  that is offline, so a service that is down when an event is published simply
+  misses it (\cref{fault-tolerance} discusses the consequences and why this
+  was an acceptable trade-off here). Every consumer applies the event
+  idempotently, so re-processing (e.g.\ after a manual replay) is always safe.
+
+  \item[Real-time push over Socket.IO] is used one-way, from a service to a
+  specific, already-identified client (a room per user id for notifications, a
+  room per chat connection for the chatbot), and bidirectionally for the CAD
+  collaborative editor, where it carries fine-grained \emph{operations}
+  instead of coarse request/response payloads.
+
+  \item[Replicated-state broadcast with conflict resolution] is the pattern
+  behind collaborative CAD editing: every accepted edit is broadcast to all
+  members of the session's room, so each browser keeps a full, independently
+  up-to-date replica of the configuration being edited, and conflicts between
+  concurrent edits to the same field are resolved deterministically with
+  Lamport clocks (\cref{behaviour}).
+
+  \item[Health polling] is used by the gateway to actively probe every
+  downstream service's \texttt{/health} endpoint on demand
+  (\cref{fault-tolerance}), rather than services pushing their own liveness.
+\end{description}
+
+\Cref{fig:seq-catalog-event} details the interaction triggered by an
+administrative catalog change, which mixes request/reply (the admin update),
+publish/subscribe (propagation to cart and notification), and push
+(delivery to the browser). \Cref{fig:seq-collab} details the interaction
+inside a collaborative CAD session, purely over Socket.IO.
+
+\begin{figure}[htb]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  actor/.style={draw, fill=gray!8, rounded corners, inner sep=3pt, font=\scriptsize\bfseries, text width=2.3cm, align=center},
+  lifeline/.style={dashed, gray!50!black},
+  sync/.style={-{Latex[length=2mm]}, thick, font=\tiny, align=center},
+  async/.style={-{Latex[length=2mm]}, thick, dashed, font=\tiny, align=center},
+  selfmsg/.style={-{Latex[length=2mm]}, thick, font=\tiny, align=left},
+]
+\def\yTop{0}
+\def\yBot{-9.6}
+\node[actor] (A)  at (0,\yTop)    {Admin};
+\node[actor] (GW) at (2.6,\yTop)  {Gateway};
+\node[actor] (CAT)at (5.2,\yTop)  {Catalog\\service};
+\node[actor] (R)  at (7.8,\yTop)  {Redis\\\texttt{catalog:events}};
+\node[actor] (CART)at (10.4,\yTop){Cart\\service};
+\node[actor] (NOTIF)at(13.0,\yTop){Notification\\service};
+\node[actor] (CLI)at (15.6,\yTop) {Browser\\(Socket.IO)};
+
+\foreach \x in {0,2.6,5.2,7.8,10.4,13.0,15.6}
+  \draw[lifeline] (\x,\yTop-0.5) -- (\x,\yBot);
+
+\draw[sync] (A) -- node[above]{PATCH /catalog/:id (JWT)} (GW);
+\draw[sync] (GW.south) -- ++(0,-1.3) -| node[above,pos=0.25]{PATCH /catalog/:id\\(X-User-Role: ADMIN)} (CAT.north);
+\draw[selfmsg] (CAT.east) ++(0,-2.1) -- node[right]{OCC check (\texttt{version}),\\persist, build event} ++(1.6,0);
+\draw[async] ($(CAT)+(0,-2.9)$) -- node[above]{PUBLISH \texttt{PRICE\_CHANGED}\\\{eventId, sku, oldPrice, newPrice\}} ($(R)+(0,-2.9)$);
+\draw[async] ($(R)+(0,-3.7)$) -- node[above]{message} ($(CART)+(0,-3.7)$);
+\draw[selfmsg] (CART.east) ++(0,-4.5) -- node[right]{if AVAILABILITY\_CHANGED: restore\\previously-removed items} ++(1.9,0);
+\draw[async] ($(R)+(0,-5.5)$) -- node[above]{message} ($(NOTIF)+(0,-5.5)$);
+\draw[selfmsg] (NOTIF.east) ++(0,-6.3) -- node[right]{hasProcessed(eventId)? no $\to$\\ImpactResolver (subscriptions,\\carts, finalized configs) $\to$\\save notifications $\to$ markProcessed} ++(1.9,0);
+\draw[sync] ($(NOTIF)+(0,-8.6)$) -- node[above]{\texttt{notification:push}\\(room \texttt{user:\{userId\}})} ($(CLI)+(0,-8.6)$);
+\end{tikzpicture}%
+}
+\caption{Propagation of a catalog change (e.g.\ an admin lowers a component's
+price) to every dependent context. The gateway turns the client call into a
+trusted internal request; the catalog service is the only writer and the only
+publisher; cart and notification consume the same event independently and
+idempotently; only the notification service ends up pushing to connected
+browsers.}
+\label{fig:seq-catalog-event}
+\end{figure}
+
+\begin{figure}[htb]
+\centering
+\resizebox{0.78\linewidth}{!}{%
+\begin{tikzpicture}[
+  actor/.style={draw, fill=gray!8, rounded corners, inner sep=3pt, font=\scriptsize\bfseries, text width=2.6cm, align=center},
+  lifeline/.style={dashed, gray!50!black},
+  sync/.style={-{Latex[length=2mm]}, thick, font=\tiny, align=center},
+  selfmsg/.style={-{Latex[length=2mm]}, thick, font=\tiny, align=left},
+]
+\def\yTop{0}
+\def\yBot{-12.2}
+\node[actor] (O)  at (0,\yTop)   {Owner\\(browser A)};
+\node[actor] (H)  at (3.6,\yTop) {CollabSocketHub\\(cadService)};
+\node[actor] (S)  at (7.2,\yTop) {InMemory\\CollabSessionService};
+\node[actor] (P)  at (10.8,\yTop){Participant\\(browser B)};
+
+\foreach \x in {0,3.6,7.2,10.8}
+  \draw[lifeline] (\x,\yTop-0.9) -- (\x,\yBot);
+
+\draw[sync] ($(P)+(0,-0.9)$) -- node[above]{\texttt{cad:collab:join}\\\{sessionCode\}} ($(H)+(0,-0.9)$);
+\draw[sync] ($(H)+(0,-1.9)$) -- node[above]{joinByCode(code, userId)} ($(S)+(0,-1.9)$);
+\draw[sync] ($(S)+(0,-2.7)$) -- node[above]{snapshot, participants} ($(H)+(0,-2.7)$);
+\draw[sync] ($(H)+(0,-3.6)$) -- node[above]{\texttt{cad:collab:joined}\\\{snapshot\}} ($(P)+(0,-3.6)$);
+\draw[sync] ($(H)+(0,-4.6)$) -- node[above]{\texttt{cad:collab:presence}\\\{joined\}} ($(O)+(0,-4.6)$);
+\draw[sync] ($(O)+(0,-5.9)$) -- node[above]{\texttt{cad:collab:operation}\\\{opId, lamport, fieldPath,\\value, baseVersion\}} ($(H)+(0,-5.9)$);
+\draw[sync] ($(H)+(0,-6.9)$) -- node[above]{applyOperation(...)} ($(S)+(0,-6.9)$);
+\draw[selfmsg] (S.east) ++(0,-7.9) -- node[right]{baseVersion check;\\Lamport+actorId LWW per\\field; mutate snapshot;\\append to event log} ++(2.1,0);
+\draw[sync] ($(S)+(0,-9.4)$) -- node[above]{\{applied: true, snapshot\}} ($(H)+(0,-9.4)$);
+\draw[sync] ($(H)+(0,-10.4)$) -- node[above]{\texttt{cad:collab:operation:applied}\\\{snapshot\} (whole room)} ($(O)+(0,-10.4)$);
+\draw[sync] ($(H)+(0,-11.4)$) -- node[above]{\texttt{cad:collab:operation:applied}\\\{snapshot\} (whole room)} ($(P)+(0,-11.4)$);
+\end{tikzpicture}%
+}
+\caption{A collaborative CAD session: a participant joins with a short
+session code, then owner and participant exchange field-level operations
+broadcast to the whole room (\texttt{cad:collab:\{sessionCode\}}). The session
+service is the single authority for conflict resolution; both browsers
+converge to the same snapshot because every operation is applied through the
+same deterministic rule.}
+\label{fig:seq-collab}
+\end{figure}
 
 \subsection{Behaviour}\label{behaviour}
 
-\begin{itemize}
-  \item how does \emph{each} component \textbf{behave} individually (e.g.~in \emph{response} to \emph{events} or messages)?
-  \begin{itemize}
-    \item some components may be \emph{stateful}, others \emph{stateless}
-  \end{itemize}
+\paragraph{Individual behaviour.} Six of the eight domain services
+(authentication, catalog, cart, order, chatbot, reporting) behave as
+\textbf{stateless} request handlers: every REST call is handled by loading
+the relevant document(s) from that service's own MongoDB, applying a pure
+use-case function, and writing the result back --- no business state lives in
+the process itself, which is what lets any of them be restarted or (in
+principle) replicated without coordination. The \textbf{notification} service
+is stateless in the same sense but is additionally \emph{event-driven}: its
+behaviour in response to a \texttt{catalog:events} message is fixed by
+\texttt{HandleCatalogEvent} (\cref{fig:seq-catalog-event}) --- check
+idempotency, resolve impacted users, persist, push --- and it takes no action
+on its own initiative. The \textbf{CAD} service is the exception: alongside
+its stateless REST endpoints for solo editing, it hosts \textbf{stateful}
+in-memory collaborative sessions (\cref{modelling}), whose behaviour in
+response to an incoming operation is the deterministic rule shown in
+\cref{fig:seq-collab} (validate base version, resolve the conflict with a
+Lamport clock, mutate the shared snapshot, log the change).
 
-  \item which components are in charge of updating the \textbf{state} of the system? \emph{when}? \emph{how}?
-\end{itemize}
+\paragraph{Who updates state, when, how.} Each context is the \emph{only}
+writer of its own state, always synchronously, in direct response to a
+request it received --- solo CAD edits, cart/order mutations, catalog admin
+updates, subscriptions, chat turns. Two relaxations to this rule exist by
+design: (i) the notification service also writes state (notifications, the
+processed-events ledger) in reaction to an event it did not originate, and
+(ii) during a collaborative CAD session, the in-memory snapshot is updated by
+whichever participant's operation wins the Lamport/LWW comparison, with
+MongoDB updated only afterwards, asynchronously, by the periodic checkpoint
+(\cref{fault-tolerance}) rather than on every single edit.
 
-\begin{quote}
-State diagrams are welcome here
-\end{quote}
+\paragraph{State machine of a Configuration.} The CAD service is also the
+only place with an explicit, named lifecycle: every configuration carries a
+\texttt{status} that is entirely \emph{derived} from which of its fields are
+populated, recomputed by the same rule whether the edit came through a
+regular REST call or through a collaborative operation
+(\texttt{applyStatusTransition}, shared by both paths so both keep the same
+semantics). \Cref{fig:state-configuration} shows the intended forward path
+and the reset behaviour: setting an \emph{earlier} field (environment,
+category, column plan) invalidates and clears everything derived after it
+--- a simple form of enforcing internal consistency without a transaction,
+since a single document is updated atomically by Mongoose's
+\texttt{findOneAndUpdate}. \texttt{FINALIZED} is terminal: every write
+use-case explicitly rejects further edits once it is reached.
+
+\begin{figure}[htb]
+\centering
+\resizebox{0.95\linewidth}{!}{%
+\begin{tikzpicture}[
+  st/.style={draw, rounded corners, fill=gray!8, font=\scriptsize, align=center, text width=2.5cm, minimum height=1cm},
+  final/.style={st, double, fill=gray!16},
+  fwd/.style={-{Latex[length=2mm]}, thick},
+  reset/.style={-{Latex[length=2mm]}, dashed, gray!40!black, font=\tiny, align=center},
+]
+\node[st] (draft) at (0,2) {DRAFT};
+\node[st] (env) at (4.4,2) {ENVIRONMENT\_\allowbreak DEFINED};
+\node[st] (cat) at (8.8,2) {CATEGORY\_\allowbreak SELECTED};
+\node[st] (cols) at (13.2,2) {COLUMNS\_\allowbreak DEFINED};
+\node[st] (design) at (13.2,-2) {DESIGN\_IN\_\allowbreak PROGRESS};
+\node[st] (ready) at (8.8,-2) {READY\_FOR\_\allowbreak FINALIZE};
+\node[final] (fin) at (4.4,-2) {FINALIZED};
+
+\draw[fwd] (draft) -- node[above,font=\tiny]{setEnvironment} (env);
+\draw[fwd] (env) -- node[above,font=\tiny]{setCategory} (cat);
+\draw[fwd] (cat) -- node[above,font=\tiny]{setColumnPlan} (cols);
+\draw[fwd] (cols) -- node[right,font=\tiny,align=center,pos=0.3]{updateDesign\\(partial)} (design);
+\draw[fwd] (design) -- node[above,font=\tiny,align=center]{updateDesign\\(all columns designed)} (ready);
+\draw[fwd] (ready) -- node[above,font=\tiny]{finalize} (fin);
+
+\draw[reset] (design.east) to[bend left=50] node[right,pos=0.5,align=left]{setColumnPlan\\(clears design, BOM)} (cols.east);
+\draw[reset] (ready.south) to[bend right=30] node[below]{setCategory / setEnvironment\\(clears columnPlan, design, BOM)} (cat.south);
+\end{tikzpicture}%
+}
+\caption{Lifecycle of a CAD \texttt{Configuration}. Solid arrows are the
+intended forward path (also enacted, field by field, by collaborative
+operations); dashed arrows summarise the reset rule that regresses status and
+discards downstream data whenever an earlier-stage field is rewritten.
+\texttt{FINALIZED} (double border) is a terminal state.}
+\label{fig:state-configuration}
+\end{figure}
 
 \subsection{Data and Consistency Issues}\label{data-and-consistency-issues}
 
+\paragraph{What is stored, where, why.} \Cref{modelling} lists the data each
+context owns; all of it must be persisted (accounts and prices cannot be
+recomputed, a configuration or an order lost on a restart is a broken user
+promise), which is why every service, without exception, keeps its state in
+its own MongoDB database rather than in process memory --- the one partial
+exception, the CAD collaborative session, is discussed in
+\cref{fault-tolerance} precisely because it \emph{starts} as in-memory state
+and has to be reconciled with durable storage.
+
+\paragraph{Why documents.} MongoDB (a document store) was chosen for every
+context, for reasons that hold uniformly across the domain: (i) most entities
+are naturally tree-shaped and read/written as a whole --- a configuration
+with its column plan, per-column design and BOM; a cart with its line items;
+an order with a frozen shipping address and item list --- so embedding them
+in one document avoids the joins a relational schema would need for the same
+read; (ii) \emph{database-per-service} already rules out cross-service joins,
+so the usual argument for a shared relational schema does not apply; (iii)
+schema flexibility matters during development of a project with several
+evolving contexts (e.g.\ the collaborative-session and BOM shapes changed
+several times); (iv) MongoDB's replica set gives the CAD context the
+replication and automatic failover required by NFR3 without introducing a
+second data-store technology.
+
+\paragraph{Queries and concurrent access.} Read patterns are simple and
+mostly key- or owner-scoped: by \texttt{sku}/category/text search (catalog,
+indexed), by \texttt{ownerId}/\texttt{collaborators} (CAD, compound-indexed
+with \texttt{updatedAt}), by \texttt{userId} (cart, one document per user;
+orders and notifications, indexed and paginated by date). Concurrent
+\emph{reads} are unrestricted (MongoDB's default read behaviour), and the
+workload is read-heavy overall (browsing the catalog, listing configurations)
+as anticipated in \cref{ds-features}. Concurrent \emph{writes} to the
+\emph{same} document are the one place true races can occur, and the system
+handles them with two different mechanisms depending on the granularity
+needed:
+
 \begin{itemize}
-  \item Is there any data that needs to be stored?
-  %
-  \begin{itemize}
-    \item \emph{what} data? \emph{where}? \emph{why}?
-  \end{itemize}
-  
-  \item how should \emph{persistent data} be \textbf{stored}?
-  %
-  \begin{itemize}
-    \item e.g.~relations, documents, key-value, graph, etc.
-    \item why?
-  \end{itemize}
-  
-  \item Which components perform queries on the database?
-  %
-  \begin{itemize}
-    \item \emph{when}? \emph{which} queries? \emph{why}?
-    \item concurrent read? concurrent write? why?
-  \end{itemize}
-  
-  \item Is there any data that needs to be shared between components?
-  %
-  \begin{itemize}
-    \item \emph{why}? \emph{what} data?
-  \end{itemize}
+  \item \textbf{Whole-document optimistic concurrency control}, for catalog
+  components and for a configuration edited solo: every document carries a
+  \texttt{version} field; a write must supply the \texttt{version} it read
+  (\texttt{expectedVersion}/\texttt{baseVersion}), and the update is only
+  applied with a conditional \texttt{findOneAndUpdate} filtering on
+  \texttt{\{\_id, version: expected\}}; a mismatch means someone else updated
+  first, and the request is rejected with a 409 (\texttt{VersionConflictError})
+  instead of silently overwriting a concurrent change (a classic
+  \emph{lost-update} prevention).
+
+  \item \textbf{Field-level, last-writer-wins with a Lamport clock}, only
+  inside an open collaborative CAD session, where whole-document OCC would be
+  too coarse (every participant would constantly conflict with everyone
+  else's most recent edit): each of the five editable fields keeps its own
+  logical clock, so two participants editing \emph{different} fields never
+  conflict, and two edits to the \emph{same} field are ordered
+  deterministically (\cref{behaviour}) instead of one simply failing.
 \end{itemize}
+
+No multi-document transactions are used anywhere: every write that must be
+atomic is expressed as a single conditional update to a single document, which
+keeps each service's persistence layer simple and sidesteps the need for
+distributed transactions across bounded contexts.
+
+\paragraph{Data shared between components.} The catalog's price and
+availability is the one piece of state genuinely needed by several contexts,
+and it is shared through two different strategies depending on how fresh the
+read must be: contexts that need the \emph{current} value at the exact moment
+of an operation pull it synchronously over REST (CAD deriving a BOM, cart
+snapshotting a line item, both in \cref{data-and-consistency-issues}'s spirit
+of ``ask the owner, don't copy the truth''); contexts that instead need to
+\emph{react} to a value that changed after the fact subscribe to the
+\texttt{catalog:events} stream (\cref{modelling}) and update their own copy
+accordingly (cart restoring a removed item, notification computing impacted
+users). One boundary is intentionally bent for pragmatism: the notification
+service's impact resolver reads the cart and CAD services' MongoDB
+collections directly (a second connection into their databases) instead of
+calling their REST APIs, to efficiently answer ``which users have this SKU in
+their cart/finalized configuration'' without adding a bespoke endpoint to
+each service for a single internal consumer --- a deliberate, documented
+trade-off against strict database-per-service encapsulation, acceptable here
+because the notification service only ever \emph{reads} that data.
 
 \subsection{Fault-Tolerance}\label{fault-tolerance}
 
-\begin{itemize}
-  \item Is there any form of data \textbf{replication} / federation / sharing?
-  %
-  \begin{itemize}
-    \item \emph{why}? \emph{how} does it work?
-  \end{itemize}
-  
-  \item Is there any \textbf{heart-beating}, \textbf{timeout}, \textbf{retry mechanism}?
-  %
-  \begin{itemize}
-    \item \emph{why}? \emph{among} which components? \emph{how} does it work?
-  \end{itemize}
-  
-  \item Is there any form of \textbf{error handling}?
-  %
-  \begin{itemize}
-    \item \emph{what} happens when a component fails? \emph{why}? \emph{how}?
-  \end{itemize}
-\end{itemize}
+\paragraph{Replication.} The only replicated data store is the CAD MongoDB
+replica set (\texttt{cadrs}), matching NFR3's decision to concentrate
+fault-tolerance investment on the core configuration workflow rather than
+spread it thin over every context. In Kubernetes it runs as three
+data-bearing members (Primary-Secondary-Secondary, one preferred-primary
+member at priority 2, two at priority 1); in Docker Compose, two data-bearing
+members plus an arbiter (which only votes in elections and holds no data, a
+lighter-weight way to keep an odd number of voters for local development). The
+cadService connection is configured (\cref{data-and-consistency-issues},
+env-driven) with write concern \texttt{majority}, read concern
+\texttt{majority} and read preference \texttt{primaryPreferred}: a write is
+acknowledged only once it is durable on a majority of members, and reads
+prefer the primary but can fall back to a secondary, making the
+consistency/availability trade-off explicit and tunable rather than hard-coded.
+Losing one member (a pod restart, a node failure) leaves a majority among the
+remaining two, so writes keep flowing and, if the lost member was the
+primary, the replica set elects a new one automatically among the survivors
+--- exactly the guarantee NFR3 asks for. Every other context's database is a
+single MongoDB instance with a persistent volume: durability against disk
+loss, but no failover against the loss of the node itself, a conscious
+scope decision (\cref{ds-features}) since none of those contexts is the
+product's core workflow.
+
+\paragraph{Collaborative session recovery (checkpoint/replay).} The CAD
+service's in-memory collaborative sessions (\cref{modelling}) need their own
+mechanism, since they are not stored in the replica set while active. A
+background timer checkpoints every live session to MongoDB every 10 seconds
+(\texttt{CAD\_CHECKPOINT\_INTERVAL\_MS}), and every accepted edit in between
+checkpoints is additionally appended to a per-session event log, so that at
+most 10 seconds of edits can ever be missing from durable storage at a given
+instant. \Cref{fig:recovery} shows what happens when the process crashes and
+restarts: before accepting any connection, it loads every persisted
+checkpoint, discards those whose TTL already expired, rebuilds the in-memory
+session from the checkpoint snapshot, and \emph{replays} the event-log entries
+recorded after that checkpoint through the very same mutation function used
+for live edits --- so the recovered state is bit-for-bit what it would have
+been had the crash never happened, not an approximation. Connected clients are
+then told to resynchronise (\texttt{cad:collab:resync}) and re-fetch the
+snapshot. This satisfies NFR4 (``the collaborative configuration session
+state shall survive a service crash'') while keeping the common case (no
+crash) cheap: checkpointing is periodic and off the hot path of every single
+edit.
+
+\paragraph{Timeouts and health checks.} Every inter-service REST call carries
+an explicit timeout rather than blocking indefinitely: 3\,s (CAD $\to$
+catalog, fetching pricing rules), 5\,s (cart $\to$ catalog; gateway $\to$ any
+downstream service). Every service exposes a \texttt{GET /health}; the gateway
+actively aggregates all of them into one endpoint (3\,s per-probe timeout,
+run in parallel), returning \texttt{200} if every service is up, \texttt{207}
+if some are degraded, \texttt{503} if all are down --- an operator- or
+orchestrator-facing view of the whole system's health from one call, rather
+than a heartbeat between services. Kubernetes complements this with
+per-pod \emph{readiness} probes (an HTTP check on cadService, a plain TCP
+check on the other stateless services, and \texttt{mongosh}/\texttt{redis-cli}
+ping checks on the data stores) so the platform stops routing traffic to a pod
+that is not ready; no liveness probes are configured, so Kubernetes will not
+restart a pod that is up but stuck --- a simplification acceptable for an
+academic deployment, and a natural first item for future hardening. The one
+place with an actual \emph{retry} is the chatbot's call to the external LLM
+provider, which retries up to twice with a linear backoff on retryable
+failures (5xx, 429, timeout) and gives up immediately on non-retryable ones
+(other 4xx); the other synchronous inter-service calls (CAD/cart $\to$
+catalog) are single-attempt, relying on their short timeout and the caller's
+own error handling rather than on retrying --- a gap consciously left open
+given the project's time-box rather than a considered design choice.
+
+\paragraph{Error handling.} Failures are handled at three levels. Within a
+service, use cases translate domain errors into fixed HTTP status codes
+through a shared error-mapping middleware (\texttt{404} not found,
+\texttt{409} version/business conflicts, \texttt{422} validation), so a
+client always gets a meaningful response instead of a stack trace. Across
+services, the gateway's Backend-for-Frontend endpoints isolate partial
+failure with \texttt{Promise.allSettled} (\cref{interaction}): one failing
+service surfaces as an error \emph{inside} its own field of the response, the
+others are unaffected. Inside the CAD collaborative session, operations are
+idempotent by \texttt{opId} (a retransmitted or duplicated operation is
+detected and acknowledged without being re-applied) and gated by
+\texttt{baseVersion} (an operation computed against a stale snapshot is
+rejected rather than silently corrupting the shared state); at the
+notification service, the same idempotency principle is applied to catalog
+events via the \texttt{ProcessedEvent} ledger keyed by \texttt{eventId}
+(\cref{modelling}), which is precisely what lets NFR1's ``applied at most
+once'' hold even if an event were ever redelivered.
+
+\begin{figure}[htb]
+\centering
+\resizebox{0.85\linewidth}{!}{%
+\begin{tikzpicture}[
+  actor/.style={draw, fill=gray!8, rounded corners, inner sep=3pt, font=\scriptsize\bfseries, text width=2.6cm, align=center},
+  lifeline/.style={dashed, gray!50!black},
+  sync/.style={-{Latex[length=2mm]}, thick, font=\tiny, align=center},
+  selfmsg/.style={-{Latex[length=2mm]}, thick, font=\tiny, align=left},
+  crash/.style={-{Latex[length=2mm]}, thick, red!60!black, font=\tiny, align=center},
+]
+\def\yTop{0}
+\def\yBot{-9.4}
+\node[actor] (T) at (0,\yTop)   {Checkpoint\\timer (10s)};
+\node[actor] (M) at (3.6,\yTop) {MongoDB\\(checkpoints\\+ event log)};
+\node[actor] (Proc) at (7.2,\yTop) {cadService\\process};
+\node[actor] (C) at (10.8,\yTop){Connected\\clients};
+
+\foreach \x in {0,3.6,7.2,10.8}
+  \draw[lifeline] (\x,\yTop-0.5) -- (\x,\yBot);
+
+\draw[sync] ($(T)+(0,-1)$) -- node[above]{checkpointAllSessions()} ($(M)+(0,-1)$);
+\draw[selfmsg] (M.east) ++(0,-1.8) -- node[right]{save snapshot + Lamport\\clocks; truncate log up to\\last saved seq} ++(2.2,0);
+\draw[crash] ($(Proc)+(-1.4,-2.9)$) -- node[above]{\textbf{process crash}} ($(Proc)+(1.4,-2.9)$);
+\draw[crash] ($(Proc)+(-1.4,-3.5)$) -- node[above]{\textbf{restart}} ($(Proc)+(1.4,-3.5)$);
+\draw[sync] ($(Proc)+(0,-4.4)$) -- node[above]{loadAllCheckpoints()} ($(M)+(0,-4.4)$);
+\draw[selfmsg] (Proc.west) ++(0,-5.2) -- node[left]{discard expired sessions;\\rebuild snapshot from\\checkpoint} ++(-2.2,0);
+\draw[sync] ($(Proc)+(0,-6.4)$) -- node[above]{readSince(sessionCode,\\lastEventSeq)} ($(M)+(0,-6.4)$);
+\draw[selfmsg] (Proc.west) ++(0,-7.3) -- node[left]{replay each logged op through\\the same mutation rule as a\\live edit $\to$ state identical\\to pre-crash} ++(-2.2,0);
+\draw[sync] ($(Proc)+(0,-8.8)$) -- node[above]{\texttt{cad:collab:resync}} ($(C)+(0,-8.8)$);
+\end{tikzpicture}%
+}
+\caption{Checkpoint and crash recovery for a CAD collaborative session. The
+session lives in process memory while active; a periodic checkpoint plus an
+append-only event log since the last checkpoint let a restarted process
+rebuild exactly the pre-crash state, after which clients are told to
+resynchronise.}
+\label{fig:recovery}
+\end{figure}
 
 \subsection{Availability}\label{availability}
 
-\begin{itemize}
-  \item Is there any \textbf{caching} mechanism?
-  %
-  \begin{itemize}
-    \item \emph{where}? \emph{why}?
-  \end{itemize}
-  
-  \item Is there any form of \textbf{load balancing}?
-  %
-  \begin{itemize}
-    \item \emph{where}? \emph{why}?
-  \end{itemize}
+\paragraph{Caching.} Redis is present in the architecture (\cref{infrastructure})
+but, in the current implementation, only as the pub/sub event bus of
+\cref{modelling} --- there is no read-through cache in front of MongoDB (e.g.\
+for hot catalog reads). Every read, including a repeated catalog lookup
+inside a busy configuration session, goes to the owning service's database
+directly. This was a deliberate scope decision given the academic setting and
+the modest data volumes involved (\cref{ds-features}): a cache would add a
+second source of truth to invalidate correctly on every
+\texttt{PRICE\_CHANGED}/\texttt{AVAILABILITY\_CHANGED} event, which was judged
+not worth the complexity at this scale; it is flagged here as the natural
+next step were the catalog read volume to grow.
 
-  \item In case of \textbf{network partitioning}, how does the system behave?
-  %
-  \begin{itemize}
-    \item \emph{why}? \emph{how}?
-  \end{itemize}
-\end{itemize}
+\paragraph{Load balancing.} The stateless tier (every domain service and the
+gateway) is architecturally prepared for horizontal scaling: no service keeps
+per-request state between calls (the one exception, CAD collaborative
+sessions, is pinned to a single pod by design, \cref{fault-tolerance}), so any
+number of replicas behind a Kubernetes \texttt{Service} could serve traffic
+interchangeably, with \texttt{kube-proxy} load-balancing across them and
+clients only ever knowing the gateway's name (\cref{infrastructure}). The
+reference deployment currently runs a single replica of each service
+(\texttt{replicas: 1}), so this capability is available but not exercised yet
+--- again a scope choice for the project rather than a limit of the design.
+The gateway is exposed as a Kubernetes \texttt{NodePort}, the single
+externally reachable, load-balanced entry point for all client traffic; every
+internal service sits behind its own \texttt{ClusterIP} Service, invisible
+from outside the cluster.
+
+\paragraph{Behaviour under network partitioning.} The two data stores react
+differently, on purpose. The CAD replica set tolerates a partition that still
+leaves a majority reachable: with \texttt{w:majority}/\texttt{readConcern:majority}
+and \texttt{primaryPreferred} reads, losing connectivity to one out of three
+members is transparent (two nodes still form a majority; if the isolated
+member was the primary, it steps down and the reachable majority elects a
+new one), matching NFR3. A single-node MongoDB (every other context) has no
+such tolerance: if it becomes unreachable, that context is simply down until
+it recovers --- an accepted trade-off, since none of those contexts is the
+core workflow. At the service level, the gateway's plain proxy routes have no
+built-in fallback: if a downstream service cannot be reached, the proxied
+call fails and the error propagates to the client, whereas the
+Backend-for-Frontend aggregation routes degrade gracefully instead
+(\cref{fault-tolerance}) --- so the practical impact of a partition depends on
+which kind of endpoint a given screen happens to use, and uniformly adding
+the BFF's graceful-degradation behaviour to the plain proxy routes is a clear
+direction for future work.
 
 \subsection{Security}\label{security}
 
-\begin{itemize}
-  \item Is there any form of \textbf{authentication}?
-  %
-  \begin{itemize}
-    \item \emph{where}? \emph{why}?
-  \end{itemize}
+\paragraph{Authentication.} The authentication service issues signed JWTs
+(HS256) on login, registration, and guest-session creation, embedding
+\texttt{userId}, \texttt{tokenId} and \texttt{role} in the payload; a matching
+\texttt{Session} document (\cref{modelling}) lets a token be revoked
+(logout) independently of its expiry. Signature verification, however,
+happens in exactly \emph{one} place: the gateway. Every request carries
+\texttt{Authorization: Bearer <token>}; the gateway verifies it, and --- only
+on success --- replaces any client-supplied \texttt{X-User-Id},
+\texttt{X-User-Role} and \texttt{X-Session-Id} headers with values derived
+from the verified token before forwarding the request downstream (explicitly
+stripping client-supplied versions first, to prevent header spoofing, an
+OWASP A01 concern). Domain services never see the raw JWT and never verify a
+signature themselves; they trust the identity headers as set by the gateway.
+This is a \emph{perimeter} security model: it keeps every domain service
+simple (no JWT secret to distribute, no verification logic to duplicate eight
+times) at the cost of requiring the cluster-internal network to be trusted,
+since anything able to reach a domain service directly (bypassing the
+gateway) could forge those headers --- an accepted risk given the single,
+logically centralised deployment (\cref{ds-features}), and something a
+production deployment would close with network policies restricting
+non-gateway ingress to domain services. Registration, login and guest-session
+creation are the only endpoints reachable without a token. Socket.IO
+handshakes for the chatbot and CAD collaboration accept the token as a
+\texttt{?token=} query parameter as well, since browsers cannot attach custom
+headers to the WebSocket upgrade request.
 
-  \item Is there any form of \textbf{authorization}?
-  %
-  \begin{itemize}
-    \item which sort of \emph{access control}?
-    \item which sorts of users / \emph{roles}? which \emph{access rights}?
-  \end{itemize}
+\paragraph{Authorization.} The system distinguishes three roles ---
+\texttt{GUEST}, \texttt{BASE} (authenticated customer), \texttt{ADMIN} --- and
+combines two complementary access-control styles. \emph{Role-based} checks
+guard administrative operations: catalog writes and order-status changes
+require \texttt{X-User-Role: ADMIN}, enforced by a small guard middleware
+duplicated in each service that needs it (no shared authorization library
+exists across services, a simplification consistent with each service owning
+its own HTTP layer). \emph{Ownership-based} checks guard access to a user's
+own resources, which matters more often than role in this domain: a cart,
+an order, notifications and chat sessions are scoped to their owning
+\texttt{userId}; a CAD configuration is accessible to its owner or to a
+collaborator explicitly added to it (\texttt{canAccessConfiguration}), and a
+collaborative session additionally requires knowing its short, randomly
+generated join code. This combination realises NFR5: unauthenticated or
+\texttt{BASE} access to admin endpoints is rejected, and cross-user access to
+another user's resources is denied regardless of role.
 
-  \item Are \textbf{cryptographic schemas} being used?
-  %
-  \begin{itemize}
-    \item e.g.~token verification,
-    \item e.g.~data encryption, etc.
-  \end{itemize}
-\end{itemize}
+\paragraph{Cryptography and hardening.} Passwords are hashed with
+\texttt{bcrypt} at 12 salt rounds before storage --- the raw password is never
+persisted or logged. JWTs are signed (not encrypted) with a secret provisioned
+as a Kubernetes \texttt{Secret} (\texttt{jwtSecret}, alongside the MongoDB
+root credentials) and injected as an environment variable, never hard-coded;
+local development uses an \texttt{.env} file with an explicit placeholder
+value for \texttt{JWT\_SECRET} (\texttt{change-me-in-production}) to make
+clear it must be replaced. Security headers (\texttt{helmet}) are applied at the gateway, the
+single point all client traffic must cross. Two aspects are intentionally
+left minimal for this academic deployment rather than hardened: transport is
+plain HTTP end-to-end (no TLS termination is configured; a real deployment
+would add it at an ingress in front of the gateway), and input validation is
+hand-written per field (length/format checks, an email regex, a minimum
+password length) rather than schema-based, with no request rate limiting in
+front of the authentication endpoints --- both reasonable targets for
+future hardening (\cref{future-works}) rather than gaps that affect the
+distributed-systems design itself.

@@ -1,5 +1,71 @@
 \section{Future works}\label{future-works}
 
-Discuss possible future works, improvements, extensions, optimizations, etc.
+Every functional requirement of \cref{requirements} is implemented and
+covered by the end-to-end suite of \cref{validation}, so there is no
+unimplemented feature to report; this chapter instead collects the concrete
+simplifications and gaps that \cref{design,implementation,validation,deployment}
+already flagged as deliberate scope decisions for the project's time-box,
+together with how each would be addressed with more time.
 
-Also discuss here any unimplemented feature, and how you would have implemented it.
+\paragraph{Process.} The most impactful single addition would be a
+\textbf{continuous-integration pipeline} (e.g.\ GitHub Actions) running
+\texttt{npm run test:baseline} --- and, once it exists, a frontend test
+suite --- on every push and pull request, since currently every test tier of
+\cref{validation} is triggered manually. A close second is giving the
+\textbf{frontend an automated test suite} at all: component/unit tests
+(e.g.\ with Vitest, which integrates naturally with the existing Vite
+build) for the larger views such as \texttt{CadView.vue}, and a
+browser-driven end-to-end tool (Playwright or Cypress) to replace the manual
+UI walkthrough of \cref{acceptance-test} for at least the golden paths
+(configurator, checkout, collaborative session).
+
+\paragraph{Reliability.} Inter-service REST calls that are currently
+single-attempt (CAD/cart $\to$ catalog, \cref{fault-tolerance}) would
+benefit from a small, shared retry-with-backoff policy and, ideally, a
+circuit breaker so a struggling downstream service degrades gracefully
+instead of every caller repeatedly timing out against it; the gateway's
+plain proxy routes could adopt the same \texttt{Promise.allSettled}-based
+graceful degradation already used by its Backend-for-Frontend endpoints
+(\cref{availability}). On the data side, the notification service's direct
+cross-database reads into the cart and CAD collections
+(\cref{data-and-consistency-issues}) are a pragmatic shortcut that reintroduces
+coupling the database-per-service principle is meant to avoid; a dedicated
+read endpoint (or a small materialised view kept in sync via the existing
+event stream) on each of those two services would close that gap cleanly.
+Kubernetes \textbf{liveness} probes (only readiness probes exist today,
+\cref{fault-tolerance}) would let the platform recover a pod that is up but
+stuck, not just one that has not started yet.
+
+\paragraph{Performance and scalability.} A \textbf{read-through cache} for
+catalog lookups (Redis is already present as the event bus,
+\cref{availability}) would reduce load on the most frequently read data,
+invalidated on the very \texttt{catalog:events} the notification and cart
+services already subscribe to. The stateless tier is architecturally ready
+to scale horizontally but every Kubernetes \texttt{Deployment} is currently
+pinned at one replica (\cref{availability}); raising replica counts and
+adding a \texttt{HorizontalPodAutoscaler} on CPU/latency would let the claim
+be exercised rather than just designed for.
+
+\paragraph{Security.} Three items from \cref{security} are natural next
+steps rather than accepted long-term trade-offs: \textbf{TLS termination}
+(an ingress with a certificate, so traffic is no longer plain HTTP even
+inside the cluster boundary), \textbf{schema-based input validation} (e.g.\
+Zod) to replace the hand-written field checks currently duplicated per
+use-case, and \textbf{rate limiting} on the authentication endpoints to
+blunt credential-stuffing/brute-force attempts. A shared, single
+authorisation middleware package (rather than the same
+\texttt{requireAdmin}/ownership checks reimplemented per service,
+\cref{implementation}) would also reduce the chance of one service's guard
+silently drifting from the others as the system grows. More generally,
+secret management for anything beyond local development --- properly
+generated, rotated credentials sourced from a secret manager rather than
+placeholder values in version control --- deserves more rigour before any
+real deployment.
+
+\paragraph{Consistency of configuration.} Finally, a small but real
+housekeeping item: \texttt{.env.example} has drifted from the services
+actually defined in \texttt{docker-compose.dev.yml} (\cref{deployment}) ---
+missing the order service's variables and disagreeing with it on several
+port numbers. Keeping the two in lockstep (or generating one from the
+other) would remove a point of friction for anyone setting the project up
+from scratch.
