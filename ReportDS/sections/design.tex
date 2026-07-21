@@ -1,23 +1,11 @@
 \section{Design}\label{design}
 
-This chapter explains the strategies used to meet the requirements identified in the analysis. 
-%
-Ideally, the design should be the same, regardless of the technological choices made during the implementation phase.
-
-\begin{quote}
-You can re-arrange the sections as you prefer, but all the sections must be present in the end
-\end{quote}
-
-\noindent
-\textbf{Important:} try to motivate your design choices in relation to the requirements and features identified 
-in \cref{requirements} and \cref{ds-features}.
-
 \subsection{Architecture}\label{architecture}
 
 KompozeR adopts a \textbf{microservice} architectural style behind an
 \textbf{API Gateway}, with a \textbf{client--server} interaction between the
 browser SPA and the backend. This style was chosen as a direct consequence of
-the analysis: the domain decomposes cleanly into loosely-coupled bounded
+the analysis: the domain decomposes itself naturally into bounded
 contexts (\cref{modelling}), and the non-functional requirements of
 evolvability and independent scalability (\cref{ds-features}) are best served
 by independently deployable services, each owning its own data
@@ -26,7 +14,7 @@ by independently deployable services, each owning its own data
 The system is composed of the following logical tiers:
 
 \begin{itemize}
-  \item \textbf{Presentation}: a Single Page Application served to the browser.
+  \item \textbf{Presentation}: a Single Page Application.
   It never talks to the services directly; every request goes through the
   gateway.
 
@@ -40,7 +28,7 @@ The system is composed of the following logical tiers:
   \emph{authentication}, \emph{catalog}, \emph{CAD} (configuration),
   \emph{cart}, \emph{order}, \emph{notification}, \emph{chatbot}, and
   \emph{reporting}. Each service is autonomous, owns its schema, and exposes a
-  REST API; a few of them additionally publish or consume asynchronous events.
+  REST API; some of them also publish or consume asynchronous events.
 
   \item \textbf{Data and messaging}: a dedicated MongoDB database per service
   and a Redis instance used as an event bus (publish/subscribe) and cache.
@@ -52,16 +40,11 @@ Three communication styles coexist, each used where it fits best:
   \item \textbf{Synchronous REST} for commands and queries (the default
   interaction);
   \item \textbf{Asynchronous events} over Redis pub/sub for domain events that
-  must be propagated to several contexts (notably catalog
+  must be propagated to several contexts (catalog
   \texttt{PRICE\_CHANGED} and \texttt{AVAILABILITY\_CHANGED});
   \item \textbf{Real-time push} over Socket.IO (WebSocket) for notifications and
   chatbot messages, so users receive updates without polling.
 \end{itemize}
-
-Keeping the domain interaction predominantly request/response, and confining
-asynchronous and real-time mechanisms to the areas that genuinely benefit from
-them (event propagation and push delivery), keeps the distributed complexity
-localised and the overall design easier to reason about.
 
 \begin{quote}
 Component diagrams are welcome here
@@ -94,23 +77,20 @@ The system introduces the following infrastructural components:
   both as a pub/sub event bus between services and as a cache.
 \end{itemize}
 
-\paragraph{Distribution over the network.} In the reference deployment all
+\paragraph{Distribution over the network.} All
 components run as containers within a single logical environment (a Docker
 Compose stack for development, a Kubernetes namespace for a production-like
 setup). Clients are remote and reach the system over the Internet; services,
-brokers and databases sit on the same cluster network but in separate
+brokers and databases are in the same network but in separate
 containers/pods, so that each can fail, restart, and scale independently. The
-CAD replica set is deliberately spread over three separate members (two
-data-bearing nodes plus an arbiter in Compose, three data-bearing nodes in
-Kubernetes) to tolerate the loss of a node.
+CAD replica set is spread over three separate members to tolerate the loss of a node.
 
 \paragraph{Naming and discovery.} Components find each other by logical name
 rather than by address. Within the container network, services are reached
 through their service name resolved by the platform DNS (Docker Compose's
 embedded DNS, or Kubernetes \texttt{Service} DNS), and each service is
 configured with the base URLs of its collaborators. Clients only ever know a
-single name --- the gateway --- which decouples them from the internal topology
-and lets services move or scale without affecting the front end.
+single name than the gateway lets services move or scale without affecting the front end.
 
 \begin{quote}
 Component diagrams are welcome here
@@ -119,8 +99,9 @@ Component diagrams are welcome here
 \subsection{Modelling}\label{modelling}
 
 \paragraph{Domain entities.} Following \emph{database-per-service}, every
-bounded context owns a disjoint set of MongoDB collections; entities are never
+bounded context owns a MongoDB collection; entities are never
 shared across service boundaries, only their identifiers are.
+
 \Cref{fig:class-diagram} summarises the entities owned by each context:
 
 \begin{description}
@@ -130,7 +111,7 @@ shared across service boundaries, only their identifiers are.
 
   \item[Catalog] \emph{Component} (SKU, category/family, type, price,
   availability, dimensions, compatible SKUs, an optimistic-concurrency
-  \texttt{version}) --- the single source of truth for price and availability.
+  \texttt{version}).
 
   \item[CAD] \emph{Configuration} (owner, collaborators, lifecycle
   \texttt{status}, environment constraints, column plan, per-column design,
@@ -139,50 +120,43 @@ shared across service boundaries, only their identifiers are.
   (last known session snapshot and Lamport clocks) and \emph{CollabEvent} (an
   append-only log of accepted edits since the last checkpoint).
 
-  \item[Cart] \emph{Cart} (one per user: line items with SKU/quantity/price,
-  and a side-map of items removed because they became unavailable).
+  \item[Cart] \emph{Cart} (one per user: line items with SKU/quantity/price).
 
   \item[Order] \emph{Order} (owner, shipping information, line items snapshot,
   status $\in\{$\texttt{SUBMITTED}, \texttt{DONE}, \texttt{CANCELLED}$\}$).
 
   \item[Notification] \emph{Notification} (recipient, type, related SKU,
   originating context), \emph{Subscription} (a user's interest in a
-  component), and \emph{ProcessedEvent} (an idempotency ledger, keyed by event
-  id).
+  component). 
 
   \item[Chatbot] \emph{ChatSession} and \emph{ChatMessage} (role
-  \texttt{USER}/\texttt{BOT}, content), optionally linked to a configuration.
+  \texttt{USER}/\texttt{BOT}, content).
 
   \item[Reporting] a read-only \emph{Order} projection (status, total,
-  submission date) used only for aggregation queries, never written by this
-  service.
+  submission date) used only for aggregation queries.
+
 \end{description}
 
 \paragraph{Mapping to infrastructural components.} Each entity lives
 exclusively in its owning service's MongoDB database and is mutated only by
 that service; other contexts that need the data either \emph{copy} the
-relevant identifiers/values at write time (e.g.\ a cart line item stores its
-own \texttt{sku}, \texttt{name} and \texttt{unitPrice} snapshot, an order
-freezes the cart at submission time) or \emph{query it on demand} over REST
+relevant identifiers/values at write time or \emph{query it} over REST
 (e.g.\ the CAD service asks the catalog for current component rules whenever
 it derives a BOM, \cref{data-and-consistency-issues}). The one deliberate
 exception is the CAD collaborative session: while a session is open, its
 authoritative state lives in the memory of the single \texttt{cadService}
 instance that hosts it (not in MongoDB), because it changes many times per
 second and every participant needs the same in-process view; MongoDB is used
-only as a periodic, recoverable checkpoint of that in-memory state, not as its
-primary store.
+only as a periodic, recoverable checkpoint of that in-memory state.
 
 \paragraph{Domain events.} Two contexts publish domain events on Redis
-pub/sub, both carrying an \texttt{eventId} used for idempotent handling:
+pub/sub, both carrying an \texttt{eventId}:
 
 \begin{description}
   \item[\texttt{catalog:events}] published by the catalog service whenever an
   admin update changes a component: \texttt{PRICE\_CHANGED} (old/new price) or
   \texttt{AVAILABILITY\_CHANGED} (old/new availability). Consumed by the cart
-  service (to restore previously removed items once a SKU becomes available
-  again) and by the notification service (to compute and push notifications,
-  \cref{fault-tolerance}).
+  service and by the notification service.
 
   \item[\texttt{cart:events}] published by the cart service for every
   cart-affecting action (item added/removed, cart synchronised from a
@@ -193,12 +167,10 @@ pub/sub, both carrying an \texttt{eventId} used for idempotent handling:
 
 \paragraph{Messages exchanged.} Three kinds of messages appear in the system,
 matching the three communication styles of \cref{architecture}: \emph{commands
-and queries} as synchronous REST request/response (JSON bodies, e.g.\
-``update component'', ``get cart''); \emph{domain events} as asynchronous,
-fire-and-forget JSON messages on Redis pub/sub (no persistence of undelivered
-messages: a consumer that is down when an event is published misses it,
-\cref{fault-tolerance}); and \emph{real-time messages} over Socket.IO, both
-one-off pushes (a notification, a chatbot answer) and fine-grained
+and queries} as synchronous REST request/response; \emph{domain events} as asynchronous,
+messages on Redis pub/sub (no persistence of undelivered
+messages: a consumer that is down when an event is published misses it);
+and \emph{real-time messages} over Socket.IO for notification, chatbot answers and fine-grained
 \emph{operations} in the CAD collaborative editor (one message per field
 changed, carrying an operation id, a Lamport timestamp and the base version it
 was computed against).
@@ -206,14 +178,14 @@ was computed against).
 \paragraph{System state.} The overall state of KompozeR comprehends: account
 and session data (authentication); the catalog of components and their price
 and availability (catalog); in-progress and saved configurations, their BOM,
-and --- transiently --- open collaborative sessions (CAD); carts (cart);
+and open collaborative sessions (CAD); carts (cart);
 placed orders (order); notifications and subscriptions, plus the ledger of
 already-processed catalog events (notification); chat transcripts (chatbot);
-and derived, read-only sales aggregates (reporting). There is no single
+and derived, read-only sales data (reporting). There is no single
 component holding a global view of this state: each context is authoritative
 for its own slice, and the gateway never persists anything itself.
 
-\begin{figure}[htb]
+\begin{figure}[h!]
 \centering
 \newcommand{\refnote}[1]{{\tiny\itshape\color{gray!60!black}#1}}%
 \resizebox{\linewidth}{!}{%
@@ -285,14 +257,13 @@ service's own collection directly as a read-only projection.}
 \subsection{Interaction}\label{interaction}
 
 Components communicate through the three channels introduced in
-\cref{architecture}, each enacting a different interaction pattern:
+\cref{architecture}, each with a different interaction pattern:
 
 \begin{description}
   \item[Request/reply over REST] is the default: the SPA calls the gateway,
-  which forwards the call (adding trusted identity headers) to exactly one
+  the gateway forwards the call (adding trusted identity headers) to exactly one
   domain service and returns its JSON response synchronously. This is used for
-  every command and query that has a single, well-identified owner (read/write
-  the catalog, edit a configuration, manage a cart, place an order).
+  every command and query that has a single, well-identified owner.
 
   \item[Scatter/gather at the edge] is used by the gateway's
   Backend-for-Frontend endpoints (e.g.\ the dashboard, the configurator
@@ -305,27 +276,26 @@ Components communicate through the three channels introduced in
   \texttt{PRICE\_CHANGED} and \texttt{AVAILABILITY\_CHANGED}) from the cart and
   notification services (the consumers). This is a genuinely asynchronous,
   at-most-once channel: Redis pub/sub does not queue messages for a consumer
-  that is offline, so a service that is down when an event is published simply
-  misses it (\cref{fault-tolerance} discusses the consequences and why this
-  was an acceptable trade-off here). Every consumer applies the event
-  idempotently, so re-processing (e.g.\ after a manual replay) is always safe.
+  that is offline, so a service that is down when an event is published
+  misses it. Every consumer applies the event
+  idempotently, so re-processing is always safe.
 
   \item[Real-time push over Socket.IO] is used one-way, from a service to a
   specific, already-identified client (a room per user id for notifications, a
   room per chat connection for the chatbot), and bidirectionally for the CAD
   collaborative editor, where it carries fine-grained \emph{operations}
-  instead of coarse request/response payloads.
+  instead of request/response payloads.
 
   \item[Replicated-state broadcast with conflict resolution] is the pattern
   behind collaborative CAD editing: every accepted edit is broadcast to all
-  members of the session's room, so each browser keeps a full, independently
+  members of the session's room, so each browser keeps a full,
   up-to-date replica of the configuration being edited, and conflicts between
   concurrent edits to the same field are resolved deterministically with
   Lamport clocks (\cref{behaviour}).
 
   \item[Health polling] is used by the gateway to actively probe every
-  downstream service's \texttt{/health} endpoint on demand
-  (\cref{fault-tolerance}), rather than services pushing their own liveness.
+  downstream service's \texttt{/health} endpoint on demand,
+  rather than services pushing their own liveness.
 \end{description}
 
 \Cref{fig:seq-catalog-event} details the interaction triggered by an
@@ -423,14 +393,13 @@ same deterministic rule.}
 \paragraph{Individual behaviour.} Six of the eight domain services
 (authentication, catalog, cart, order, chatbot, reporting) behave as
 \textbf{stateless} request handlers: every REST call is handled by loading
-the relevant document(s) from that service's own MongoDB, applying a pure
-use-case function, and writing the result back --- no business state lives in
-the process itself, which is what lets any of them be restarted or (in
+the relevant document(s) from that MongoDB's service, applying a pure
+use-case function, and writing the result back (no business state lives in
+the process itself) which is what lets any of them be restarted or (in
 principle) replicated without coordination. The \textbf{notification} service
 is stateless in the same sense but is additionally \emph{event-driven}: its
 behaviour in response to a \texttt{catalog:events} message is fixed by
-\texttt{HandleCatalogEvent} (\cref{fig:seq-catalog-event}) --- check
-idempotency, resolve impacted users, persist, push --- and it takes no action
+\texttt{HandleCatalogEvent} (\cref{fig:seq-catalog-event}) and it takes no action
 on its own initiative. The \textbf{CAD} service is the exception: alongside
 its stateless REST endpoints for solo editing, it hosts \textbf{stateful}
 in-memory collaborative sessions (\cref{modelling}), whose behaviour in
@@ -440,14 +409,10 @@ Lamport clock, mutate the shared snapshot, log the change).
 
 \paragraph{Who updates state, when, how.} Each context is the \emph{only}
 writer of its own state, always synchronously, in direct response to a
-request it received --- solo CAD edits, cart/order mutations, catalog admin
-updates, subscriptions, chat turns. Two relaxations to this rule exist by
-design: (i) the notification service also writes state (notifications, the
-processed-events ledger) in reaction to an event it did not originate, and
-(ii) during a collaborative CAD session, the in-memory snapshot is updated by
+request it received. The are 2 exception, the notification service writes state in reaction to an event
+it did not originate, and also during a collaborative CAD session, the in-memory snapshot is updated by
 whichever participant's operation wins the Lamport/LWW comparison, with
-MongoDB updated only afterwards, asynchronously, by the periodic checkpoint
-(\cref{fault-tolerance}) rather than on every single edit.
+MongoDB updated only afterwards, asynchronously, by the periodic checkpoint.
 
 \paragraph{State machine of a Configuration.} The CAD service is also the
 only place with an explicit, named lifecycle: every configuration carries a
@@ -456,12 +421,7 @@ populated, recomputed by the same rule whether the edit came through a
 regular REST call or through a collaborative operation
 (\texttt{applyStatusTransition}, shared by both paths so both keep the same
 semantics). \Cref{fig:state-configuration} shows the intended forward path
-and the reset behaviour: setting an \emph{earlier} field (environment,
-category, column plan) invalidates and clears everything derived after it
---- a simple form of enforcing internal consistency without a transaction,
-since a single document is updated atomically by Mongoose's
-\texttt{findOneAndUpdate}. \texttt{FINALIZED} is terminal: every write
-use-case explicitly rejects further edits once it is reached.
+and the reset behaviour:
 
 \begin{figure}[htb]
 \centering
@@ -501,26 +461,29 @@ discards downstream data whenever an earlier-stage field is rewritten.
 
 \subsection{Data and Consistency Issues}\label{data-and-consistency-issues}
 
-\paragraph{What is stored, where, why.} \Cref{modelling} lists the data each
-context owns; all of it must be persisted (accounts and prices cannot be
-recomputed, a configuration or an order lost on a restart is a broken user
-promise), which is why every service, without exception, keeps its state in
-its own MongoDB database rather than in process memory --- the one partial
-exception, the CAD collaborative session, is discussed in
-\cref{fault-tolerance} precisely because it \emph{starts} as in-memory state
-and has to be reconciled with durable storage.
+\paragraph{What is stored, where, why.} \Cref{modelling} lists the data for each
+context; all of it is persisted, without exception, in
+its own MongoDB database rather than in process memory; that is because
+keeping it in memory would tie every context's state to the lifetime of a
+single process instance: a restart or a crash would
+either lose state a client expects to survive across requests or leave it
+inconsistent between instances, and neither the request handler nor the
+client has any way to recover it. Persisting to MongoDB instead makes that
+state outlive is what lets the services be restarted or replicated without
+coordination. The only exception, the CAD collaborative session, is described in
+\cref{fault-tolerance} because it \emph{starts} as in-memory state
+and has to be reconciled with MongoDB.
 
 \paragraph{Why documents.} MongoDB (a document store) was chosen for every
 context, for reasons that hold uniformly across the domain: (i) most entities
-are naturally tree-shaped and read/written as a whole --- a configuration
+are naturally tree-shaped and read/written as a whole (a configuration
 with its column plan, per-column design and BOM; a cart with its line items;
-an order with a frozen shipping address and item list --- so embedding them
+an order with a frozen shipping address and item list) so embedding them
 in one document avoids the joins a relational schema would need for the same
 read; (ii) \emph{database-per-service} already rules out cross-service joins,
 so the usual argument for a shared relational schema does not apply; (iii)
 schema flexibility matters during development of a project with several
-evolving contexts (e.g.\ the collaborative-session and BOM shapes changed
-several times); (iv) MongoDB's replica set gives the CAD context the
+evolving contexts; (iv) MongoDB's replica set gives the CAD context the
 replication and automatic failover required by NFR3 without introducing a
 second data-store technology.
 
@@ -529,12 +492,9 @@ mostly key- or owner-scoped: by \texttt{sku}/category/text search (catalog,
 indexed), by \texttt{ownerId}/\texttt{collaborators} (CAD, compound-indexed
 with \texttt{updatedAt}), by \texttt{userId} (cart, one document per user;
 orders and notifications, indexed and paginated by date). Concurrent
-\emph{reads} are unrestricted (MongoDB's default read behaviour), and the
-workload is read-heavy overall (browsing the catalog, listing configurations)
-as anticipated in \cref{ds-features}. Concurrent \emph{writes} to the
+\emph{reads} are unrestricted (MongoDB's default). Concurrent \emph{writes} to the
 \emph{same} document are the one place true races can occur, and the system
-handles them with two different mechanisms depending on the granularity
-needed:
+handles them with two different mechanisms depending on the needs:
 
 \begin{itemize}
   \item \textbf{Whole-document optimistic concurrency control}, for catalog
@@ -549,8 +509,8 @@ needed:
 
   \item \textbf{Field-level, last-writer-wins with a Lamport clock}, only
   inside an open collaborative CAD session, where whole-document OCC would be
-  too coarse (every participant would constantly conflict with everyone
-  else's most recent edit): each of the five editable fields keeps its own
+  too heavy (every participant would constantly conflict with everyone
+  else's most recent edit): each of the editable fields keeps its own
   logical clock, so two participants editing \emph{different} fields never
   conflict, and two edits to the \emph{same} field are ordered
   deterministically (\cref{behaviour}) instead of one simply failing.
@@ -558,34 +518,33 @@ needed:
 
 No multi-document transactions are used anywhere: every write that must be
 atomic is expressed as a single conditional update to a single document, which
-keeps each service's persistence layer simple and sidesteps the need for
+keeps each service's persistence layer simple and effective for
 distributed transactions across bounded contexts.
 
 \paragraph{Data shared between components.} The catalog's price and
 availability is the one piece of state genuinely needed by several contexts,
-and it is shared through two different strategies depending on how fresh the
-read must be: contexts that need the \emph{current} value at the exact moment
+and it is shared through two different strategies: contexts that need the
+\emph{current} value at the exact moment
 of an operation pull it synchronously over REST (CAD deriving a BOM, cart
 snapshotting a line item, both in \cref{data-and-consistency-issues}'s spirit
-of ``ask the owner, don't copy the truth''); contexts that instead need to
+of ``ask the owner, don't copy the truth''); contexts that need to
 \emph{react} to a value that changed after the fact subscribe to the
 \texttt{catalog:events} stream (\cref{modelling}) and update their own copy
-accordingly (cart restoring a removed item, notification computing impacted
+accordingly (notification computing impacted
 users). One boundary is intentionally bent for pragmatism: the notification
 service's impact resolver reads the cart and CAD services' MongoDB
 collections directly (a second connection into their databases) instead of
 calling their REST APIs, to efficiently answer ``which users have this SKU in
-their cart/finalized configuration'' without adding a bespoke endpoint to
-each service for a single internal consumer --- a deliberate, documented
+their cart/finalized configuration'' (a deliberate
 trade-off against strict database-per-service encapsulation, acceptable here
-because the notification service only ever \emph{reads} that data.
+because the notification service only ever \emph{reads} that data).
 
 \subsection{Fault-Tolerance}\label{fault-tolerance}
 
 \paragraph{Replication.} The only replicated data store is the CAD MongoDB
 replica set (\texttt{cadrs}), matching NFR3's decision to concentrate
-fault-tolerance investment on the core configuration workflow rather than
-spread it thin over every context. In Kubernetes it runs as three
+fault-tolerance investment on the core configuration workflow.
+In Kubernetes it runs as three
 data-bearing members (Primary-Secondary-Secondary, one preferred-primary
 member at priority 2, two at priority 1); in Docker Compose, two data-bearing
 members plus an arbiter (which only votes in elections and holds no data, a
@@ -598,8 +557,8 @@ prefer the primary but can fall back to a secondary, making the
 consistency/availability trade-off explicit and tunable rather than hard-coded.
 Losing one member (a pod restart, a node failure) leaves a majority among the
 remaining two, so writes keep flowing and, if the lost member was the
-primary, the replica set elects a new one automatically among the survivors
---- exactly the guarantee NFR3 asks for. Every other context's database is a
+primary, the replica set elects a new one automatically among the survivors. 
+Every other context's database is a
 single MongoDB instance with a persistent volume: durability against disk
 loss, but no failover against the loss of the node itself, a conscious
 scope decision (\cref{ds-features}) since none of those contexts is the
@@ -617,13 +576,9 @@ restarts: before accepting any connection, it loads every persisted
 checkpoint, discards those whose TTL already expired, rebuilds the in-memory
 session from the checkpoint snapshot, and \emph{replays} the event-log entries
 recorded after that checkpoint through the very same mutation function used
-for live edits --- so the recovered state is bit-for-bit what it would have
-been had the crash never happened, not an approximation. Connected clients are
+for live edits. Connected clients are
 then told to resynchronise (\texttt{cad:collab:resync}) and re-fetch the
-snapshot. This satisfies NFR4 (``the collaborative configuration session
-state shall survive a service crash'') while keeping the common case (no
-crash) cheap: checkpointing is periodic and off the hot path of every single
-edit.
+snapshot.
 
 \paragraph{Timeouts and health checks.} Every inter-service REST call carries
 an explicit timeout rather than blocking indefinitely: 3\,s (CAD $\to$
@@ -631,22 +586,14 @@ catalog, fetching pricing rules), 5\,s (cart $\to$ catalog; gateway $\to$ any
 downstream service). Every service exposes a \texttt{GET /health}; the gateway
 actively aggregates all of them into one endpoint (3\,s per-probe timeout,
 run in parallel), returning \texttt{200} if every service is up, \texttt{207}
-if some are degraded, \texttt{503} if all are down --- an operator- or
-orchestrator-facing view of the whole system's health from one call, rather
-than a heartbeat between services. Kubernetes complements this with
-per-pod \emph{readiness} probes (an HTTP check on cadService, a plain TCP
-check on the other stateless services, and \texttt{mongosh}/\texttt{redis-cli}
-ping checks on the data stores) so the platform stops routing traffic to a pod
+if some are degraded, \texttt{503} if all are down. Kubernetes complements this with
+per-pod \emph{readiness} probes so the platform stops routing traffic to a pod
 that is not ready; no liveness probes are configured, so Kubernetes will not
-restart a pod that is up but stuck --- a simplification acceptable for an
-academic deployment, and a natural first item for future hardening. The one
+restart a pod that is up but stuck. The one
 place with an actual \emph{retry} is the chatbot's call to the external LLM
-provider, which retries up to twice with a linear backoff on retryable
-failures (5xx, 429, timeout) and gives up immediately on non-retryable ones
-(other 4xx); the other synchronous inter-service calls (CAD/cart $\to$
+provider; the other synchronous inter-service calls (CAD/cart $\to$
 catalog) are single-attempt, relying on their short timeout and the caller's
-own error handling rather than on retrying --- a gap consciously left open
-given the project's time-box rather than a considered design choice.
+own error handling rather than on retrying.
 
 \paragraph{Error handling.} Failures are handled at three levels. Within a
 service, use cases translate domain errors into fixed HTTP status codes
@@ -658,13 +605,10 @@ failure with \texttt{Promise.allSettled} (\cref{interaction}): one failing
 service surfaces as an error \emph{inside} its own field of the response, the
 others are unaffected. Inside the CAD collaborative session, operations are
 idempotent by \texttt{opId} (a retransmitted or duplicated operation is
-detected and acknowledged without being re-applied) and gated by
-\texttt{baseVersion} (an operation computed against a stale snapshot is
-rejected rather than silently corrupting the shared state); at the
+detected and acknowledged without being re-applied); as the
 notification service, the same idempotency principle is applied to catalog
 events via the \texttt{ProcessedEvent} ledger keyed by \texttt{eventId}
-(\cref{modelling}), which is precisely what lets NFR1's ``applied at most
-once'' hold even if an event were ever redelivered.
+(\cref{modelling}).
 
 \begin{figure}[htb]
 \centering
@@ -709,26 +653,21 @@ resynchronise.}
 
 \paragraph{Caching.} Redis is present in the architecture (\cref{infrastructure})
 but, in the current implementation, only as the pub/sub event bus of
-\cref{modelling} --- there is no read-through cache in front of MongoDB (e.g.\
-for hot catalog reads). Every read, including a repeated catalog lookup
+\cref{modelling}; there is no read-through cache in front of MongoDB.
+Every read, including a repeated catalog lookup
 inside a busy configuration session, goes to the owning service's database
 directly. This was a deliberate scope decision given the academic setting and
-the modest data volumes involved (\cref{ds-features}): a cache would add a
-second source of truth to invalidate correctly on every
-\texttt{PRICE\_CHANGED}/\texttt{AVAILABILITY\_CHANGED} event, which was judged
-not worth the complexity at this scale; it is flagged here as the natural
-next step were the catalog read volume to grow.
+the modest data volumes involved.
 
 \paragraph{Load balancing.} The stateless tier (every domain service and the
 gateway) is architecturally prepared for horizontal scaling: no service keeps
-per-request state between calls (the one exception, CAD collaborative
-sessions, is pinned to a single pod by design, \cref{fault-tolerance}), so any
+per-request state between calls, so any
 number of replicas behind a Kubernetes \texttt{Service} could serve traffic
 interchangeably, with \texttt{kube-proxy} load-balancing across them and
-clients only ever knowing the gateway's name (\cref{infrastructure}). The
+clients only ever knowing the gateway's name. The
 reference deployment currently runs a single replica of each service
 (\texttt{replicas: 1}), so this capability is available but not exercised yet
---- again a scope choice for the project rather than a limit of the design.
+(again a scope choice).
 The gateway is exposed as a Kubernetes \texttt{NodePort}, the single
 externally reachable, load-balanced entry point for all client traffic; every
 internal service sits behind its own \texttt{ClusterIP} Service, invisible
@@ -736,81 +675,58 @@ from outside the cluster.
 
 \paragraph{Behaviour under network partitioning.} The two data stores react
 differently, on purpose. The CAD replica set tolerates a partition that still
-leaves a majority reachable: with \texttt{w:majority}/\texttt{readConcern:majority}
-and \texttt{primaryPreferred} reads, losing connectivity to one out of three
-members is transparent (two nodes still form a majority; if the isolated
-member was the primary, it steps down and the reachable majority elects a
-new one), matching NFR3. A single-node MongoDB (every other context) has no
+leaves a majority reachable. A single-node MongoDB (every other context) has no
 such tolerance: if it becomes unreachable, that context is simply down until
-it recovers --- an accepted trade-off, since none of those contexts is the
+it recovers, an accepted trade-off, since none of those contexts is the
 core workflow. At the service level, the gateway's plain proxy routes have no
 built-in fallback: if a downstream service cannot be reached, the proxied
-call fails and the error propagates to the client, whereas the
-Backend-for-Frontend aggregation routes degrade gracefully instead
-(\cref{fault-tolerance}) --- so the practical impact of a partition depends on
-which kind of endpoint a given screen happens to use, and uniformly adding
-the BFF's graceful-degradation behaviour to the plain proxy routes is a clear
-direction for future work.
+call fails and the error propagates to the client.
 
 \subsection{Security}\label{security}
 
 \paragraph{Authentication.} The authentication service issues signed JWTs
 (HS256) on login, registration, and guest-session creation, embedding
 \texttt{userId}, \texttt{tokenId} and \texttt{role} in the payload; a matching
-\texttt{Session} document (\cref{modelling}) lets a token be revoked
+\texttt{Session} document lets a token be revoked
 (logout) independently of its expiry. Signature verification, however,
 happens in exactly \emph{one} place: the gateway. Every request carries
-\texttt{Authorization: Bearer <token>}; the gateway verifies it, and --- only
-on success --- replaces any client-supplied \texttt{X-User-Id},
+\texttt{Authorization: Bearer <token>}; the gateway verifies it, and, only
+on success, replaces any client-supplied \texttt{X-User-Id},
 \texttt{X-User-Role} and \texttt{X-Session-Id} headers with values derived
-from the verified token before forwarding the request downstream (explicitly
-stripping client-supplied versions first, to prevent header spoofing, an
-OWASP A01 concern). Domain services never see the raw JWT and never verify a
+from the verified token before forwarding the request downstream.
+Domain services never see the raw JWT and never verify a
 signature themselves; they trust the identity headers as set by the gateway.
-This is a \emph{perimeter} security model: it keeps every domain service
-simple (no JWT secret to distribute, no verification logic to duplicate eight
-times) at the cost of requiring the cluster-internal network to be trusted,
-since anything able to reach a domain service directly (bypassing the
-gateway) could forge those headers --- an accepted risk given the single,
-logically centralised deployment (\cref{ds-features}), and something a
-production deployment would close with network policies restricting
-non-gateway ingress to domain services. Registration, login and guest-session
+Registration, login and guest-session
 creation are the only endpoints reachable without a token. Socket.IO
 handshakes for the chatbot and CAD collaboration accept the token as a
 \texttt{?token=} query parameter as well, since browsers cannot attach custom
 headers to the WebSocket upgrade request.
 
-\paragraph{Authorization.} The system distinguishes three roles ---
+\paragraph{Authorization.} The system distinguishes three roles:
 \texttt{GUEST}, \texttt{BASE} (authenticated customer), \texttt{ADMIN} --- and
 combines two complementary access-control styles. \emph{Role-based} checks
 guard administrative operations: catalog writes and order-status changes
-require \texttt{X-User-Role: ADMIN}, enforced by a small guard middleware
-duplicated in each service that needs it (no shared authorization library
-exists across services, a simplification consistent with each service owning
-its own HTTP layer). \emph{Ownership-based} checks guard access to a user's
+require \texttt{X-User-Role: ADMIN}. \emph{Ownership-based} checks guard access to a user's
 own resources, which matters more often than role in this domain: a cart,
 an order, notifications and chat sessions are scoped to their owning
 \texttt{userId}; a CAD configuration is accessible to its owner or to a
 collaborator explicitly added to it (\texttt{canAccessConfiguration}), and a
 collaborative session additionally requires knowing its short, randomly
-generated join code. This combination realises NFR5: unauthenticated or
+generated join code. Unauthenticated or
 \texttt{BASE} access to admin endpoints is rejected, and cross-user access to
 another user's resources is denied regardless of role.
 
 \paragraph{Cryptography and hardening.} Passwords are hashed with
-\texttt{bcrypt} at 12 salt rounds before storage --- the raw password is never
+\texttt{bcrypt} at 12 salt rounds before storage, the raw password is never
 persisted or logged. JWTs are signed (not encrypted) with a secret provisioned
 as a Kubernetes \texttt{Secret} (\texttt{jwtSecret}, alongside the MongoDB
-root credentials) and injected as an environment variable, never hard-coded;
-local development uses an \texttt{.env} file with an explicit placeholder
-value for \texttt{JWT\_SECRET} (\texttt{change-me-in-production}) to make
-clear it must be replaced. Security headers (\texttt{helmet}) are applied at the gateway, the
+root credentials) and injected as an environment variable, never hard-coded.
+Security headers (\texttt{helmet}) are applied at the gateway, the
 single point all client traffic must cross. Two aspects are intentionally
 left minimal for this academic deployment rather than hardened: transport is
 plain HTTP end-to-end (no TLS termination is configured; a real deployment
 would add it at an ingress in front of the gateway), and input validation is
 hand-written per field (length/format checks, an email regex, a minimum
 password length) rather than schema-based, with no request rate limiting in
-front of the authentication endpoints --- both reasonable targets for
-future hardening (\cref{future-works}) rather than gaps that affect the
-distributed-systems design itself.
+front of the authentication endpoints, both reasonable targets for
+future hardening (\cref{future-works}) rather than gaps that affect the design itself.

@@ -1,70 +1,59 @@
 \section{Implementation}\label{implementation}
 
-This chapter reports the technology-dependent choices made while turning the
-design of \cref{design} into a running system, following the same structure
-(network protocols, data representation, database access, authentication and
-authorisation) before detailing the concrete frameworks used.
 
 \paragraph{Network protocols.} Three protocols are used, matching the three
 communication styles of \cref{architecture}. \textbf{HTTP/1.1} carries every
-synchronous REST call, both client-to-gateway and gateway-to-service, and is
-also the transport HTTP/1.1 upgrades from for \textbf{WebSocket}: every
+synchronous REST call, both client-to-gateway and gateway-to-service.
+\textbf{WebSocket}: every
 Socket.IO server (CAD collaboration, notifications, chatbot,
 \cref{modelling}) is configured with \texttt{transports:
 ['polling','websocket']}, so a client starts with HTTP long-polling and
 transparently upgrades to a persistent WebSocket connection where the network
-allows it, falling back gracefully otherwise (e.g.\ behind a restrictive
-proxy). Internally, the \textbf{Redis protocol (RESP)} carries pub/sub domain
+allows it, falling back gracefully otherwise.
+Internally, the \textbf{Redis protocol (RESP)} carries pub/sub domain
 events between the catalog, cart and notification services via
-\texttt{ioredis} clients (\cref{interaction}). Finally, the chatbot service is
+\texttt{ioredis} clients (\cref{interaction}). The chatbot service is
 the only component that talks to the outside world beyond the browser: it
 issues outbound \textbf{HTTPS} requests to the Mistral AI chat-completions
 API (\texttt{https://api.mistral.ai/v1/chat/completions}) to generate
 answers, with a template-based fallback if no API key is configured.
 
 \paragraph{In-transit data representation.} \textbf{JSON} is the only
-wire format used anywhere --- REST request/response bodies, Redis event
-payloads, and every Socket.IO message --- keeping the whole system
+wire format used anywhere, REST request/response bodies, Redis event
+payloads, and every Socket.IO message, keeping the whole system
 technologically homogeneous and human-readable for debugging. A few
 conventions are applied consistently across services to avoid ambiguity:
-identifiers are \textbf{string UUIDs} used directly as MongoDB \texttt{\_id}
-(not the default \texttt{ObjectId}), so an id looks and behaves the same
-whether logged, sent over REST, or embedded in a WebSocket payload; monetary
+identifiers are \textbf{string UUIDs} used directly as MongoDB \texttt{\_id}; monetary
 amounts are represented as \textbf{integer euro cents} rather than
 floating-point decimals, both in the catalog's source price and everywhere it
 is copied (cart line items, order snapshots, BOM items), specifically to
-avoid floating-point rounding errors in a domain full of price sums; and
-timestamps are serialised as \textbf{ISO~8601} strings at the HTTP boundary.
+avoid floating-point rounding errors in a domain full of price sums.
 
 \paragraph{Database access.} Every service talks to its own MongoDB
-exclusively through \textbf{Mongoose} (an ODM), never the raw driver: domain
+exclusively through \textbf{Mongoose}, never the raw driver: domain
 entities are mapped to schemas in each service's
 \texttt{adapters/persistence} layer, and repositories expose only
-domain-shaped methods to the rest of the service (a port/adapter boundary,
-\cref{technological-details}). Queries are plain Mongoose finds/filters with
-indexes (\cref{data-and-consistency-issues}) for the transactional read/write
+domain-shaped methods to the rest of the service (a port/adapter boundary).
+Queries are plain Mongoose finds/filters with
+indexes for the transactional read/write
 paths; the one place using MongoDB's \textbf{aggregation pipeline} is the
 reporting service (\texttt{MongoOrderTrendReader}), which groups orders by
 day and status (\texttt{\$match}/\texttt{\$group}/\texttt{\$sum}) directly in
 the database rather than pulling raw documents and summing them in
-application code. Optimistic concurrency (\cref{data-and-consistency-issues})
-is implemented with a conditional \texttt{findOneAndUpdate} rather than
-MongoDB transactions, consistent with the design decision to avoid
-multi-document transactions altogether.
+application code.
 
 \paragraph{Authentication.} Implemented with \textbf{JWT} (the
 \texttt{jsonwebtoken} library, HS256), issued by the authentication service on
 login/registration/guest-session creation and verified exclusively at the API
-gateway (\cref{security}); passwords are hashed with \textbf{bcrypt}
+gateway; passwords are hashed with \textbf{bcrypt}
 (\texttt{bcryptjs}, 12 salt rounds) and never stored or logged in clear text.
 
 \paragraph{Authorisation.} Implemented as plain \textbf{RBAC} via a small
 hand-written Express middleware duplicated in each service that needs it (no
 shared authorisation package), reading the gateway-issued
 \texttt{X-User-Role} header, complemented by ownership checks written
-directly in use-cases (comparing a resource's \texttt{userId}/\texttt{ownerId}
-against the caller's identity) rather than a generic ABAC/policy engine ---
-adequate given the small, fixed role set (\texttt{GUEST}/\texttt{BASE}/
+directly in use-cases,
+acceptable given the small, fixed role set (\texttt{GUEST}/\texttt{BASE}/
 \texttt{ADMIN}) and the fact that most access rules are simple ownership
 checks rather than complex attribute combinations.
 

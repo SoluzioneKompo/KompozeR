@@ -2,52 +2,39 @@
 
 \subsection{Valerio Giannini}\label{self-evaluation-valerio}
 
-\paragraph{Role.} I am the sole author and developer of KompozeR: every
-bounded context described in \cref{design} --- the gateway and all eight
-domain services, the Vue frontend, the Docker Compose and Kubernetes
-deployments, the observability stack, and the three tiers of automated tests
-(\cref{validation}) --- was designed and implemented individually, with no
-division of labour to describe. The project spans roughly five months of
-history (from the first architectural sketches in May to the final report
-revisions in July) across some 150 commits, and grew out of an earlier
-single-service coursework exercise into the full microservice system
-documented here, so a meaningful part of the effort went into migrating
-existing functionality onto the database-per-service, event-driven
-architecture of \cref{architecture} rather than writing every feature from a
-blank page.
+\paragraph{Role.} I am the sole author and developer of KompozeR.
+The project spans roughly three/four months of
+history (from the start of the scoping process in April to the final report
+revisions in July) and grew into the full microservice system
+documented here.
 
 \paragraph{Strengths.} Working alone on all layers forced the architecture
 to stay coherent end-to-end: the same hexagonal layering
 (\texttt{domain}/\texttt{useCases}/\texttt{adapters}) and the same
 conventions (UUID identifiers, cents-based pricing, OCC via a
 \texttt{version} field, \cref{implementation}) are applied identically
-across all nine backend components, because there was only one person
+across all the backend components, because there was only one person
 deciding them. I am satisfied in particular with the collaborative-editing
-subsystem (Lamport clocks, field-level last-writer-wins, checkpoint/replay
-recovery, \cref{fault-tolerance}) and with the CAD replica set failover ---
+subsystem and with the CAD replica set failover,
 these are the two places where a genuinely distributed-systems mechanism,
-not just a description of one, is implemented and automatically tested
+is implemented and automatically tested
 (\cref{validation}), including under an actual killed pod on Kubernetes. I
 also kept a disciplined commit history (consistent \texttt{FEAT}/\texttt{FIX}/
 \texttt{TEST}/\texttt{DOC} prefixes throughout) and a real, if manually
-triggered, three-tier test suite (44 unit test files plus eight end-to-end
-specs) rather than relying on manual testing alone.
+triggered, three-tier test suite rather than relying on manual testing alone.
 
 \paragraph{Weaknesses.} Being both the sole developer and the sole reviewer
 is itself a limitation: there was no second pair of eyes to catch design
 inconsistencies before they were written down, and several of the gaps
-surfaced while writing \cref{design} were only noticed at that point rather
-than during implementation --- most notably the absence of any continuous
+weren't noticed in an early stage; most notably the absence of any continuous
 integration pipeline (tests are run manually, \cref{validation}), the
 complete lack of an automated test suite on the frontend, the single-attempt
-(no-retry) behaviour of most inter-service REST calls, and a few rough edges
-in the deployment configuration (a stale \texttt{.env.example} that no
-longer matches the services actually running, and every Kubernetes
+(no-retry) behaviour of most inter-service REST calls, and every Kubernetes
 Deployment fixed at one replica even though the stateless tier is designed
-to scale horizontally). Secret management for local/demo environments is
+to scale horizontally. Secret management for local/demo environments is
 also weaker than it should be and is the first thing I would fix outside the
 scope of this report. Time-boxing the project around the course deadline
-also meant prioritising breadth --- getting all eight bounded contexts and
-both real-time subsystems working end-to-end --- over hardening any single
+also meant prioritising getting all eight bounded contexts and
+both real-time subsystems working end-to-end over hardening any single
 one of them further; \cref{future-works} lists the concrete consequences of
 that trade-off.
