@@ -1,13 +1,8 @@
 \section{User Guide}\label{user-guide}
 
 This chapter walks through KompozeR from the point of view of its three
-roles --- \texttt{GUEST}, \texttt{BASE} and \texttt{ADMIN}
-(\cref{requirements}) --- following the navigation structure of the
-frontend. The interface itself is in Italian; UI labels are quoted verbatim
-below with an English gloss. Screenshots are not included in this draft;
-each screen is instead marked with a placeholder comment
-(\texttt{\% SCREENSHOT: ...}) in the \LaTeX{} source, ready to be replaced
-with an actual figure.
+roles:\texttt{GUEST}, \texttt{BASE} and \texttt{ADMIN} following the navigation structure of the
+frontend. The interface itself is in Italian (for now).
 
 \subsection{Access}\label{ug-access}
 
@@ -29,11 +24,11 @@ plus a divider and a ``Continua come ospite'' (Continue as guest) button.
   \item \textbf{Continuing as guest} skips registration entirely and opens a
   temporary \texttt{GUEST} session (FR1), useful for trying the configurator
   without commitment; a guest cannot save a configuration under a profile
-  (FR6) or reach the catalog/admin screens (\cref{ug-roles}).
+  (FR6) or reach the catalog/admin screens.
 \end{itemize}
 
 Once logged in, a header bar appears at the top of every screen with
-navigation links (varying by role, \cref{ug-roles}), a cart icon, a
+navigation links (varying by role), a cart icon, a
 notification bell for authenticated non-guest users, the current
 username (or ``Guest''), and an ``Esci'' (Log out) button.
 % SCREENSHOT: AppHeader — navigation bar for a logged-in BASE user.
@@ -57,10 +52,9 @@ visible on the side, updated after every step.
   the finished unit must fit, then ``Salva ambiente'' (FR1).
 
   \item \textbf{Categoria.} Choose one of the four mutually incompatible
-  product families --- Tondo, Quadro, Kube, Intelligente
-  (\cref{requirements}) --- then ``Salva categoria''. Changing this later
+  product families:Tondo, Quadro, Kube, Intelligente then ``Salva categoria''. Changing this later
   discards any column plan or design already produced, with a two-step
-  confirmation dialog, matching the reset rule of \cref{fig:state-configuration}.
+  confirmation dialog.
 
   \item \textbf{Colonne.} Choose how many columns (1--8) and a width for
   each, picked from the widths actually available for the selected family,
@@ -86,16 +80,15 @@ visible on the side, updated after every step.
 \subsection{Collaborating on a configuration}\label{ug-collab}
 
 While editing, the owner can press ``Collabora'' to open a collaborative
-session (\cref{modelling}): a short, unambiguous code (e.g.\
-\texttt{A3KP7X}) is shown in a dialog with a ``Copia codice'' (copy) button.
+session: a short, unambiguous code is shown in a dialog with a ``Copia codice'' (copy) button.
 % SCREENSHOT: CadView — the "Sessione collaborativa attiva" dialog with the session code.
 
 Another user opens the same configuration's join box, types the code
 (``Entra con codice''), and immediately sees the same environment, category,
 column plan and design as the owner; from then on, edits from either
 participant appear on the other's screen in real time, resolved
-deterministically if both edit the same field at once
-(\cref{interaction,behaviour}). A status line (``Collaborazione attiva ·
+deterministically if both edit the same field at once. 
+A status line (``Collaborazione attiva ·
 $N$ partecipanti'') always shows who is connected; if the owner leaves, the
 session ends for everyone with an explicit notice, since the configuration
 itself only ever lives in the owner's account.
@@ -106,7 +99,7 @@ itself only ever lives in the owner's account.
 The ``Configurazioni'' screen (route \texttt{/configurations}, \texttt{BASE}
 and \texttt{ADMIN} only) lists a logged-in user's own configurations with
 summary counters (total, drafts, ready to finalise, finalised, in progress)
-and, for each of the five most recent, an ``Apri in CAD'' button to resume
+and, an ``Apri in CAD'' button to resume
 editing (FR6, FR7) and, once \texttt{FINALIZED}, a ``Riordina'' (reorder)
 button that adds its BOM straight to the cart again.
 % SCREENSHOT: ConfigurationsView — the list of saved configurations with KPI cards.
@@ -118,32 +111,29 @@ The cart (route \texttt{/cart}) lists every line item with its quantity
 (empty cart) and a ``Procedi al checkout'' button (FR4). If a component in
 the cart becomes unavailable in the meantime, it is automatically removed
 and the user is told so, rather than being allowed to order something the
-catalog can no longer provide (\cref{interaction}).
+catalog can no longer provide.
 % SCREENSHOT: CartView — line items and the checkout summary panel.
 
-Checkout opens a ``Dati spedizione'' (shipping details) form --- name,
+Checkout opens a ``Dati spedizione'' (shipping details) form: name,
 surname, email, country, city, postal code, address, phone, and an optional
-delivery note --- validated client-side before ``Conferma checkout''
+delivery note. Validated client-side before ``Conferma checkout''
 finalises the order.
 % SCREENSHOT: the shipping-details checkout modal.
 
 \subsection{Notifications}\label{ug-notifications}
 
-Authenticated, non-guest users see a bell icon with an unread-count badge in
+Authenticated users see a bell icon with an unread-count badge in
 the header, updated both by polling and in real time as changes happen
 (NFR2). The ``Notifiche'' screen lists every notification (a price or
 availability change affecting a subscribed component, FR8) with a filter for
-unread-only and a button to mark one as read; new notifications additionally
-appear as a temporary toast in the corner of the screen while the user is
-active.
+unread-only and a button to mark one as read.
 % SCREENSHOT: NotificationsView — the notification list, and a toast popup.
 
 \subsection{Chatbot}\label{ug-chatbot}
 
-The chatbot (route \texttt{/chatbot}) is a dedicated chat screen (FR5),
-optionally opened from within a configuration to answer questions in that
-context. Messages are exchanged with a composer at the bottom (``Invia'' to
-send); a typing indicator shows while the bot is composing an answer, which
+The chatbot (route \texttt{/chatbot}) is a dedicated chat screen (FR5).
+Messages are exchanged like in a normal mesasging app;
+a typing indicator shows while the bot is composing an answer, which
 can concern, for instance, the current price of a specific component by SKU.
 % SCREENSHOT: ChatbotView — a conversation with the typing indicator.
 
@@ -156,9 +146,8 @@ from every other role (\cref{ug-roles}).
   \item \textbf{``Catalogo Admin''} (route \texttt{/admin/catalog}): add a
   new component (SKU, name, category, type, price, availability,
   description, dimensions, image, compatible category) through a modal
-  form, or edit the price/availability of an existing one inline --- both
-  actions immediately trigger the catalog-change propagation of
-  \cref{fig:seq-catalog-event}.
+  form, or edit the price/availability of an existing one inline; both
+  actions immediately trigger the catalog-change propagation.
   % SCREENSHOT: AdminCatalogView — the component list and the "add component" modal.
 
   \item \textbf{``Gestione ordini''} (route \texttt{/admin/orders}): every
@@ -169,8 +158,7 @@ from every other role (\cref{ug-roles}).
 
   \item \textbf{``Report ordini''} (route \texttt{/admin/reports}): a
   date-ranged sales dashboard (total orders, revenue, a per-day breakdown by
-  status) computed with a MongoDB aggregation over the order history
-  (\cref{technological-details}).
+  status) computed with a MongoDB aggregation over the order history.
   % SCREENSHOT: AdminReportsView — the KPI cards and the per-day chart.
 \end{itemize}
 
@@ -180,11 +168,11 @@ The header's navigation links and the router's own guards
 (\cref{technological-details}) enforce the same restriction consistently:
 
 \begin{description}
-  \item[\texttt{GUEST}] Configuratore, Chatbot only --- no saved
+  \item[\texttt{GUEST}] Configuratore, Chatbot only; no saved
   configurations, no cart history beyond the current session, no catalog
   browsing or admin screens.
   \item[\texttt{BASE}] Configurazioni, Configuratore, Chatbot, plus cart and
-  notifications --- everything a registered customer needs, nothing
+  notifications; everything a registered customer needs, nothing
   administrative.
   \item[\texttt{ADMIN}] every screen above, plus Catalogo, Catalogo Admin,
   Gestione ordini and Report; an admin's default landing screen is
