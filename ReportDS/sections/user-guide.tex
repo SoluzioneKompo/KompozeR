@@ -9,7 +9,13 @@ frontend. The interface itself is in Italian (for now).
 KompozeR is reached at the frontend's URL (\cref{deployment}), which shows a
 single card with two tabs, ``Accedi'' (Log in) and ``Registrati'' (Register),
 plus a divider and a ``Continua come ospite'' (Continue as guest) button.
-% SCREENSHOT: AuthView — login/register card with the guest button.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.4\linewidth]{images/1.png}
+\caption{AuthView: card login/registration with Guest button.}
+\label{fig:auth-view}
+\end{figure}
 
 \begin{itemize}
   \item \textbf{Registering} asks for Username, Nome (first name), Cognome
@@ -31,7 +37,14 @@ Once logged in, a header bar appears at the top of every screen with
 navigation links (varying by role), a cart icon, a
 notification bell for authenticated non-guest users, the current
 username (or ``Guest''), and an ``Esci'' (Log out) button.
-% SCREENSHOT: AppHeader — navigation bar for a logged-in BASE user.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.4\linewidth]{images/2.png}
+\caption{AppHeader: Navigation ber for BASE user.}
+\label{fig:app-header}
+\end{figure}
+
 
 \subsection{Building a configuration}\label{ug-configurator}
 
@@ -41,7 +54,14 @@ lifecycle of \cref{behaviour}: ``Ambiente'' (environment),
 ``Categoria'' (product family), ``Colonne'' (columns), ``Design'' and
 ``Finalizza'' (finalise). A BOM panel and a live schematic are always
 visible on the side, updated after every step.
-% SCREENSHOT: CadView — the five-step wizard with the BOM/preview panel.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.4\linewidth]{images/3.1.png}
+\caption{CadView: the five-step wizard with the BOM/preview panel.}
+\label{fig:cad-view}
+\end{figure}
+
 
 \begin{enumerate}
   \item \textbf{Starting a configuration.} From ``Configurazioni'' (or
@@ -69,7 +89,13 @@ visible on the side, updated after every step.
   applies it to every column at once, automatically distinguishing outer
   columns (``BORDO'') from inner ones (``INTERMEZZO''). The BOM panel and
   price update after every change (FR2, FR3).
-  % SCREENSHOT: CadView step 4 — level-by-level design with the reason codes.
+  \begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.4\linewidth]{images/4.png}
+  \caption{CadView step 4: level-by-level design with the reason codes.}
+  \label{fig:cad-view}
+  \end{figure}
+
 
   \item \textbf{Finalizza.} Once the design is complete, ``Finalizza e invia
   al carrello'' (Finalise and send to cart) is enabled, moving the
@@ -81,7 +107,13 @@ visible on the side, updated after every step.
 
 While editing, the owner can press ``Collabora'' to open a collaborative
 session: a short, unambiguous code is shown in a dialog with a ``Copia codice'' (copy) button.
-% SCREENSHOT: CadView — the "Sessione collaborativa attiva" dialog with the session code.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.4\linewidth]{images/5.png}
+\caption{CadView: the "Sessione collaborativa attiva" dialog with the session code.}
+\label{fig:cad-view}
+\end{figure}
 
 Another user opens the same configuration's join box, types the code
 (``Entra con codice''), and immediately sees the same environment, category,
@@ -92,7 +124,13 @@ A status line (``Collaborazione attiva ·
 $N$ partecipanti'') always shows who is connected; if the owner leaves, the
 session ends for everyone with an explicit notice, since the configuration
 itself only ever lives in the owner's account.
-% SCREENSHOT: two browser windows showing the same configuration in sync.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.4\linewidth]{images/6.1.png}
+\caption{CadView: two browser windows showing the same configuration in sync.}
+\label{fig:cad-view}
+\end{figure}
 
 \subsection{Saving and resuming configurations}\label{ug-saved}
 
@@ -102,7 +140,13 @@ summary counters (total, drafts, ready to finalise, finalised, in progress)
 and, an ``Apri in CAD'' button to resume
 editing (FR6, FR7) and, once \texttt{FINALIZED}, a ``Riordina'' (reorder)
 button that adds its BOM straight to the cart again.
-% SCREENSHOT: ConfigurationsView — the list of saved configurations with KPI cards.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.4\linewidth]{images/7.png}
+\caption{ConfigurationsView: the list of saved configurations with KPI cards.}
+\label{fig:configuration-view}
+\end{figure}
 
 \subsection{Cart and checkout}\label{ug-cart}
 
@@ -112,13 +156,25 @@ The cart (route \texttt{/cart}) lists every line item with its quantity
 the cart becomes unavailable in the meantime, it is automatically removed
 and the user is told so, rather than being allowed to order something the
 catalog can no longer provide.
-% SCREENSHOT: CartView — line items and the checkout summary panel.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.4\linewidth]{images/8.png}
+\caption{CartView: line items and the checkout summary panel}
+\label{fig:cart-view}
+\end{figure}
 
 Checkout opens a ``Dati spedizione'' (shipping details) form: name,
 surname, email, country, city, postal code, address, phone, and an optional
 delivery note. Validated client-side before ``Conferma checkout''
 finalises the order.
-% SCREENSHOT: the shipping-details checkout modal.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.4\linewidth]{images/9.png}
+\caption{CartView: the shipping-details checkout modal.}
+\label{fig:cart-view}
+\end{figure}
 
 \subsection{Notifications}\label{ug-notifications}
 
@@ -127,7 +183,13 @@ the header, updated both by polling and in real time as changes happen
 (NFR2). The ``Notifiche'' screen lists every notification (a price or
 availability change affecting a subscribed component, FR8) with a filter for
 unread-only and a button to mark one as read.
-% SCREENSHOT: NotificationsView — the notification list, and a toast popup.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.4\linewidth]{images/10.png}
+\caption{NotificationsView — the notification list.}
+\label{fig:notification-view}
+\end{figure}
 
 \subsection{Chatbot}\label{ug-chatbot}
 
@@ -135,7 +197,13 @@ The chatbot (route \texttt{/chatbot}) is a dedicated chat screen (FR5).
 Messages are exchanged like in a normal mesasging app;
 a typing indicator shows while the bot is composing an answer, which
 can concern, for instance, the current price of a specific component by SKU.
-% SCREENSHOT: ChatbotView — a conversation with the typing indicator.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.4\linewidth]{images/11.png}
+\caption{ChatbotView: example of a conversation.}
+\label{fig:chatbot-view}
+\end{figure}
 
 \subsection{Administration}\label{ug-admin}
 
@@ -148,18 +216,37 @@ from every other role (\cref{ug-roles}).
   description, dimensions, image, compatible category) through a modal
   form, or edit the price/availability of an existing one inline; both
   actions immediately trigger the catalog-change propagation.
-  % SCREENSHOT: AdminCatalogView — the component list and the "add component" modal.
+  
+
+  \begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.4\linewidth]{images/12.1.png}
+  \caption{AdminCatalogView: the component list and the "add component" modal.}
+  \label{fig:admin-catalog-view}
+  \end{figure}
 
   \item \textbf{``Gestione ordini''} (route \texttt{/admin/orders}): every
   order in the system, filterable by status, with actions to mark a
   \texttt{SUBMITTED} order as ``DONE'' or ``CANCELLED'' (guarded so a
   non-\texttt{SUBMITTED} order cannot be changed twice).
-  % SCREENSHOT: AdminOrdersView — the order list with status filters.
+
+  \begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.4\linewidth]{images/13.png}
+  \caption{AdminOrdersView: the order list with status filters.}
+  \label{fig:order-view}
+  \end{figure}
 
   \item \textbf{``Report ordini''} (route \texttt{/admin/reports}): a
   date-ranged sales dashboard (total orders, revenue, a per-day breakdown by
   status) computed with a MongoDB aggregation over the order history.
-  % SCREENSHOT: AdminReportsView — the KPI cards and the per-day chart.
+
+  \begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.4\linewidth]{images/14.png}
+  \caption{AdminReportsView: the KPI cards and the per-day chart.}
+  \label{fig:report-view}
+  \end{figure}
 \end{itemize}
 
 \subsection{What each role can see}\label{ug-roles}
