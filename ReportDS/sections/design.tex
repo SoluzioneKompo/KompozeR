@@ -46,9 +46,26 @@ Three communication styles coexist, each used where it fits best:
   chatbot messages, so users receive updates without polling.
 \end{itemize}
 
-\begin{quote}
-Component diagrams are welcome here
-\end{quote}
+\Cref{fig:component-diagram} shows the resulting logical components and how
+the three communication styles map onto them.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.4\linewidth]{figures/Figure1.png}
+\caption{Logical component diagram. The browser SPA never talks to a domain
+service directly: every call goes through the API Gateway (solid arrows,
+synchronous REST), which fans requests out to the eight domain services; each
+service persists to its own MongoDB database (thin grey arrows), the CAD
+service's being a three-member replica set instead of a single instance.
+Dashed arrows show the asynchronous path: the catalog service publishes
+domain events on Redis pub/sub, consumed independently by the cart and
+notification services. Dotted arrows show the real-time push channel over
+Socket.IO: one-way from the notification and chatbot services to the browser,
+bidirectional for the CAD collaborative editor; the gateway proxies this
+channel end-to-end even though, for clarity, the diagram draws it directly
+between its logical endpoints.}
+\label{fig:component-diagram}
+\end{figure}
 
 \subsection{Infrastructure}\label{infrastructure}
 
@@ -92,9 +109,30 @@ embedded DNS, or Kubernetes \texttt{Service} DNS), and each service is
 configured with the base URLs of its collaborators. Clients only ever know a
 single name than the gateway lets services move or scale without affecting the front end.
 
-\begin{quote}
-Component diagrams are welcome here
-\end{quote}
+\Cref{fig:deployment-diagram} shows how these components are distributed and
+which ones run replicated.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.4\linewidth]{figures/Figure2.png}
+\caption{Infrastructural / deployment diagram. Every box other than the
+client is a separate container (Docker Compose) or pod (Kubernetes) distributed inside one logical network/namespace
+(thick outer boundary); the client is the only component outside it and
+reaches the system over the Internet. The reverse proxy is the single public entry
+point, serving the static SPA build and reverse-proxying \texttt{/api}
+(including the WebSocket upgrade) to the API Gateway, itself the only
+component that talks to the eight stateless domain services. Each service
+owns a single-instance MongoDB with a persistent volume, except the CAD
+service, whose database is instead a three-member replica set (one primary,
+two secondaries) spread over separate members, so that losing any one of
+them still leaves a majority able to serve reads and writes. A single Redis
+instance sits on the same network, reachable by every service, but only the
+catalog, cart and notification services currently use it, as the pub/sub
+event bus of \cref{modelling}.}
+\label{fig:deployment-diagram}
+\end{figure}
+
+\newpage
 
 \subsection{Modelling}\label{modelling}
 
@@ -187,70 +225,11 @@ for its own slice, and the gateway never persists anything itself.
 
 \begin{figure}[h!]
 \centering
-\newcommand{\refnote}[1]{{\tiny\itshape\color{gray!60!black}#1}}%
-\resizebox{\linewidth}{!}{%
-\begin{tikzpicture}[
-  entitybox/.style={draw, rounded corners, align=left, font=\scriptsize, inner sep=5pt, text width=4.3cm},
-  ref/.style={-{Latex[length=2mm]}, dashed, thick, gray!60!black, font=\tiny},
-  projref/.style={-{Latex[length=2mm]}, dotted, thick, gray!60!black, font=\tiny},
-]
-\node[entitybox] (auth) at (0,5) {
-  \textbf{Authentication}\\
-  User(username, email,\\ passwordHash, role)\\
-  Session(userId, tokenId)
-};
-\node[entitybox] (catalog) at (6.4,5) {
-  \textbf{Catalog}\\
-  Component(sku, category,\\ price, isAvailable, version)
-};
-\node[entitybox] (cad) at (12.8,5) {
-  \textbf{CAD}\\
-  Configuration(ownerId,\\ status, columnPlan,\\ components, version)\\
-  CollabCheckpoint(snapshot)\\
-  CollabEvent(seq, opId)\\
-  \begin{minipage}{\linewidth}\refnote{refs: ownerId $\to$ User; catalog rules via REST}\end{minipage}
-};
-\node[entitybox] (cart) at (0,1.5) {
-  \textbf{Cart}\\
-  Cart(userId,\\ items[sku, qty, unitPrice])\\
-  \begin{minipage}{\linewidth}\refnote{refs: userId $\to$ User; sku $\to$ Component}\end{minipage}
-};
-\node[entitybox] (order) at (6.4,1.5) {
-  \textbf{Order}\\
-  Order(userId, items[], status)\\
-  \begin{minipage}{\linewidth}\refnote{refs: userId $\to$ User; sku $\to$ Component}\end{minipage}
-};
-\node[entitybox] (notif) at (12.8,1.5) {
-  \textbf{Notification}\\
-  Notification(userId, sku, type)\\
-  Subscription(userId, targetId)\\
-  ProcessedEvent(eventId)\\
-  \begin{minipage}{\linewidth}\refnote{refs: userId $\to$ User; sku/targetId $\to$ Component}\end{minipage}
-};
-\node[entitybox] (chat) at (3.2,-2.4) {
-  \textbf{Chatbot}\\
-  ChatSession(userId,\\ configurationId)\\
-  ChatMessage(sessionId, role)\\
-  \begin{minipage}{\linewidth}\refnote{refs: userId $\to$ User; configurationId $\to$ Configuration}\end{minipage}
-};
-\node[entitybox] (report) at (9.6,-2.4) {
-  \textbf{Reporting}\\
-  Order(status, total,\\ submittedAt) [projection]\\
-  \begin{minipage}{\linewidth}\refnote{same physical collection as Order (read-only)}\end{minipage}
-};
-
-\draw[ref] (cart.north) -- node[left]{userId} (auth.south);
-\draw[ref] (cart.east) to[bend left=12] node[above, sloped]{sku} (catalog.south west);
-\draw[projref] (order.south east) to[bend right=10] node[below, sloped]{projection} (report.north west);
-\end{tikzpicture}%
-}
+\includegraphics[width=0.4\linewidth]{figures/Figure3.png}
 \caption{Entities owned by each bounded context (database-per-service). Solid
-boxes never share a database; the small italic \emph{refs} note in each box
-lists the identifiers it holds towards entities owned by another context.
-Two dashed arrows illustrate the general pattern concretely (Cart referencing
-User and Component by id only, never by foreign key or join); the dotted
-arrow marks the one deliberate exception, where Reporting reads the Order
-service's own collection directly as a read-only projection.}
+boxes never share a database.
+The arrows illustrate the general pattern (Cart referencing
+User and Component by id only, never by foreign key or join).}
 \label{fig:class-diagram}
 \end{figure}
 
@@ -306,38 +285,7 @@ inside a collaborative CAD session, purely over Socket.IO.
 
 \begin{figure}[htb]
 \centering
-\resizebox{\linewidth}{!}{%
-\begin{tikzpicture}[
-  actor/.style={draw, fill=gray!8, rounded corners, inner sep=3pt, font=\scriptsize\bfseries, text width=2.3cm, align=center},
-  lifeline/.style={dashed, gray!50!black},
-  sync/.style={-{Latex[length=2mm]}, thick, font=\tiny, align=center},
-  async/.style={-{Latex[length=2mm]}, thick, dashed, font=\tiny, align=center},
-  selfmsg/.style={-{Latex[length=2mm]}, thick, font=\tiny, align=left},
-]
-\def\yTop{0}
-\def\yBot{-9.6}
-\node[actor] (A)  at (0,\yTop)    {Admin};
-\node[actor] (GW) at (2.6,\yTop)  {Gateway};
-\node[actor] (CAT)at (5.2,\yTop)  {Catalog\\service};
-\node[actor] (R)  at (7.8,\yTop)  {Redis\\\texttt{catalog:events}};
-\node[actor] (CART)at (10.4,\yTop){Cart\\service};
-\node[actor] (NOTIF)at(13.0,\yTop){Notification\\service};
-\node[actor] (CLI)at (15.6,\yTop) {Browser\\(Socket.IO)};
-
-\foreach \x in {0,2.6,5.2,7.8,10.4,13.0,15.6}
-  \draw[lifeline] (\x,\yTop-0.5) -- (\x,\yBot);
-
-\draw[sync] (A) -- node[above]{PATCH /catalog/:id (JWT)} (GW);
-\draw[sync] (GW.south) -- ++(0,-1.3) -| node[above,pos=0.25]{PATCH /catalog/:id\\(X-User-Role: ADMIN)} (CAT.north);
-\draw[selfmsg] (CAT.east) ++(0,-2.1) -- node[right]{OCC check (\texttt{version}),\\persist, build event} ++(1.6,0);
-\draw[async] ($(CAT)+(0,-2.9)$) -- node[above]{PUBLISH \texttt{PRICE\_CHANGED}\\\{eventId, sku, oldPrice, newPrice\}} ($(R)+(0,-2.9)$);
-\draw[async] ($(R)+(0,-3.7)$) -- node[above]{message} ($(CART)+(0,-3.7)$);
-\draw[selfmsg] (CART.east) ++(0,-4.5) -- node[right]{if AVAILABILITY\_CHANGED: restore\\previously-removed items} ++(1.9,0);
-\draw[async] ($(R)+(0,-5.5)$) -- node[above]{message} ($(NOTIF)+(0,-5.5)$);
-\draw[selfmsg] (NOTIF.east) ++(0,-6.3) -- node[right]{hasProcessed(eventId)? no $\to$\\ImpactResolver (subscriptions,\\carts, finalized configs) $\to$\\save notifications $\to$ markProcessed} ++(1.9,0);
-\draw[sync] ($(NOTIF)+(0,-8.6)$) -- node[above]{\texttt{notification:push}\\(room \texttt{user:\{userId\}})} ($(CLI)+(0,-8.6)$);
-\end{tikzpicture}%
-}
+\includegraphics[width=0.4\linewidth]{figures/Figure4.png}
 \caption{Propagation of a catalog change (e.g.\ an admin lowers a component's
 price) to every dependent context. The gateway turns the client call into a
 trusted internal request; the catalog service is the only writer and the only
@@ -349,36 +297,7 @@ browsers.}
 
 \begin{figure}[htb]
 \centering
-\resizebox{0.78\linewidth}{!}{%
-\begin{tikzpicture}[
-  actor/.style={draw, fill=gray!8, rounded corners, inner sep=3pt, font=\scriptsize\bfseries, text width=2.6cm, align=center},
-  lifeline/.style={dashed, gray!50!black},
-  sync/.style={-{Latex[length=2mm]}, thick, font=\tiny, align=center},
-  selfmsg/.style={-{Latex[length=2mm]}, thick, font=\tiny, align=left},
-]
-\def\yTop{0}
-\def\yBot{-12.2}
-\node[actor] (O)  at (0,\yTop)   {Owner\\(browser A)};
-\node[actor] (H)  at (3.6,\yTop) {CollabSocketHub\\(cadService)};
-\node[actor] (S)  at (7.2,\yTop) {InMemory\\CollabSessionService};
-\node[actor] (P)  at (10.8,\yTop){Participant\\(browser B)};
-
-\foreach \x in {0,3.6,7.2,10.8}
-  \draw[lifeline] (\x,\yTop-0.9) -- (\x,\yBot);
-
-\draw[sync] ($(P)+(0,-0.9)$) -- node[above]{\texttt{cad:collab:join}\\\{sessionCode\}} ($(H)+(0,-0.9)$);
-\draw[sync] ($(H)+(0,-1.9)$) -- node[above]{joinByCode(code, userId)} ($(S)+(0,-1.9)$);
-\draw[sync] ($(S)+(0,-2.7)$) -- node[above]{snapshot, participants} ($(H)+(0,-2.7)$);
-\draw[sync] ($(H)+(0,-3.6)$) -- node[above]{\texttt{cad:collab:joined}\\\{snapshot\}} ($(P)+(0,-3.6)$);
-\draw[sync] ($(H)+(0,-4.6)$) -- node[above]{\texttt{cad:collab:presence}\\\{joined\}} ($(O)+(0,-4.6)$);
-\draw[sync] ($(O)+(0,-5.9)$) -- node[above]{\texttt{cad:collab:operation}\\\{opId, lamport, fieldPath,\\value, baseVersion\}} ($(H)+(0,-5.9)$);
-\draw[sync] ($(H)+(0,-6.9)$) -- node[above]{applyOperation(...)} ($(S)+(0,-6.9)$);
-\draw[selfmsg] (S.east) ++(0,-7.9) -- node[right]{baseVersion check;\\Lamport+actorId LWW per\\field; mutate snapshot;\\append to event log} ++(2.1,0);
-\draw[sync] ($(S)+(0,-9.4)$) -- node[above]{\{applied: true, snapshot\}} ($(H)+(0,-9.4)$);
-\draw[sync] ($(H)+(0,-10.4)$) -- node[above]{\texttt{cad:collab:operation:applied}\\\{snapshot\} (whole room)} ($(O)+(0,-10.4)$);
-\draw[sync] ($(H)+(0,-11.4)$) -- node[above]{\texttt{cad:collab:operation:applied}\\\{snapshot\} (whole room)} ($(P)+(0,-11.4)$);
-\end{tikzpicture}%
-}
+\includegraphics[width=0.4\linewidth]{figures/Figure5.png}
 \caption{A collaborative CAD session: a participant joins with a short
 session code, then owner and participant exchange field-level operations
 broadcast to the whole room (\texttt{cad:collab:\{sessionCode\}}). The session
@@ -387,6 +306,8 @@ converge to the same snapshot because every operation is applied through the
 same deterministic rule.}
 \label{fig:seq-collab}
 \end{figure}
+
+\newpage
 
 \subsection{Behaviour}\label{behaviour}
 
@@ -425,37 +346,12 @@ and the reset behaviour:
 
 \begin{figure}[htb]
 \centering
-\resizebox{0.95\linewidth}{!}{%
-\begin{tikzpicture}[
-  st/.style={draw, rounded corners, fill=gray!8, font=\scriptsize, align=center, text width=2.5cm, minimum height=1cm},
-  final/.style={st, double, fill=gray!16},
-  fwd/.style={-{Latex[length=2mm]}, thick},
-  reset/.style={-{Latex[length=2mm]}, dashed, gray!40!black, font=\tiny, align=center},
-]
-\node[st] (draft) at (0,2) {DRAFT};
-\node[st] (env) at (4.4,2) {ENVIRONMENT\_\allowbreak DEFINED};
-\node[st] (cat) at (8.8,2) {CATEGORY\_\allowbreak SELECTED};
-\node[st] (cols) at (13.2,2) {COLUMNS\_\allowbreak DEFINED};
-\node[st] (design) at (13.2,-2) {DESIGN\_IN\_\allowbreak PROGRESS};
-\node[st] (ready) at (8.8,-2) {READY\_FOR\_\allowbreak FINALIZE};
-\node[final] (fin) at (4.4,-2) {FINALIZED};
-
-\draw[fwd] (draft) -- node[above,font=\tiny]{setEnvironment} (env);
-\draw[fwd] (env) -- node[above,font=\tiny]{setCategory} (cat);
-\draw[fwd] (cat) -- node[above,font=\tiny]{setColumnPlan} (cols);
-\draw[fwd] (cols) -- node[right,font=\tiny,align=center,pos=0.3]{updateDesign\\(partial)} (design);
-\draw[fwd] (design) -- node[above,font=\tiny,align=center]{updateDesign\\(all columns designed)} (ready);
-\draw[fwd] (ready) -- node[above,font=\tiny]{finalize} (fin);
-
-\draw[reset] (design.east) to[bend left=50] node[right,pos=0.5,align=left]{setColumnPlan\\(clears design, BOM)} (cols.east);
-\draw[reset] (ready.south) to[bend right=30] node[below]{setCategory / setEnvironment\\(clears columnPlan, design, BOM)} (cat.south);
-\end{tikzpicture}%
-}
+\includegraphics[width=0.4\linewidth]{figures/Figure6.png}
 \caption{Lifecycle of a CAD \texttt{Configuration}. Solid arrows are the
 intended forward path (also enacted, field by field, by collaborative
 operations); dashed arrows summarise the reset rule that regresses status and
 discards downstream data whenever an earlier-stage field is rewritten.
-\texttt{FINALIZED} (double border) is a terminal state.}
+\texttt{FINALIZED} (bold border) is a terminal state.}
 \label{fig:state-configuration}
 \end{figure}
 
@@ -612,35 +508,7 @@ events via the \texttt{ProcessedEvent} ledger keyed by \texttt{eventId}
 
 \begin{figure}[htb]
 \centering
-\resizebox{0.85\linewidth}{!}{%
-\begin{tikzpicture}[
-  actor/.style={draw, fill=gray!8, rounded corners, inner sep=3pt, font=\scriptsize\bfseries, text width=2.6cm, align=center},
-  lifeline/.style={dashed, gray!50!black},
-  sync/.style={-{Latex[length=2mm]}, thick, font=\tiny, align=center},
-  selfmsg/.style={-{Latex[length=2mm]}, thick, font=\tiny, align=left},
-  crash/.style={-{Latex[length=2mm]}, thick, red!60!black, font=\tiny, align=center},
-]
-\def\yTop{0}
-\def\yBot{-9.4}
-\node[actor] (T) at (0,\yTop)   {Checkpoint\\timer (10s)};
-\node[actor] (M) at (3.6,\yTop) {MongoDB\\(checkpoints\\+ event log)};
-\node[actor] (Proc) at (7.2,\yTop) {cadService\\process};
-\node[actor] (C) at (10.8,\yTop){Connected\\clients};
-
-\foreach \x in {0,3.6,7.2,10.8}
-  \draw[lifeline] (\x,\yTop-0.5) -- (\x,\yBot);
-
-\draw[sync] ($(T)+(0,-1)$) -- node[above]{checkpointAllSessions()} ($(M)+(0,-1)$);
-\draw[selfmsg] (M.east) ++(0,-1.8) -- node[right]{save snapshot + Lamport\\clocks; truncate log up to\\last saved seq} ++(2.2,0);
-\draw[crash] ($(Proc)+(-1.4,-2.9)$) -- node[above]{\textbf{process crash}} ($(Proc)+(1.4,-2.9)$);
-\draw[crash] ($(Proc)+(-1.4,-3.5)$) -- node[above]{\textbf{restart}} ($(Proc)+(1.4,-3.5)$);
-\draw[sync] ($(Proc)+(0,-4.4)$) -- node[above]{loadAllCheckpoints()} ($(M)+(0,-4.4)$);
-\draw[selfmsg] (Proc.west) ++(0,-5.2) -- node[left]{discard expired sessions;\\rebuild snapshot from\\checkpoint} ++(-2.2,0);
-\draw[sync] ($(Proc)+(0,-6.4)$) -- node[above]{readSince(sessionCode,\\lastEventSeq)} ($(M)+(0,-6.4)$);
-\draw[selfmsg] (Proc.west) ++(0,-7.3) -- node[left]{replay each logged op through\\the same mutation rule as a\\live edit $\to$ state identical\\to pre-crash} ++(-2.2,0);
-\draw[sync] ($(Proc)+(0,-8.8)$) -- node[above]{\texttt{cad:collab:resync}} ($(C)+(0,-8.8)$);
-\end{tikzpicture}%
-}
+\includegraphics[width=0.4\linewidth]{figures/Figure7.png}
 \caption{Checkpoint and crash recovery for a CAD collaborative session. The
 session lives in process memory while active; a periodic checkpoint plus an
 append-only event log since the last checkpoint let a restarted process
