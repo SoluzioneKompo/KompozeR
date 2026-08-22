@@ -51,7 +51,7 @@ the three communication styles map onto them.
 
 \begin{figure}[h!]
 \centering
-\includegraphics[width=0.4\linewidth]{figures/Figure1.png}
+\includegraphics[width=0.8\linewidth]{figures/Figure1.png}
 \caption{Logical component diagram. The browser SPA never talks to a domain
 service directly: every call goes through the API Gateway (solid arrows,
 synchronous REST), which fans requests out to the eight domain services; each
@@ -66,6 +66,8 @@ channel end-to-end even though, for clarity, the diagram draws it directly
 between its logical endpoints.}
 \label{fig:component-diagram}
 \end{figure}
+
+\newpage
 
 \subsection{Infrastructure}\label{infrastructure}
 
@@ -114,7 +116,7 @@ which ones run replicated.
 
 \begin{figure}[h!]
 \centering
-\includegraphics[width=0.4\linewidth]{figures/Figure2.png}
+\includegraphics[width=0.8\linewidth]{figures/Figure2.png}
 \caption{Infrastructural / deployment diagram. Every box other than the
 client is a separate container (Docker Compose) or pod (Kubernetes) distributed inside one logical network/namespace
 (thick outer boundary); the client is the only component outside it and
@@ -225,13 +227,15 @@ for its own slice, and the gateway never persists anything itself.
 
 \begin{figure}[h!]
 \centering
-\includegraphics[width=0.4\linewidth]{figures/Figure3.png}
+\includegraphics[width=0.8\linewidth]{figures/Figure3.png}
 \caption{Entities owned by each bounded context (database-per-service). Solid
 boxes never share a database.
 The arrows illustrate the general pattern (Cart referencing
 User and Component by id only, never by foreign key or join).}
 \label{fig:class-diagram}
 \end{figure}
+
+\newpage
 
 \subsection{Interaction}\label{interaction}
 
@@ -285,7 +289,7 @@ inside a collaborative CAD session, purely over Socket.IO.
 
 \begin{figure}[htb]
 \centering
-\includegraphics[width=0.4\linewidth]{figures/Figure4.png}
+\includegraphics[width=0.8\linewidth]{figures/Figure4.png}
 \caption{Propagation of a catalog change (e.g.\ an admin lowers a component's
 price) to every dependent context. The gateway turns the client call into a
 trusted internal request; the catalog service is the only writer and the only
@@ -294,10 +298,10 @@ idempotently; only the notification service ends up pushing to connected
 browsers.}
 \label{fig:seq-catalog-event}
 \end{figure}
-
+\newpage
 \begin{figure}[htb]
 \centering
-\includegraphics[width=0.4\linewidth]{figures/Figure5.png}
+\includegraphics[width=0.8\linewidth]{figures/Figure5.png}
 \caption{A collaborative CAD session: a participant joins with a short
 session code, then owner and participant exchange field-level operations
 broadcast to the whole room (\texttt{cad:collab:\{sessionCode\}}). The session
@@ -346,7 +350,7 @@ and the reset behaviour:
 
 \begin{figure}[htb]
 \centering
-\includegraphics[width=0.4\linewidth]{figures/Figure6.png}
+\includegraphics[width=0.8\linewidth]{figures/Figure6.png}
 \caption{Lifecycle of a CAD \texttt{Configuration}. Solid arrows are the
 intended forward path (also enacted, field by field, by collaborative
 operations); dashed arrows summarise the reset rule that regresses status and
@@ -354,6 +358,8 @@ discards downstream data whenever an earlier-stage field is rewritten.
 \texttt{FINALIZED} (bold border) is a terminal state.}
 \label{fig:state-configuration}
 \end{figure}
+
+\newpage 
 
 \subsection{Data and Consistency Issues}\label{data-and-consistency-issues}
 
@@ -508,7 +514,7 @@ events via the \texttt{ProcessedEvent} ledger keyed by \texttt{eventId}
 
 \begin{figure}[htb]
 \centering
-\includegraphics[width=0.4\linewidth]{figures/Figure7.png}
+\includegraphics[width=0.8\linewidth]{figures/Figure7.png}
 \caption{Checkpoint and crash recovery for a CAD collaborative session. The
 session lives in process memory while active; a periodic checkpoint plus an
 append-only event log since the last checkpoint let a restarted process
