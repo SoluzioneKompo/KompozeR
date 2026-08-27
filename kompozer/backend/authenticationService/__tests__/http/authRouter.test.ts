@@ -107,6 +107,31 @@ describe('POST /auth/register', () => {
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
     expect(Array.isArray(res.body.error.details)).toBe(true);
   });
+
+  it('returns 422 when a field has the wrong type instead of crashing', async () => {
+    const res = await request(app)
+      .post('/auth/register')
+      .send({ username: 'zed', name: 'Zed', surname: 'Zed', email: 'zed@example.com', password: 12345678 });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('returns 422 on unknown/extra fields (rejects mass-assignment attempts)', async () => {
+    const res = await request(app)
+      .post('/auth/register')
+      .send({
+        username: 'zed2',
+        name: 'Zed',
+        surname: 'Zed',
+        email: 'zed2@example.com',
+        password: 'Password123!',
+        role: 'ADMIN',
+      });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
 });
 
 // POST /auth/login
@@ -177,6 +202,22 @@ describe('POST /auth/login', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.user.username).toBe('email_login_user');
+  });
+
+  it('returns 422 instead of crashing when password has the wrong type', async () => {
+    const res = await request(app)
+      .post('/auth/login')
+      .send({ identifier: 'anyone', password: { not: 'a string' } });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('returns 422 when neither identifier nor username is provided', async () => {
+    const res = await request(app).post('/auth/login').send({ password: 'Password123!' });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 });
 

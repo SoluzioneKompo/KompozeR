@@ -15,6 +15,8 @@ import { LogoutUser } from '../../useCases/LogoutUser';
 import { GetCurrentUser } from '../../useCases/GetCurrentUser';
 import { ListUserSessions } from '../../useCases/ListUserSessions';
 import { RevokeSession } from '../../useCases/RevokeSession';
+import { validateBody } from './validateBody';
+import { registerSchema, loginSchema } from './authSchemas';
 
 export interface AuthRouterDeps {
   registerUser: RegisterUser;
@@ -44,6 +46,7 @@ export function buildAuthRouter(deps: AuthRouterDeps) {
   // POST /auth/register — public
   router.post(
     '/register',
+    validateBody(registerSchema),
     wrap(async (req, res) => {
       const { username, name, surname, email, password } = req.body as {
         username: string;
@@ -60,6 +63,7 @@ export function buildAuthRouter(deps: AuthRouterDeps) {
   // POST /auth/login — public
   router.post(
     '/login',
+    validateBody(loginSchema),
     wrap(async (req, res) => {
       const body = (req.body ?? {}) as {
         identifier?: string;
