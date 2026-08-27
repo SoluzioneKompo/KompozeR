@@ -29,3 +29,27 @@ describe('gateway app — malformed JSON body', () => {
     expect(res.body.error.code).toBe('INVALID_REQUEST');
   });
 });
+
+describe('gateway app — rate limiting', () => {
+  it('applies the general limiter to every request (RateLimit headers present)', async () => {
+    const app = buildApp({ jwtSecret: 'test-secret', services: SERVICES });
+
+    const res = await request(app).get('/some/protected/route');
+
+    const hasRateLimitHeader = Object.keys(res.headers).some((h) => h.toLowerCase().startsWith('ratelimit'));
+    expect(hasRateLimitHeader).toBe(true);
+  });
+
+  it('does not apply the tight auth limiter to unrelated routes', async () => {
+    const app = buildApp({ jwtSecret: 'test-secret', services: SERVICES });
+
+    // 11 requests to a route the auth limiter does not cover (401s fast, no
+    // network calls) — none should be blocked by the 10-request auth limiter.
+    let lastRes;
+    for (let i = 0; i < 11; i += 1) {
+      lastRes = await request(app).get('/some/protected/route');
+    }
+
+    expect(lastRes!.status).toBe(401);
+  });
+});

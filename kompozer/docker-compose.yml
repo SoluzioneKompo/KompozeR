@@ -121,7 +121,7 @@ services:
     build: ./backend/apiGateway
     ports: ["${GATEWAY_PORT}:${GATEWAY_PORT}"]
     env_file: .env
-    depends_on: [auth-service, cad-service, cart-service, catalog-service, reporting-service]
+    depends_on: [auth-service, cad-service, cart-service, catalog-service, reporting-service, redis]
 
   auth-service:
     build: ./backend/authenticationService

@@ -19,6 +19,7 @@ if (!JWT_SECRET) {
 
 const app = buildApp({
   jwtSecret: JWT_SECRET,
+  redisUrl: process.env.REDIS_URL,
   services: {
     auth:         process.env.AUTH_SERVICE_URL         || 'http://auth-service:3001',
     catalog:      process.env.CATALOG_SERVICE_URL      || 'http://catalog-service:3002',

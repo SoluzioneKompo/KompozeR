@@ -41,6 +41,8 @@ spec:
               value: "http://chatbot-service:3006"
             - name: REPORTING_SERVICE_URL
               value: "http://reporting-service:3007"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
           ports:
             - containerPort: 3000
           resources:

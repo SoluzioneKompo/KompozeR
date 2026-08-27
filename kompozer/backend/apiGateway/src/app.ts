@@ -12,6 +12,7 @@ import helmet from 'helmet';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { buildJwtMiddleware } from './middleware/jwtMiddleware';
 import { gatewayErrorMiddleware } from './middleware/gatewayErrorMiddleware';
+import { buildRateLimiters } from './middleware/rateLimiters';
 import { buildRoutes, ServiceUrls } from './routes/index';
 import { buildHealthRouter } from './routes/health';
 import { buildBffRouter } from './routes/bff';
@@ -19,6 +20,8 @@ import { buildBffRouter } from './routes/bff';
 export interface GatewayConfig {
   jwtSecret: string;
   services: ServiceUrls;
+  /** Redis connection string. When set, rate limits are shared across gateway replicas. */
+  redisUrl?: string;
 }
 
 /**
@@ -33,6 +36,7 @@ export interface GatewayConfig {
  */
 export function buildApp(config: GatewayConfig) {
   const app = express();
+  const { generalLimiter, authLimiter } = buildRateLimiters(config.redisUrl);
 
   const notificationsWsProxy = createProxyMiddleware({
     target: config.services.notification,
@@ -44,6 +48,11 @@ export function buildApp(config: GatewayConfig) {
 
   app.use(cors());
   app.use(helmet());
+
+  // Per-IP request cap, applied before body parsing so oversized/abusive
+  // traffic is rejected as cheaply as possible.
+  app.use(generalLimiter);
+
   app.use(express.json());
 
   // Real-time notifications channel is handled before JWT route guarding.
@@ -54,6 +63,10 @@ export function buildApp(config: GatewayConfig) {
 
   // JWT verification — runs before every route except public ones
   app.use(buildJwtMiddleware(config.jwtSecret));
+
+  // Tighter per-IP cap on the unauthenticated auth routes — these are the
+  // ones a credential-stuffing/brute-force script would actually hit.
+  app.post(['/auth/register', '/auth/login', '/auth/guest'], authLimiter);
 
   // BFF aggregation routes — protected, called directly by the SPA
   app.use(buildBffRouter(config.services));

@@ -393,6 +393,7 @@ services:
       NOTIFICATION_SERVICE_URL: "http://notification-service:3005"
       CHATBOT_SERVICE_URL: "http://chatbot-service:3006"
       REPORTING_SERVICE_URL: "http://reporting-service:3007"
+      REDIS_URL: "redis://redis:6379"
     depends_on:
       auth-service:
         condition: service_started
@@ -410,6 +411,8 @@ services:
         condition: service_started
       reporting-service:
         condition: service_started
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
