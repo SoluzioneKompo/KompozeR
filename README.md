@@ -98,6 +98,7 @@ npm run test:baseline
 Lo stack include **Grafana** + **Loki** + **Promtail** per centralizzare i log di tutti i servizi in tempo reale.
 
 **Come usare:**
+
 1. Alla startup di `docker compose up`, Loki raccoglie i log via Promtail (no configurazione richiesta).
 2. Accedi a **Grafana**: `http://localhost:3010` (accesso anonimo già abilitato).
 3. Vai in **Explore** > seleziona datasource **Loki** > scrivi query:
@@ -118,11 +119,11 @@ Il `chatbotService` genera le risposte tramite un LLM, mantenendo il **grounding
 
 **Configurazione (variabili d'ambiente):**
 
-| Variabile | Obbligatoria | Default | Descrizione |
-| --- | --- | --- | --- |
-| `MISTRAL_API_KEY` | No | — | Chiave API Mistral. Se assente, il chatbot usa il fallback rule-based. |
-| `MISTRAL_MODEL` | No | `mistral-small-latest` | Modello da usare. |
-| `MISTRAL_BASE_URL` | No | `https://api.mistral.ai` | Base URL API (override per test/mock). |
+| Variabile            | Obbligatoria | Default                    | Descrizione                                                            |
+| -------------------- | ------------ | -------------------------- | ---------------------------------------------------------------------- |
+| `MISTRAL_API_KEY`  | No           | —                         | Chiave API Mistral. Se assente, il chatbot usa il fallback rule-based. |
+| `MISTRAL_MODEL`    | No           | `mistral-small-latest`   | Modello da usare.                                                      |
+| `MISTRAL_BASE_URL` | No           | `https://api.mistral.ai` | Base URL API (override per test/mock).                                 |
 
 In locale la chiave si passa via env; in Kubernetes è iniettata dal Secret `kompozer-secrets` (chiave `mistralApiKey`) — vedi [kompozer/k8s/README.md](kompozer/k8s/README.md). **Non committare la chiave in chiaro.**
 
@@ -161,7 +162,6 @@ Sono tracciati esito, tentativi (retry), latenza e utilizzo token; gli errori so
 - `ReportDS/`: relazione DS in LaTeX
 - `utilities/`: artefatti di analisi e documentazione tecnica
 - `ASW/` e `DS/`: dispense, richieste progetto e materiale di supporto
-
 
 ## Stato del progetto
 

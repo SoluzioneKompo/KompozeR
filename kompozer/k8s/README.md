@@ -7,20 +7,20 @@ della sessione collaborativa.
 
 ## Contenuto
 
-| File | Ruolo |
-| --- | --- |
-| `00-namespace.yaml` | Namespace `kompozer` |
-| `01-secrets.yaml` | Credenziali condivise (Mongo root, JWT) |
-| `10-redis.yaml` | Redis (cache/eventi) |
-| `11-mongo-databases.yaml` | Mongo single-node: auth, catalog, cart, notification, chat, order |
-| `12-mongo-cad-rs.yaml` | Replica set CAD (StatefulSet 3 membri PSS) + Job di init |
-| `20..27-*.yaml` | Microservizi backend |
-| `30-api-gateway.yaml` | API Gateway (NodePort 30000) |
-| `31-frontend.yaml` | Frontend SPA (nginx) + reverse-proxy `/api` (NodePort 30080) |
-| `40-observability-loki.yaml` | Loki (log storage) |
-| `41-observability-promtail.yaml` | Promtail DaemonSet (scrape log dei pod) + RBAC |
-| `42-observability-grafana.yaml` | Grafana (NodePort 30030) |
-| `kustomization.yaml` | Aggrega tutte le risorse |
+| File                               | Ruolo                                                             |
+| ---------------------------------- | ----------------------------------------------------------------- |
+| `00-namespace.yaml`              | Namespace`kompozer`                                             |
+| `01-secrets.yaml`                | Credenziali condivise (Mongo root, JWT)                           |
+| `10-redis.yaml`                  | Redis (cache/eventi)                                              |
+| `11-mongo-databases.yaml`        | Mongo single-node: auth, catalog, cart, notification, chat, order |
+| `12-mongo-cad-rs.yaml`           | Replica set CAD (StatefulSet 3 membri PSS) + Job di init          |
+| `20..27-*.yaml`                  | Microservizi backend                                              |
+| `30-api-gateway.yaml`            | API Gateway (NodePort 30000)                                      |
+| `31-frontend.yaml`               | Frontend SPA (nginx) + reverse-proxy`/api` (NodePort 30080)     |
+| `40-observability-loki.yaml`     | Loki (log storage)                                                |
+| `41-observability-promtail.yaml` | Promtail DaemonSet (scrape log dei pod) + RBAC                    |
+| `42-observability-grafana.yaml`  | Grafana (NodePort 30030)                                          |
+| `kustomization.yaml`             | Aggrega tutte le risorse                                          |
 
 Il frontend gira nel cluster come immagine nginx che serve la build statica e
 fa da reverse-proxy verso l'API Gateway su `/api` (incluso l'upgrade WebSocket
@@ -121,7 +121,6 @@ Mostra il recupero dello stato collaborativo dopo un crash del servizio.
    ```powershell
    kubectl -n kompozer delete pod -l app=cad-service
    ```
-
 3. Al riavvio, `cad-service` esegue `recoverSessions()`: ricarica l'ultimo
    checkpoint da `caddb` e riapplica gli eventi loggati dopo il checkpoint,
    quindi emette `cad:collab:resync` ai client. Controlla i log:
