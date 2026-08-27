@@ -1,8 +1,6 @@
 /**
  * HTTP adapter that submits checkout payloads to orderService.
  */
-import http from 'http';
-import https from 'https';
 import { URL } from 'url';
 import { OrderSubmissionError } from '../../domain/entities/errors';
 import {
@@ -10,6 +8,7 @@ import {
   SubmitOrderInput,
   SubmitOrderOutput,
 } from '../../domain/ports/OrderServiceClient';
+import { HttpRequestFailure, requestJson } from './httpRetry';
 
 type OrderApiResponse = {
   id?: string;
@@ -48,55 +47,33 @@ export class HttpOrderServiceClient implements OrderServiceClient {
     };
   }
 
-  private postJson<T>(url: URL, payload: string, userId: string): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      const client = url.protocol === 'https:' ? https : http;
-
-      const req = client.request(
-        url,
-        {
-          method: 'POST',
-          timeout: this.timeoutMs,
-          headers: {
-            'content-type': 'application/json',
-            'content-length': Buffer.byteLength(payload),
-            'x-user-id': userId,
-          },
+  // POST /orders is NOT idempotent — a timeout or 5xx doesn't tell us
+  // whether the order was actually created before the response was lost,
+  // so only a connection that never reached the server (network failure)
+  // is safe to retry automatically.
+  private async postJson<T>(url: URL, payload: string, userId: string): Promise<T> {
+    try {
+      return await requestJson<T>(url, {
+        method: 'POST',
+        timeoutMs: this.timeoutMs,
+        body: payload,
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(Buffer.byteLength(payload)),
+          'x-user-id': userId,
         },
-        (res) => {
-          const status = res.statusCode ?? 500;
-          let raw = '';
-
-          res.on('data', (chunk) => {
-            raw += chunk.toString();
-          });
-
-          res.on('end', () => {
-            if (status >= 400) {
-              reject(new OrderSubmissionError(`Order service rejected request with status ${status}`));
-              return;
-            }
-
-            try {
-              resolve(JSON.parse(raw) as T);
-            } catch {
-              reject(new OrderSubmissionError('Invalid JSON from order service'));
-            }
-          });
-        },
-      );
-
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new OrderSubmissionError('Order service request timed out'));
+        retryOnTimeout: false,
+        retryOn5xx: false,
       });
-
-      req.on('error', () => {
-        reject(new OrderSubmissionError('Order service request failed'));
-      });
-
-      req.write(payload);
-      req.end();
-    });
+    } catch (err) {
+      if (err instanceof HttpRequestFailure) {
+        if (err.kind === 'timeout') throw new OrderSubmissionError('Order service request timed out');
+        if (err.kind === 'parse') throw new OrderSubmissionError('Invalid JSON from order service');
+        if (err.kind === 'http') {
+          throw new OrderSubmissionError(`Order service rejected request with status ${err.status}`);
+        }
+      }
+      throw new OrderSubmissionError('Order service request failed');
+    }
   }
 }

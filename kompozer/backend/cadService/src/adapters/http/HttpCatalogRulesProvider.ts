@@ -1,5 +1,3 @@
-import http from 'http';
-import https from 'https';
 import { URL } from 'url';
 import { Category } from '../../domain/entities/Category';
 import { ResourceConflictError, ValidationError } from '../../domain/entities/errors';
@@ -9,6 +7,7 @@ import {
   CatalogRules,
   CatalogRulesProvider,
 } from '../../domain/ports/CatalogRulesProvider';
+import { HttpRequestFailure, requestJson } from './httpRetry';
 
 interface CatalogListItem {
   sku: unknown;
@@ -146,44 +145,19 @@ export class HttpCatalogRulesProvider implements CatalogRulesProvider {
     throw new ValidationError('Catalog returned an unknown component type');
   }
 
-  /** Performs a GET request and parses JSON with timeout/error handling. */
-  private getJson<T>(url: URL): Promise<T> {
-    const client = url.protocol === 'https:' ? https : http;
-
-    return new Promise<T>((resolve, reject) => {
-      const req = client.get(url, { timeout: this.timeoutMs }, (res) => {
-        const statusCode = res.statusCode ?? 500;
-        const chunks: Buffer[] = [];
-
-        res.on('data', (chunk) => {
-          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-        });
-
-        res.on('end', () => {
-          const body = Buffer.concat(chunks).toString('utf-8');
-
-          if (statusCode >= 400) {
-            reject(new ResourceConflictError(`Catalog request failed with status ${statusCode}`));
-            return;
-          }
-
-          try {
-            resolve(JSON.parse(body) as T);
-          } catch {
-            reject(new ResourceConflictError('Catalog response is not valid JSON'));
-          }
-        });
-      });
-
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new ResourceConflictError('Catalog request timed out'));
-      });
-
-      req.on('error', () => {
-        reject(new ResourceConflictError('Catalog request failed'));
-      });
-    });
+  // GET is idempotent — safe to retry on timeout and 5xx as well as
+  // connection errors.
+  private async getJson<T>(url: URL): Promise<T> {
+    try {
+      return await requestJson<T>(url, { method: 'GET', timeoutMs: this.timeoutMs });
+    } catch (err) {
+      if (err instanceof HttpRequestFailure) {
+        if (err.kind === 'timeout') throw new ResourceConflictError('Catalog request timed out');
+        if (err.kind === 'parse') throw new ResourceConflictError('Catalog response is not valid JSON');
+        if (err.kind === 'http') throw new ResourceConflictError(`Catalog request failed with status ${err.status}`);
+      }
+      throw new ResourceConflictError('Catalog request failed');
+    }
   }
 }
 

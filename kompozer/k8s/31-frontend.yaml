@@ -32,6 +32,12 @@ spec:
               port: 80
             initialDelaySeconds: 5
             periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 15
 ---
 # NodePort entry point for the whole app: serves the SPA and proxies /api to the
 # gateway. Reach it via `minikube service frontend -n kompozer --url`.

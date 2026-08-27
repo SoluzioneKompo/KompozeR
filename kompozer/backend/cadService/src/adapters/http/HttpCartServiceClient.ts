@@ -1,9 +1,8 @@
-import http from 'http';
-import https from 'https';
 import { URL } from 'url';
 import { BomItem } from '../../domain/entities/Bom';
 import { ResourceConflictError } from '../../domain/entities/errors';
 import { CartServiceClient } from '../../domain/ports/CartServiceClient';
+import { HttpRequestFailure, requestJson } from './httpRetry';
 
 /** HTTP adapter for pushing derived BOM items into cart service endpoints. */
 export class HttpCartServiceClient implements CartServiceClient {
@@ -18,8 +17,9 @@ export class HttpCartServiceClient implements CartServiceClient {
     }
   }
 
-  /** Upserts a single BOM line item into the user's cart. */
-  private upsertItem(ownerId: string, item: BomItem): Promise<void> {
+  // PUT .../items/:sku is an upsert — idempotent, safe to retry on
+  // timeout and 5xx as well as connection errors.
+  private async upsertItem(ownerId: string, item: BomItem): Promise<void> {
     const url = new URL(`/cart/items/${encodeURIComponent(item.sku)}`, this.cartBaseUrl);
     const body = JSON.stringify({
       name: item.name,
@@ -27,47 +27,28 @@ export class HttpCartServiceClient implements CartServiceClient {
       quantity: item.quantity,
     });
 
-    return new Promise<void>((resolve, reject) => {
-      const client = url.protocol === 'https:' ? https : http;
-
-      const req = client.request(
-        url,
-        {
-          method: 'PUT',
-          timeout: this.timeoutMs,
-          headers: {
-            'content-type': 'application/json',
-            'content-length': Buffer.byteLength(body),
-            'x-user-id': ownerId,
-          },
+    try {
+      await requestJson<unknown>(url, {
+        method: 'PUT',
+        timeoutMs: this.timeoutMs,
+        body,
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(Buffer.byteLength(body)),
+          'x-user-id': ownerId,
         },
-        (res) => {
-          const statusCode = res.statusCode ?? 500;
-          res.resume(); // drain the response body
-
-          if (statusCode >= 400) {
-            reject(
-              new ResourceConflictError(
-                `Cart service rejected item ${item.sku} with status ${statusCode}`,
-              ),
-            );
-            return;
-          }
-          resolve();
-        },
-      );
-
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new ResourceConflictError('Cart service request timed out'));
       });
-
-      req.on('error', () => {
-        reject(new ResourceConflictError('Cart service request failed'));
-      });
-
-      req.write(body);
-      req.end();
-    });
+    } catch (err) {
+      if (err instanceof HttpRequestFailure) {
+        if (err.kind === 'timeout') throw new ResourceConflictError('Cart service request timed out');
+        if (err.kind === 'http') {
+          throw new ResourceConflictError(`Cart service rejected item ${item.sku} with status ${err.status}`);
+        }
+        // 'parse' — cart returns the updated cart on success; a malformed
+        // body still means the item was applied, so treat it like the
+        // other transport failures rather than surfacing a JSON-specific error.
+      }
+      throw new ResourceConflictError('Cart service request failed');
+    }
   }
 }

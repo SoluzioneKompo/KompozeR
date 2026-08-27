@@ -1,7 +1,6 @@
-import http from 'http';
-import https from 'https';
 import { URL } from 'url';
 import { CadConfigurationProvider, CadConfigurationSnapshot } from '../../domain/ports/CadConfigurationProvider';
+import { HttpRequestFailure, requestJson } from './httpRetry';
 
 /** HTTP adapter that loads CAD configuration context for chatbot answers. */
 type CadConfigurationResponse = {
@@ -58,55 +57,22 @@ export class HttpCadConfigurationProvider implements CadConfigurationProvider {
     };
   }
 
-  /** Performs a GET request with identity headers and parses the response. */
-  private getJson<T>(url: URL, headers: Record<string, string>): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      const client = url.protocol === 'https:' ? https : http;
-      const req = client.request(
-        url,
-        {
-          method: 'GET',
-          timeout: this.timeoutMs,
-          headers,
-        },
-        (res) => {
-          const status = res.statusCode ?? 500;
-          let raw = '';
-
-          res.on('data', (chunk) => {
-            raw += chunk.toString();
-          });
-
-          res.on('end', () => {
-            if (status === 404 || status === 403) {
-              resolve(null as T);
-              return;
-            }
-
-            if (status >= 400) {
-              reject(new Error(`CAD returned ${status}`));
-              return;
-            }
-
-            try {
-              resolve(JSON.parse(raw) as T);
-            } catch {
-              reject(new Error('Invalid JSON from CAD service'));
-            }
-          });
-        },
-      );
-
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('CAD request timed out'));
-      });
-
-      req.on('error', (error) => {
-        reject(error);
-      });
-
-      req.end();
-    });
+  // GET is idempotent — safe to retry on timeout and 5xx as well as
+  // connection errors. 404/403 are not transient (session isn't visible
+  // to this user or doesn't exist) — resolved as null, not retried.
+  private async getJson<T>(url: URL, headers: Record<string, string>): Promise<T> {
+    try {
+      return await requestJson<T>(url, { method: 'GET', timeoutMs: this.timeoutMs, headers });
+    } catch (err) {
+      if (err instanceof HttpRequestFailure) {
+        if (err.kind === 'http' && (err.status === 404 || err.status === 403)) {
+          return null as T;
+        }
+        if (err.kind === 'timeout') throw new Error('CAD request timed out');
+        if (err.kind === 'parse') throw new Error('Invalid JSON from CAD service');
+        if (err.kind === 'http') throw new Error(`CAD returned ${err.status}`);
+      }
+      throw err;
+    }
   }
 }

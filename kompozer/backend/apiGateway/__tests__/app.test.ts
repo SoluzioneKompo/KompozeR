@@ -16,6 +16,17 @@ const SERVICES = {
   reporting: 'http://reporting:3007',
 };
 
+describe('gateway app — liveness endpoint', () => {
+  it('GET /healthz -> 200 without checking downstream services', async () => {
+    const app = buildApp({ jwtSecret: 'test-secret', services: SERVICES });
+
+    const res = await request(app).get('/healthz');
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('ok');
+  });
+});
+
 describe('gateway app — malformed JSON body', () => {
   it('POST /auth/login with syntactically invalid JSON -> 400 INVALID_REQUEST', async () => {
     const app = buildApp({ jwtSecret: 'test-secret', services: SERVICES });

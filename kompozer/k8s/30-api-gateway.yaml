@@ -57,6 +57,12 @@ spec:
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 15
 ---
 # NodePort exposes the gateway outside the cluster. On Minikube reach it via
 # `minikube service api-gateway -n kompozer --url`.

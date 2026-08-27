@@ -58,6 +58,11 @@ export function buildApp(config: GatewayConfig) {
   // Real-time notifications channel is handled before JWT route guarding.
   app.use('/ws/notifications', notificationsWsProxy);
 
+  // Liveness probe target: proves the gateway process itself is responsive.
+  // Deliberately does NOT check downstream services — unlike /health below,
+  // which does — so a downstream outage never triggers a gateway restart.
+  app.get('/healthz', (_req, res) => res.json({ status: 'ok' }));
+
   // Public health endpoint must remain reachable without authentication.
   app.use(buildHealthRouter(config.services));
 

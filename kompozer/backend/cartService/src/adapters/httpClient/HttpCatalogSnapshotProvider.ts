@@ -1,11 +1,10 @@
 /**
  * HTTP adapter that fetches product availability/price snapshots from catalogService.
  */
-import http from 'http';
-import https from 'https';
 import { URL } from 'url';
 import { CatalogLookupError } from '../../domain/entities/errors';
 import { CatalogItemSnapshot, CatalogSnapshotProvider } from '../../domain/ports/CatalogSnapshotProvider';
+import { HttpRequestFailure, requestJson } from './httpRetry';
 
 type CatalogListResponse = {
   items?: Array<{
@@ -39,48 +38,18 @@ export class HttpCatalogSnapshotProvider implements CatalogSnapshotProvider {
     };
   }
 
-  private getJson<T>(url: URL): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      const client = url.protocol === 'https:' ? https : http;
-      const req = client.request(
-        url,
-        {
-          method: 'GET',
-          timeout: this.timeoutMs,
-        },
-        (res) => {
-          const status = res.statusCode ?? 500;
-          let raw = '';
-
-          res.on('data', (chunk) => {
-            raw += chunk.toString();
-          });
-
-          res.on('end', () => {
-            if (status >= 400) {
-              reject(new CatalogLookupError(`Catalog returned ${status}`));
-              return;
-            }
-
-            try {
-              resolve(JSON.parse(raw) as T);
-            } catch {
-              reject(new CatalogLookupError('Invalid JSON from catalog service'));
-            }
-          });
-        },
-      );
-
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new CatalogLookupError('Catalog request timed out'));
-      });
-
-      req.on('error', () => {
-        reject(new CatalogLookupError('Catalog request failed'));
-      });
-
-      req.end();
-    });
+  // GET is idempotent — safe to retry on timeout and 5xx as well as
+  // connection errors.
+  private async getJson<T>(url: URL): Promise<T> {
+    try {
+      return await requestJson<T>(url, { method: 'GET', timeoutMs: this.timeoutMs });
+    } catch (err) {
+      if (err instanceof HttpRequestFailure) {
+        if (err.kind === 'timeout') throw new CatalogLookupError('Catalog request timed out');
+        if (err.kind === 'parse') throw new CatalogLookupError('Invalid JSON from catalog service');
+        if (err.kind === 'http') throw new CatalogLookupError(`Catalog returned ${err.status}`);
+      }
+      throw new CatalogLookupError('Catalog request failed');
+    }
   }
 }
