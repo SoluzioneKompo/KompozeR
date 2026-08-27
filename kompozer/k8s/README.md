@@ -16,7 +16,7 @@ della sessione collaborativa.
 | `12-mongo-cad-rs.yaml`           | Replica set CAD (StatefulSet 3 membri PSS) + Job di init          |
 | `20..27-*.yaml`                  | Microservizi backend                                              |
 | `30-api-gateway.yaml`            | API Gateway (NodePort 30000)                                      |
-| `31-frontend.yaml`               | Frontend SPA (nginx) + reverse-proxy`/api` (NodePort 30080)     |
+| `31-frontend.yaml`               | Frontend SPA (nginx, TLS) + reverse-proxy`/api` (NodePort 30080/30443) |
 | `40-observability-loki.yaml`     | Loki (log storage)                                                |
 | `41-observability-promtail.yaml` | Promtail DaemonSet (scrape log dei pod) + RBAC                    |
 | `42-observability-grafana.yaml`  | Grafana (NodePort 30030)                                          |
@@ -58,7 +58,36 @@ minikube image build -t kompozer/frontend:latest             ./frontend
 Le immagini di Loki, Promtail, Grafana, Redis e MongoDB vengono scaricate
 automaticamente dai registry pubblici al primo deploy.
 
-## 2) Deploy
+## 2) Certificato TLS del frontend
+
+Il frontend (nginx) termina TLS ed è l'unico punto d'ingresso pensato per
+essere pubblico — il gateway resta HTTP semplice, raggiungibile solo per
+debug diretto. Genera un certificato self-signed di sviluppo (lo stesso
+usato anche da `docker-compose.yml`):
+
+```bash
+bash kompozer/scripts/generate-dev-tls.sh
+```
+
+Poi crealo come Secret nel cluster:
+
+```powershell
+kubectl -n kompozer create secret tls kompozer-frontend-tls `
+  --cert=kompozer/tls/tls.crt --key=kompozer/tls/tls.key
+```
+
+Va rifatto solo se il certificato scade o cambi le SAN (es. per includere
+l'IP di Minikube: `bash kompozer/scripts/generate-dev-tls.sh $(minikube ip)`,
+poi ricrea il Secret con `kubectl ... --dry-run=client -o yaml | kubectl apply -f -`).
+
+**Quando ci sarà un dominio reale**: sostituisci questo Secret con uno
+gestito da [cert-manager](https://cert-manager.io/) + un `ClusterIssuer`
+Let's Encrypt (richiede un Ingress controller, non presente oggi). Basta che
+il Secret risultante si chiami `kompozer-frontend-tls` con le stesse chiavi
+(`tls.crt`/`tls.key`, tipo `kubernetes.io/tls`) — `31-frontend.yaml` e
+`nginx.conf` non cambiano.
+
+## 3) Deploy
 
 ```powershell
 kubectl apply -k kompozer/k8s
@@ -76,13 +105,16 @@ Il Job `mongo-cad-init` esegue `rs.initiate` una sola volta (idempotente).
 `cad-service` potrebbe riavviarsi qualche volta finché il replica set non è
 eletto: è atteso e si stabilizza da solo.
 
-## 3) Accesso
+## 4) Accesso
 
 Applicazione completa (SPA + API + WebSocket) via il frontend:
 
 ```powershell
 minikube service frontend -n kompozer --url
 ```
+
+Stampa sia l'URL `http://` (redirige a HTTPS) che `https://`. Il certificato
+è self-signed: il browser avviserà, procedi comunque; con `curl` serve `-k`.
 
 Altri endpoint utili:
 
@@ -91,7 +123,7 @@ minikube service api-gateway -n kompozer --url   # API dirette (debug)
 minikube service grafana -n kompozer --url       # Grafana (log Loki, Explore)
 ```
 
-## 4) Demo DS — Failover del replica set CAD
+## 5) Demo DS — Failover del replica set CAD
 
 Mostra l'elezione automatica di un nuovo primary.
 
@@ -111,7 +143,7 @@ kubectl -n kompozer exec mongo-cad-1 -- mongosh --quiet --port 27017 --eval `
 Lo StatefulSet ricrea `mongo-cad-0`, che rientra come SECONDARY. Con 3 membri
 data-bearing, `w:"majority"` resta disponibile anche con un membro giù.
 
-## 5) Demo DS — Checkpoint & Recovery
+## 6) Demo DS — Checkpoint & Recovery
 
 Mostra il recupero dello stato collaborativo dopo un crash del servizio.
 
@@ -131,7 +163,7 @@ Mostra il recupero dello stato collaborativo dopo un crash del servizio.
 
    Cerca la riga `Recovered N collaborative session(s)`.
 
-## 6) Trade-off consistenza/disponibilità
+## 7) Trade-off consistenza/disponibilità
 
 Configurabile via env su `24-cad-service.yaml`:
 
@@ -146,7 +178,7 @@ Dopo la modifica:
 kubectl -n kompozer rollout restart deployment/cad-service
 ```
 
-## 7) Teardown
+## 8) Teardown
 
 ```powershell
 kubectl delete -k kompozer/k8s

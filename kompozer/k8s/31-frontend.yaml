@@ -19,6 +19,11 @@ spec:
           imagePullPolicy: Never
           ports:
             - containerPort: 80
+            - containerPort: 443
+          volumeMounts:
+            - name: tls
+              mountPath: /etc/nginx/tls
+              readOnly: true
           resources:
             requests:
               cpu: "25m"
@@ -29,18 +34,30 @@ spec:
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: 443
+              scheme: HTTPS
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /
-              port: 80
+              port: 443
+              scheme: HTTPS
             initialDelaySeconds: 15
             periodSeconds: 15
+      volumes:
+        # Self-signed today (see scripts/generate-dev-tls.sh); swap for a
+        # cert-manager-issued Secret with the same name/keys once there's a
+        # real domain — nothing else here has to change.
+        - name: tls
+          secret:
+            secretName: kompozer-frontend-tls
 ---
-# NodePort entry point for the whole app: serves the SPA and proxies /api to the
-# gateway. Reach it via `minikube service frontend -n kompozer --url`.
+# NodePort entry point for the whole app: serves the SPA (HTTPS) and proxies
+# /api to the gateway. Port 80 just 301-redirects to 443 (see nginx.conf).
+# Reach it via `minikube service frontend -n kompozer --url` (use the https
+# URL; https://<minikube-ip>:30443 works too) — self-signed cert, so curl
+# needs -k and the browser needs a manual "proceed anyway" the first time.
 apiVersion: v1
 kind: Service
 metadata:
@@ -51,6 +68,11 @@ spec:
   selector:
     app: frontend
   ports:
-    - port: 80
+    - name: http
+      port: 80
       targetPort: 80
       nodePort: 30080
+    - name: https
+      port: 443
+      targetPort: 443
+      nodePort: 30443
