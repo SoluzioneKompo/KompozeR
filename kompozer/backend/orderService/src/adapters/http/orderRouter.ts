@@ -8,6 +8,8 @@ import { CreateOrder } from '../../useCases/CreateOrder';
 import { GetOrder } from '../../useCases/GetOrder';
 import { ListOrders } from '../../useCases/ListOrders';
 import { UpdateOrderStatus } from '../../useCases/UpdateOrderStatus';
+import { validateBody } from './validateBody';
+import { createOrderSchema, updateOrderStatusSchema } from './orderSchemas';
 
 export interface OrderRouterDeps {
   createOrder: CreateOrder;
@@ -61,29 +63,14 @@ export function buildOrderRouter(deps: OrderRouterDeps) {
   router.post(
     '/',
     requireUserId,
+    validateBody(createOrderSchema),
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
-      const body = (req.body ?? {}) as {
-        expeditionInfo: {
-          name: string;
-          surname: string;
-          mail: string;
-          nation: string;
-          city: string;
-          cap: string;
-          address: string;
-          phone: string;
-          deliveryNotes?: string;
-        };
-        items?: Array<{ sku: string; name: string; unitPrice: number; quantity: number }>;
-        total?: number;
-      };
-
       const order = await deps.createOrder.execute({
         userId,
-        expeditionInfo: body.expeditionInfo,
-        items: body.items ?? [],
-        total: body.total ?? 0,
+        expeditionInfo: req.body.expeditionInfo,
+        items: req.body.items,
+        total: req.body.total,
       });
 
       res.status(201).json(order);
@@ -135,13 +122,13 @@ export function buildOrderRouter(deps: OrderRouterDeps) {
     '/:orderId/status',
     requireUserId,
     requireAdmin,
+    validateBody(updateOrderStatusSchema),
     wrap(async (req, res) => {
       const orderId = req.params['orderId'] as string;
-      const body = (req.body ?? {}) as { status?: 'DONE' };
 
       const order = await deps.updateOrderStatus.execute({
         orderId,
-        status: body.status ?? 'DONE',
+        status: req.body.status,
       });
 
       res.json(order);

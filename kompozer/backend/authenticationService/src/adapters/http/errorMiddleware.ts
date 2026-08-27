@@ -31,6 +31,16 @@ interface ApiError {
   };
 }
 
+/** Detects the SyntaxError express.json() throws for unparsable request bodies. */
+function isBodyParseError(err: unknown): err is SyntaxError {
+  return (
+    err instanceof SyntaxError &&
+    'status' in err &&
+    (err as { status?: unknown }).status === 400 &&
+    'body' in err
+  );
+}
+
 function statusFor(err: AuthError): number {
   if (err instanceof ValidationError) return 422;
   if (err instanceof DuplicateUsernameError || err instanceof DuplicateEmailError) return 409;
@@ -61,6 +71,17 @@ export function errorMiddleware(
     }
 
     res.status(statusFor(err)).json(body);
+    return;
+  }
+
+  if (isBodyParseError(err)) {
+    res.status(400).json({
+      error: {
+        code: 'INVALID_REQUEST',
+        message: 'Malformed JSON body',
+        timestamp: new Date().toISOString(),
+      },
+    });
     return;
   }
 

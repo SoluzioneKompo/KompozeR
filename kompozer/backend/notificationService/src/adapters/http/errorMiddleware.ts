@@ -12,12 +12,33 @@ const CODE_TO_STATUS: Record<string, number> = {
   FORBIDDEN: 403,
 };
 
+/** Detects the SyntaxError express.json() throws for unparsable request bodies. */
+function isBodyParseError(err: unknown): err is SyntaxError {
+  return (
+    err instanceof SyntaxError &&
+    'status' in err &&
+    (err as { status?: unknown }).status === 400 &&
+    'body' in err
+  );
+}
+
 export function errorMiddleware(
   err: unknown,
   _req: Request,
   res: Response,
   _next: NextFunction,
 ): void {
+  if (isBodyParseError(err)) {
+    res.status(400).json({
+      error: {
+        code: 'INVALID_REQUEST',
+        message: 'Malformed JSON body',
+        timestamp: new Date().toISOString(),
+      },
+    });
+    return;
+  }
+
   if (err instanceof NotificationError) {
     const status = CODE_TO_STATUS[err.code] ?? 500;
     res.status(status).json({

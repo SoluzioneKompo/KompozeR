@@ -32,3 +32,13 @@ export class InvalidTokenError extends GatewayError {
     super('INVALID_TOKEN', 'Token is invalid or expired', 401);
   }
 }
+
+/**
+ * Raised when a path param forwarded into a downstream URL segment
+ * (e.g. sessionId) does not match the expected safe format.
+ */
+export class InvalidSessionIdError extends GatewayError {
+  constructor() {
+    super('VALIDATION_ERROR', 'sessionId has an invalid format', 422);
+  }
+}

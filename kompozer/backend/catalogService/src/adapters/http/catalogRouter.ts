@@ -14,6 +14,8 @@ import { CreateComponent } from '../../useCases/CreateComponent';
 import { UpdateComponent } from '../../useCases/UpdateComponent';
 import { DeleteComponent } from '../../useCases/DeleteComponent';
 import { ComponentCategory } from '../../domain/entities/ComponentCategory';
+import { validateBody } from './validateBody';
+import { createComponentSchema, updateComponentSchema } from './catalogSchemas';
 
 export interface CatalogRouterDeps {
   listComponents:  ListComponents;
@@ -82,11 +84,11 @@ export function buildCatalogRouter(deps: CatalogRouterDeps) {
   router.post(
     '/',
     requireAdmin,
+    validateBody(createComponentSchema),
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const dto = await deps.createComponent.execute({
-        ...(req.body as any),
+        ...req.body,
         requestingUserId: userId,
       });
       res.status(201).json(dto);
@@ -97,11 +99,11 @@ export function buildCatalogRouter(deps: CatalogRouterDeps) {
   router.put(
     '/:id',
     requireAdmin,
+    validateBody(updateComponentSchema),
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const dto = await deps.updateComponent.execute({
-        ...(req.body as any),
+        ...req.body,
         id:               req.params['id'],
         requestingUserId: userId,
       });

@@ -22,6 +22,23 @@ describe('cadRouter', () => {
     expect(res.body.status).toBe('ok');
   });
 
+  it('POST /cad/configurations -> 400 on syntactically invalid JSON', async () => {
+    const app = buildApp({
+      configurationRepository: new FakeConfigurationRepository(),
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const res = await request(app)
+      .post('/cad/configurations')
+      .set('x-user-id', 'usr_1')
+      .set('Content-Type', 'application/json')
+      .send('{ not valid json');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('INVALID_REQUEST');
+  });
+
   it('GET /cad/configurations -> 200 and returns only owner configurations', async () => {
     const repo = new FakeConfigurationRepository();
     repo.seed(buildConfiguration({ id: 'cfg_1', ownerId: 'usr_1', status: 'DRAFT' }));
@@ -184,6 +201,60 @@ describe('cadRouter', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.category).toBe('INTELLIGENTE');
+  });
+
+  it('PATCH /cad/configurations/:id/environment -> 422 when a dimension is boolean instead of being coerced to 0/1', async () => {
+    const app = buildApp({
+      configurationRepository: new FakeConfigurationRepository(),
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const created = await request(app)
+      .post('/cad/configurations')
+      .set('x-user-id', 'usr_1')
+      .send({ name: 'Bozza' });
+
+    const res = await request(app)
+      .patch(`/cad/configurations/${created.body.id}/environment`)
+      .set('x-user-id', 'usr_1')
+      .send({
+        maxWidthMm: true,
+        maxHeightMm: 3000,
+        minWidthMm: 600,
+        minHeightMm: 220,
+        unit: 'mm',
+      });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('PATCH /cad/configurations/:id/environment -> 422 when a dimension is null instead of being coerced to 0', async () => {
+    const app = buildApp({
+      configurationRepository: new FakeConfigurationRepository(),
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const created = await request(app)
+      .post('/cad/configurations')
+      .set('x-user-id', 'usr_1')
+      .send({ name: 'Bozza' });
+
+    const res = await request(app)
+      .patch(`/cad/configurations/${created.body.id}/environment`)
+      .set('x-user-id', 'usr_1')
+      .send({
+        maxWidthMm: 5000,
+        maxHeightMm: 3000,
+        minWidthMm: null,
+        minHeightMm: 220,
+        unit: 'mm',
+      });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
   it('PATCH /cad/configurations/:id/design -> 422 on invalid payload', async () => {

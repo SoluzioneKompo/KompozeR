@@ -4,6 +4,8 @@ import { CreateSession } from '../../useCases/CreateSession';
 import { GetSession } from '../../useCases/GetSession';
 import { ListSessionMessages } from '../../useCases/ListSessionMessages';
 import { SendSessionMessage } from '../../useCases/SendSessionMessage';
+import { validateBody } from './validateBody';
+import { createSessionSchema, sendMessageSchema } from './chatbotSchemas';
 
 /** Dependencies required by the chatbot HTTP router. */
 export interface ChatbotRouterDeps {
@@ -46,13 +48,13 @@ export function buildChatbotRouter(deps: ChatbotRouterDeps): Router {
   router.post(
     '/sessions',
     requireUserId,
+    validateBody(createSessionSchema),
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
-      const body = (req.body ?? {}) as { configurationId?: string };
 
       const session = await deps.createSession.execute({
         userId,
-        configurationId: body.configurationId,
+        configurationId: req.body.configurationId,
       });
 
       res.status(201).json(session);
@@ -95,15 +97,15 @@ export function buildChatbotRouter(deps: ChatbotRouterDeps): Router {
   router.post(
     '/sessions/:sessionId/messages',
     requireUserId,
+    validateBody(sendMessageSchema),
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
       const sessionId = req.params['sessionId'] as string;
-      const body = (req.body ?? {}) as { content?: string };
 
       const output = await deps.sendSessionMessage.execute({
         userId,
         sessionId,
-        content: body.content ?? '',
+        content: req.body.content,
       });
 
       res.status(201).json(output);

@@ -119,6 +119,73 @@ describe('cartRouter', () => {
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
+  it('PUT /cart/items/:sku -> 422 when name has the wrong type instead of being stored as-is', async () => {
+    const { app } = buildTestApp();
+
+    const res = await request(app)
+      .put('/cart/items/SKU-001')
+      .set('x-user-id', 'usr_1')
+      .send({ name: { nested: 'object' }, unitPrice: 1990, quantity: 1 });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('PUT /cart/items/:sku -> 422 on unknown/extra fields', async () => {
+    const { app } = buildTestApp();
+
+    const res = await request(app)
+      .put('/cart/items/SKU-001')
+      .set('x-user-id', 'usr_1')
+      .send({ name: 'Ripiano', unitPrice: 1990, quantity: 1, discount: 999 });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('PUT /cart/items/:sku -> 422 on a sku that is too long / has invalid characters', async () => {
+    const { app } = buildTestApp();
+    const longSku = 'a'.repeat(100);
+
+    const res = await request(app)
+      .put(`/cart/items/${longSku}`)
+      .set('x-user-id', 'usr_1')
+      .send({ name: 'Ripiano', unitPrice: 1990, quantity: 1 });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('POST /cart/checkout -> 422 when expeditionInfo field has the wrong type', async () => {
+    const { app } = buildTestApp();
+
+    await request(app)
+      .put('/cart/items/SKU-001')
+      .set('x-user-id', 'usr_1')
+      .send({ name: 'Ripiano', unitPrice: 1990, quantity: 1 });
+
+    const res = await request(app)
+      .post('/cart/checkout')
+      .set('x-user-id', 'usr_1')
+      .send({ expeditionInfo: { ...expeditionInfo, mail: 12345 } });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('PUT /cart/items/:sku -> 400 on syntactically invalid JSON', async () => {
+    const { app } = buildTestApp();
+
+    const res = await request(app)
+      .put('/cart/items/SKU-001')
+      .set('x-user-id', 'usr_1')
+      .set('Content-Type', 'application/json')
+      .send('{ not valid json');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('INVALID_REQUEST');
+  });
+
   it('DELETE /cart/items/:sku removes item', async () => {
     const { app } = buildTestApp();
 

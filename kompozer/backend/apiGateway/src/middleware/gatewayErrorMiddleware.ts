@@ -14,6 +14,16 @@ type ErrorResponseLike = {
 
 type NextLike = (err?: unknown) => void;
 
+/** Detects the SyntaxError express.json() throws for unparsable request bodies. */
+function isBodyParseError(err: unknown): err is SyntaxError {
+  return (
+    err instanceof SyntaxError &&
+    'status' in err &&
+    (err as { status?: unknown }).status === 400 &&
+    'body' in err
+  );
+}
+
 /**
  * Converts thrown gateway errors into consistent HTTP JSON responses.
  */
@@ -28,6 +38,17 @@ export function gatewayErrorMiddleware(
       error: {
         code: err.code,
         message: err.message,
+        timestamp: new Date().toISOString(),
+      },
+    });
+    return;
+  }
+
+  if (isBodyParseError(err)) {
+    res.status(400).json({
+      error: {
+        code: 'INVALID_REQUEST',
+        message: 'Malformed JSON body',
         timestamp: new Date().toISOString(),
       },
     });

@@ -90,6 +90,75 @@ describe('orderRouter', () => {
     expect(cancelRes.body.status).toBe('CANCELLED');
   });
 
+  it('POST /orders -> 422 when an item has the wrong type instead of being persisted as-is', async () => {
+    const app = buildTestApp();
+
+    const res = await request(app)
+      .post('/orders')
+      .set('x-user-id', 'usr_1')
+      .send({
+        expeditionInfo,
+        items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: '1990', quantity: 2 }],
+        total: 3980,
+      });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('POST /orders -> 422 on unknown/extra top-level fields', async () => {
+    const app = buildTestApp();
+
+    const res = await request(app)
+      .post('/orders')
+      .set('x-user-id', 'usr_1')
+      .send({
+        expeditionInfo,
+        items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
+        total: 1990,
+        userId: 'spoofed-user',
+      });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('PATCH /orders/:id/status -> 422 when status is omitted instead of silently defaulting to DONE', async () => {
+    const app = buildTestApp();
+
+    const createRes = await request(app)
+      .post('/orders')
+      .set('x-user-id', 'usr_1')
+      .send({
+        expeditionInfo,
+        items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
+        total: 1990,
+      });
+    const orderId = createRes.body.id as string;
+
+    const res = await request(app)
+      .patch(`/orders/${orderId}/status`)
+      .set('x-user-id', 'adm_1')
+      .set('x-user-role', 'ADMIN')
+      .send({});
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('POST /orders -> 400 on syntactically invalid JSON', async () => {
+    const app = buildTestApp();
+
+    const res = await request(app)
+      .post('/orders')
+      .set('x-user-id', 'usr_1')
+      .set('Content-Type', 'application/json')
+      .send('{ not valid json');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('INVALID_REQUEST');
+  });
+
   it('GET /orders -> admin sees orders from all users', async () => {
     const app = buildTestApp();
 

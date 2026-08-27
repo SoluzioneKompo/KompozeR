@@ -132,6 +132,16 @@ describe('POST /auth/register', () => {
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
+
+  it('returns 400 on syntactically invalid JSON instead of crashing', async () => {
+    const res = await request(app)
+      .post('/auth/register')
+      .set('Content-Type', 'application/json')
+      .send('{ this is not valid json');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('INVALID_REQUEST');
+  });
 });
 
 // POST /auth/login

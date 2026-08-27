@@ -11,6 +11,8 @@ import { ListSubscriptions } from '../../useCases/ListSubscriptions';
 import { GetSubscription } from '../../useCases/GetSubscription';
 import { UpdateSubscription } from '../../useCases/UpdateSubscription';
 import { DeleteSubscription } from '../../useCases/DeleteSubscription';
+import { validateBody } from './validateBody';
+import { createSubscriptionSchema, updateSubscriptionSchema } from './notificationSchemas';
 
 export interface NotificationsRouterDeps {
   listNotifications: ListNotifications;
@@ -58,14 +60,10 @@ export function buildNotificationsRouter(deps: NotificationsRouterDeps): ReturnT
   router.post(
     '/subscriptions',
     requireUserId,
+    validateBody(createSubscriptionSchema),
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
-      const { scope, targetId, events, channel } = req.body as {
-        scope: 'PRODUCT';
-        targetId: string;
-        events: Array<'PRICE_CHANGED' | 'AVAILABILITY_CHANGED'>;
-        channel: 'IN_APP';
-      };
+      const { scope, targetId, events, channel } = req.body;
       const created = await deps.createSubscription.execute({
         userId,
         scope,
@@ -91,13 +89,11 @@ export function buildNotificationsRouter(deps: NotificationsRouterDeps): ReturnT
   router.patch(
     '/subscriptions/:subscriptionId',
     requireUserId,
+    validateBody(updateSubscriptionSchema),
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
       const subscriptionId = req.params['subscriptionId'] as string;
-      const { events, isActive } = req.body as {
-        events?: Array<'PRICE_CHANGED' | 'AVAILABILITY_CHANGED'>;
-        isActive?: boolean;
-      };
+      const { events, isActive } = req.body;
       const sub = await deps.updateSubscription.execute({
         userId,
         subscriptionId,

@@ -9,6 +9,8 @@ import { UpsertCartItem } from '../../useCases/UpsertCartItem';
 import { RemoveCartItem } from '../../useCases/RemoveCartItem';
 import { ClearCart } from '../../useCases/ClearCart';
 import { CheckoutCart } from '../../useCases/CheckoutCart';
+import { validateBody } from './validateBody';
+import { upsertCartItemSchema, checkoutSchema, validateSkuParam } from './cartSchemas';
 
 export interface CartRouterDeps {
   getCart: GetCart;
@@ -57,6 +59,8 @@ export function buildCartRouter(deps: CartRouterDeps) {
   router.put(
     '/items/:sku',
     requireUserId,
+    validateSkuParam,
+    validateBody(upsertCartItemSchema),
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
       const { sku } = req.params;
@@ -80,6 +84,7 @@ export function buildCartRouter(deps: CartRouterDeps) {
   router.delete(
     '/items/:sku',
     requireUserId,
+    validateSkuParam,
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
       const cart = await deps.removeCartItem.execute({
@@ -103,6 +108,7 @@ export function buildCartRouter(deps: CartRouterDeps) {
   router.post(
     '/checkout',
     requireUserId,
+    validateBody(checkoutSchema),
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
       const body = (req.body ?? {}) as {

@@ -7,13 +7,16 @@
  *
  * All /bff/* endpoints are protected by the JWT middleware mounted in app.ts.
  */
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { ServiceUrls } from './index';
 import {
   HttpClient,
   IdentityHeaders,
   createServiceClient,
 } from '../adapters/httpClient/ServiceClient';
+import { InvalidSessionIdError } from '../errors';
+
+const SESSION_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
 
 export type ClientFactory = (baseUrl: string, identity: IdentityHeaders) => HttpClient;
 
@@ -76,8 +79,12 @@ export function buildBffRouter(
   // data together so the SPA can update pricing/state with fewer round-trips.
   router.get(
     '/bff/configurator/:sessionId',
-    async (req: Request, res: Response): Promise<void> => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       const { sessionId } = req.params;
+      if (!SESSION_ID_RE.test(sessionId)) {
+        next(new InvalidSessionIdError());
+        return;
+      }
       const identity = extractIdentity(req);
 
       const cadClient     = clientFactory(services.cad,     identity);

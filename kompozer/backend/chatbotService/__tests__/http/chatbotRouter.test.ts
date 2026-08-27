@@ -98,6 +98,37 @@ describe('chatbotRouter', () => {
     expect(sendAfterClose.body.error.code).toBe('SESSION_CLOSED');
   });
 
+  it('POST /chatbot/sessions/:id/messages -> 422 when content is an object instead of crashing', async () => {
+    const app = buildTestApp();
+
+    const createRes = await request(app)
+      .post('/chatbot/sessions')
+      .set('x-user-id', 'usr_1')
+      .send({});
+    const sessionId = createRes.body.id as string;
+
+    const res = await request(app)
+      .post(`/chatbot/sessions/${sessionId}/messages`)
+      .set('x-user-id', 'usr_1')
+      .send({ content: { not: 'a string' } });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('POST /chatbot/sessions/:id/messages -> 400 on syntactically invalid JSON', async () => {
+    const app = buildTestApp();
+
+    const res = await request(app)
+      .post('/chatbot/sessions/any-id/messages')
+      .set('x-user-id', 'usr_1')
+      .set('Content-Type', 'application/json')
+      .send('{ not valid json');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('INVALID_REQUEST');
+  });
+
   it('GET /chatbot/sessions/:id -> 403 for another user', async () => {
     const app = buildTestApp();
 

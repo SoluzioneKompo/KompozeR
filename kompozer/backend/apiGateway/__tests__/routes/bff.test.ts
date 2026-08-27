@@ -8,6 +8,7 @@ import express from 'express';
 import { buildBffRouter, ClientFactory } from '../../src/routes/bff';
 import { HttpClient, IdentityHeaders } from '../../src/adapters/httpClient/ServiceClient';
 import { ServiceUrls } from '../../src/routes/index';
+import { gatewayErrorMiddleware } from '../../src/middleware/gatewayErrorMiddleware';
 
 const SERVICES: ServiceUrls = {
   auth:         'http://auth:3001',
@@ -51,6 +52,7 @@ function makeCapturingFactory(
 function buildApp(factory: ClientFactory) {
   const app = express();
   app.use(buildBffRouter(SERVICES, factory));
+  app.use(gatewayErrorMiddleware);
   return app;
 }
 
@@ -159,6 +161,17 @@ describe('GET /bff/configurator/:sessionId — tutti i servizi UP', () => {
     const res = await request(app).get('/bff/configurator/sess-abc');
     expect(res.body.snapshot.data).toEqual({ operations: [1, 2, 3] });
     expect(res.body.catalogItems.data).toEqual([{ id: 'item-1', price: 99 }]);
+  });
+});
+
+describe('GET /bff/configurator/:sessionId — sessionId con formato non valido', () => {
+  it('422 invece di inoltrare il valore grezzo al servizio a valle', async () => {
+    const app = buildApp(makeFakeFactory(CONFIGURATOR_MOCKS));
+
+    const res = await request(app).get('/bff/configurator/..%2F..%2Fsecret');
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 });
 

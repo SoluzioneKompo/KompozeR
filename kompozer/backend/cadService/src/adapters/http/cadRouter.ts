@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response, Router } from 'express';
+import { z } from 'zod';
 import { CATEGORIES, Category, isCategory } from '../../domain/entities/Category';
 import { ConfigurationStatus } from '../../domain/entities/ConfigurationStatus';
 import { ColumnDesign, ColumnPlan, Environment } from '../../domain/entities/Configuration';
@@ -62,6 +63,22 @@ function requireUserId(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+const numberSchema = z.number();
+
+/**
+ * Strictly validates a numeric field. Unlike `Number(value)`, this rejects
+ * booleans, arrays and null instead of silently coercing them to 0/1 —
+ * those values used to sneak past the old `Number.isNaN` check and get
+ * persisted as valid CAD dimensions.
+ */
+function requireNumber(value: unknown, field: string): number {
+  const result = numberSchema.safeParse(value);
+  if (!result.success) {
+    throw new ValidationError(`${field} must be numeric`);
+  }
+  return result.data;
+}
+
 /** Parses category aliases accepted by the public API payload shape. */
 function parseCategory(body: unknown): Category | null | undefined {
   if (!body || typeof body !== 'object') {
@@ -103,15 +120,11 @@ function parseEnvironment(body: unknown): Environment {
   }
 
   const typedBody = body as Record<string, unknown>;
-  const maxWidthMm = Number(typedBody['maxWidthMm']);
-  const maxHeightMm = Number(typedBody['maxHeightMm']);
-  const minWidthMm = Number(typedBody['minWidthMm']);
-  const minHeightMm = Number(typedBody['minHeightMm']);
+  const maxWidthMm = requireNumber(typedBody['maxWidthMm'], 'maxWidthMm');
+  const maxHeightMm = requireNumber(typedBody['maxHeightMm'], 'maxHeightMm');
+  const minWidthMm = requireNumber(typedBody['minWidthMm'], 'minWidthMm');
+  const minHeightMm = requireNumber(typedBody['minHeightMm'], 'minHeightMm');
   const unit = typedBody['unit'] ?? 'mm';
-
-  if ([maxWidthMm, maxHeightMm, minWidthMm, minHeightMm].some((value) => Number.isNaN(value))) {
-    throw new ValidationError('environment dimensions must be numeric');
-  }
 
   if (unit !== 'mm') {
     throw new ValidationError('environment unit must be mm');
@@ -147,20 +160,13 @@ function parseColumnPlan(body: unknown): ColumnPlan {
     }
 
     const typedColumn = column as Record<string, unknown>;
-    const index = Number(typedColumn['index']);
-    const shelfWidthMm = Number(typedColumn['shelfWidthMm']);
-
-    if (Number.isNaN(index) || Number.isNaN(shelfWidthMm)) {
-      throw new ValidationError('Column plan values must be numeric');
-    }
+    const index = requireNumber(typedColumn['index'], 'columnPlan column index');
+    const shelfWidthMm = requireNumber(typedColumn['shelfWidthMm'], 'columnPlan column shelfWidthMm');
 
     return { index, shelfWidthMm };
   });
 
-  const columnCount = Number(typedBody.columnCount);
-  if (Number.isNaN(columnCount)) {
-    throw new ValidationError('columnCount must be numeric');
-  }
+  const columnCount = requireNumber(typedBody.columnCount, 'columnCount');
 
   return { columnCount, columns };
 }
@@ -182,18 +188,15 @@ function parseColumnDesigns(body: unknown): ColumnDesign[] {
     }
 
     const typedDesign = design as Record<string, unknown>;
-    const columnIndex = Number(typedDesign['columnIndex']);
-    const shelfThicknessMm = Number(typedDesign['shelfThicknessMm']);
+    const columnIndex = requireNumber(typedDesign['columnIndex'], 'columnDesign.columnIndex');
+    const shelfThicknessMm = requireNumber(typedDesign['shelfThicknessMm'], 'columnDesign.shelfThicknessMm');
     const rawLevels = typedDesign['levelsMm'];
 
     if (!Array.isArray(rawLevels)) {
       throw new ValidationError('columnDesign.levelsMm must be an array');
     }
 
-    const levelsMm = rawLevels.map((level) => Number(level));
-    if ([columnIndex, shelfThicknessMm, ...levelsMm].some((value) => Number.isNaN(value))) {
-      throw new ValidationError('columnDesign values must be numeric');
-    }
+    const levelsMm = rawLevels.map((level, i) => requireNumber(level, `columnDesign.levelsMm[${i}]`));
 
     return {
       columnIndex,
@@ -218,8 +221,8 @@ function parseCollabOperation(body: unknown): {
   const typed = body as Record<string, unknown>;
   const opId = typeof typed['opId'] === 'string' ? typed['opId'].trim() : '';
   const fieldPathRaw = typed['fieldPath'];
-  const lamport = Number(typed['lamport']);
-  const baseVersion = Number(typed['baseVersion']);
+  const lamport = requireNumber(typed['lamport'], 'lamport');
+  const baseVersion = requireNumber(typed['baseVersion'], 'baseVersion');
 
   if (!opId) {
     throw new ValidationError('opId is required');
@@ -227,14 +230,6 @@ function parseCollabOperation(body: unknown): {
 
   if (typeof fieldPathRaw !== 'string' || !COLLAB_FIELD_PATHS.includes(fieldPathRaw as CollabFieldPath)) {
     throw new ValidationError(`fieldPath must be one of ${COLLAB_FIELD_PATHS.join(', ')}`);
-  }
-
-  if (Number.isNaN(lamport)) {
-    throw new ValidationError('lamport must be numeric');
-  }
-
-  if (Number.isNaN(baseVersion)) {
-    throw new ValidationError('baseVersion must be numeric');
   }
 
   return {

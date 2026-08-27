@@ -187,6 +187,62 @@ describe('POST /catalog — richiede ADMIN', () => {
     expect(res.status).toBe(422);
     expect(res.body).toHaveProperty('error.code', 'VALIDATION_ERROR');
   });
+
+  it('422 — category non valida (fuori dall\'enum) invece di essere salvata sporca', async () => {
+    const { app } = buildApp();
+    const res = await request(app)
+      .post('/catalog')
+      .set('x-user-role', 'ADMIN')
+      .set('x-user-id', 'admin-001')
+      .send({ ...VALID_BODY, category: 'NOT_A_REAL_CATEGORY' });
+    expect(res.status).toBe(422);
+    expect(res.body).toHaveProperty('error.code', 'VALIDATION_ERROR');
+  });
+
+  it('422 — isAvailable con tipo sbagliato', async () => {
+    const { app } = buildApp();
+    const res = await request(app)
+      .post('/catalog')
+      .set('x-user-role', 'ADMIN')
+      .set('x-user-id', 'admin-001')
+      .send({ ...VALID_BODY, isAvailable: 'yes' });
+    expect(res.status).toBe(422);
+    expect(res.body).toHaveProperty('error.code', 'VALIDATION_ERROR');
+  });
+
+  it('422 — dimensions con forma malformata', async () => {
+    const { app } = buildApp();
+    const res = await request(app)
+      .post('/catalog')
+      .set('x-user-role', 'ADMIN')
+      .set('x-user-id', 'admin-001')
+      .send({ ...VALID_BODY, dimensions: { widthMm: 'wide' } });
+    expect(res.status).toBe(422);
+    expect(res.body).toHaveProperty('error.code', 'VALIDATION_ERROR');
+  });
+
+  it('422 — campi sconosciuti nel body (mass-assignment)', async () => {
+    const { app } = buildApp();
+    const res = await request(app)
+      .post('/catalog')
+      .set('x-user-role', 'ADMIN')
+      .set('x-user-id', 'admin-001')
+      .send({ ...VALID_BODY, requestingUserId: 'spoofed-admin' });
+    expect(res.status).toBe(422);
+    expect(res.body).toHaveProperty('error.code', 'VALIDATION_ERROR');
+  });
+
+  it('400 — JSON sintatticamente non valido', async () => {
+    const { app } = buildApp();
+    const res = await request(app)
+      .post('/catalog')
+      .set('x-user-role', 'ADMIN')
+      .set('x-user-id', 'admin-001')
+      .set('Content-Type', 'application/json')
+      .send('{ not valid json');
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error.code', 'INVALID_REQUEST');
+  });
 });
 
 describe('PUT /catalog/:id — richiede ADMIN', () => {
@@ -236,6 +292,19 @@ describe('PUT /catalog/:id — richiede ADMIN', () => {
       .send({ expectedVersion: 1, name: 'x' });
     expect(res.status).toBe(409);
     expect(res.body).toHaveProperty('error.code', 'VERSION_CONFLICT');
+  });
+
+  it('422 — expectedVersion con tipo sbagliato (prima diventava un falso VERSION_CONFLICT)', async () => {
+    const { app, repo } = buildApp();
+    await repo.save(makeComponent({ id: 'c1', version: 1 }));
+
+    const res = await request(app)
+      .put('/catalog/c1')
+      .set('x-user-role', 'ADMIN')
+      .set('x-user-id', 'admin-001')
+      .send({ expectedVersion: '1', name: 'x' });
+    expect(res.status).toBe(422);
+    expect(res.body).toHaveProperty('error.code', 'VALIDATION_ERROR');
   });
 });
 

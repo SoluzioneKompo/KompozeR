@@ -74,4 +74,18 @@ describe('reportingRouter', () => {
     expect(res.status).toBe(422);
     expect(res.body?.error?.code).toBe('VALIDATION_ERROR');
   });
+
+  it('GET /reports/trends/orders -> 400 on syntactically invalid JSON body', async () => {
+    const app = buildApp({ trendReader: new FakeOrderTrendReader() });
+
+    const res = await request(app)
+      .get('/reports/trends/orders')
+      .set('x-user-id', 'adm_1')
+      .set('x-user-role', 'ADMIN')
+      .set('Content-Type', 'application/json')
+      .send('{ not valid json');
+
+    expect(res.status).toBe(400);
+    expect(res.body?.error?.code).toBe('INVALID_REQUEST');
+  });
 });
