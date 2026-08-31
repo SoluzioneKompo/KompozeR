@@ -26,7 +26,12 @@ export class HttpOrderServiceClient implements OrderServiceClient {
     const url = new URL('/orders', this.orderBaseUrl);
     const payload = JSON.stringify({
       expeditionInfo: input.expeditionInfo,
-      items: input.items,
+      items: input.items.map((item) => ({
+        sku: item.sku,
+        name: item.name,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+      })),
       total: input.total,
     });
 
