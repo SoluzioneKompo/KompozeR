@@ -314,6 +314,8 @@ services:
       CHATBOT_PORT: "3006"
       CHAT_MONGO_URI: "mongodb://root:changeme@mongo-chat:27017/chatbotdb?authSource=admin"
       CATALOG_BASE_URL: "http://catalog-service:3002"
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      MISTRAL_MODEL: ${MISTRAL_MODEL:-mistral-small-latest}
     depends_on:
       mongo-chat:
         condition: service_healthy
