@@ -49,7 +49,6 @@ minikube image build -t kompozer/cart-service:latest         ./backend/cartServi
 minikube image build -t kompozer/order-service:latest        ./backend/orderService
 minikube image build -t kompozer/cad-service:latest          ./backend/cadService
 minikube image build -t kompozer/notification-service:latest ./backend/notificationService
-minikube image build -t kompozer/chatbot-service:latest      ./backend/chatbotService
 minikube image build -t kompozer/reporting-service:latest    ./backend/reportingService
 minikube image build -t kompozer/api-gateway:latest          ./backend/apiGateway
 minikube image build -t kompozer/frontend:latest             ./frontend

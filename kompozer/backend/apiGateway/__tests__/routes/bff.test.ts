@@ -17,7 +17,6 @@ const SERVICES: ServiceUrls = {
   cart:         'http://cart:3004',
   order:        'http://order:3008',
   notification: 'http://notification:3005',
-  chatbot:      'http://chatbot:3006',
   reporting:    'http://reporting:3007',
 };
 

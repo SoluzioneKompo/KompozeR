@@ -42,21 +42,18 @@ const navLinks = computed(() => {
       { name: 'cad', label: 'Configuratore' },
       { name: 'admin-orders', label: 'Ordini' },
       { name: 'admin-reports', label: 'Report' },
-      { name: 'chatbot', label: 'Chatbot' },
     ];
   }
 
   if (auth.isGuest) {
     return [
       { name: 'cad', label: 'Configuratore' },
-      { name: 'chatbot', label: 'Chatbot' },
     ];
   }
 
   return [
     { name: 'configurations', label: 'Configurazioni' },
     { name: 'cad', label: 'Configuratore' },
-    { name: 'chatbot', label: 'Chatbot' },
   ];
 });
 

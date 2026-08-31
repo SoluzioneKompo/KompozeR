@@ -13,7 +13,6 @@ resources:
   - 23-order-service.yaml
   - 24-cad-service.yaml
   - 25-notification-service.yaml
-  - 26-chatbot-service.yaml
   - 27-reporting-service.yaml
   - 30-api-gateway.yaml
   - 31-frontend.yaml

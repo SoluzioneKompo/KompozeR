@@ -27,7 +27,6 @@ const app = buildApp({
     cart:         process.env.CART_SERVICE_URL         || 'http://cart-service:3004',
     order:        process.env.ORDER_SERVICE_URL        || 'http://order-service:3008',
     notification: process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3005',
-    chatbot:      process.env.CHATBOT_SERVICE_URL      || 'http://chatbot-service:3006',
     reporting:    process.env.REPORTING_SERVICE_URL    || 'http://reporting-service:3007',
   },
 });

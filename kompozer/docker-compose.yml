@@ -94,13 +94,6 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       MONGO_INITDB_DATABASE: catalogdb
 
-  mongo-chat:
-    image: mongo:7
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
-      MONGO_INITDB_DATABASE: chatdb
-
   mongo-notification:
     image: mongo:7
     environment:
@@ -166,11 +159,6 @@ services:
       MONGO_URI: ${CATALOG_MONGO_URI}
       PORT: ${CATALOG_PORT}
     depends_on: [mongo-catalog, redis]
-
-  chatbot-service:
-    build: ./backend/chatbotService
-    env_file: .env
-    depends_on: [mongo-chat, catalog-service]
 
   notification-service:
     build: ./backend/notificationService

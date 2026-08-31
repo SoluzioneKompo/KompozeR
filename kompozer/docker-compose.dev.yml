@@ -180,24 +180,6 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  mongo-chat:
-    image: mongo:7
-    ports:
-      - "27022:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: changeme
-      MONGO_INITDB_DATABASE: chatbotdb
-    volumes:
-      - mongo-chat-data:/data/db
-    healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" mongodb://root:changeme@localhost:27017/admin -u root -p changeme | grep 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-      start_period: 10s
-    restart: unless-stopped
-
   mongo-order:
     image: mongo:7
     ports:
@@ -308,21 +290,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  chatbot-service:
-    build: ./backend/chatbotService
-    environment:
-      CHATBOT_PORT: "3006"
-      CHAT_MONGO_URI: "mongodb://root:changeme@mongo-chat:27017/chatbotdb?authSource=admin"
-      CATALOG_BASE_URL: "http://catalog-service:3002"
-      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
-      MISTRAL_MODEL: ${MISTRAL_MODEL:-mistral-small-latest}
-    depends_on:
-      mongo-chat:
-        condition: service_healthy
-      catalog-service:
-        condition: service_started
-    restart: unless-stopped
-
   reporting-service:
     build: ./backend/reportingService
     environment:
@@ -393,7 +360,6 @@ services:
       CART_SERVICE_URL: "http://cart-service:3004"
       ORDER_SERVICE_URL: "http://order-service:3008"
       NOTIFICATION_SERVICE_URL: "http://notification-service:3005"
-      CHATBOT_SERVICE_URL: "http://chatbot-service:3006"
       REPORTING_SERVICE_URL: "http://reporting-service:3007"
       REDIS_URL: "redis://redis:6379"
     depends_on:
@@ -409,8 +375,6 @@ services:
         condition: service_started
       notification-service:
         condition: service_started
-      chatbot-service:
-        condition: service_started
       reporting-service:
         condition: service_started
       redis:
@@ -425,7 +389,6 @@ volumes:
   mongo-cad2-data:
   mongo-cadarb-data:
   mongo-notification-data:
-  mongo-chat-data:
   mongo-order-data:
   loki-data:
   grafana-data:
