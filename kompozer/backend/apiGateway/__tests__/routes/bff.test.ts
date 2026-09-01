@@ -16,6 +16,7 @@ const SERVICES: ServiceUrls = {
   cad:          'http://cad:3003',
   cart:         'http://cart:3004',
   order:        'http://order:3008',
+  payment:      'http://payment:3009',
   notification: 'http://notification:3005',
   reporting:    'http://reporting:3007',
 };

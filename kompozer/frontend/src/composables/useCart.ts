@@ -50,14 +50,15 @@ export function useCart() {
     }
   }
 
-  /** Submits cart as order, clears badge, and reloads cart state. */
-  async function checkout(expeditionInfo: ExpeditionInfo): Promise<void> {
+  /** Submits cart as order, clears badge, and reloads cart state. Returns the new order id. */
+  async function checkout(expeditionInfo: ExpeditionInfo): Promise<string> {
     checkoutLoading.value = true;
     try {
       const result = await cartService.checkout(expeditionInfo);
       cartStore.clearCount();
       notifications.addToast('success', `Ordine ${result.orderId} creato con successo`);
       await load();
+      return result.orderId;
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Errore durante checkout';
       notifications.addToast('error', msg);

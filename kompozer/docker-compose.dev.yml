@@ -198,6 +198,24 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  mongo-payment:
+    image: mongo:7
+    ports:
+      - "27022:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: changeme
+      MONGO_INITDB_DATABASE: paymentdb
+    volumes:
+      - mongo-payment-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" mongodb://root:changeme@localhost:27017/admin -u root -p changeme | grep 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
   # ── Backend ─────────────────────────────────────────────────────────────────
 
   auth-service:
@@ -247,6 +265,16 @@ services:
       ORDER_MONGO_URI: "mongodb://root:changeme@mongo-order:27017/orderdb?authSource=admin"
     depends_on:
       mongo-order:
+        condition: service_healthy
+    restart: unless-stopped
+
+  payment-service:
+    build: ./backend/paymentService
+    environment:
+      PAYMENT_PORT: "3009"
+      PAYMENT_MONGO_URI: "mongodb://root:changeme@mongo-payment:27017/paymentdb?authSource=admin"
+    depends_on:
+      mongo-payment:
         condition: service_healthy
     restart: unless-stopped
 
@@ -359,6 +387,7 @@ services:
       CAD_SERVICE_URL: "http://cad-service:3003"
       CART_SERVICE_URL: "http://cart-service:3004"
       ORDER_SERVICE_URL: "http://order-service:3008"
+      PAYMENT_SERVICE_URL: "http://payment-service:3009"
       NOTIFICATION_SERVICE_URL: "http://notification-service:3005"
       REPORTING_SERVICE_URL: "http://reporting-service:3007"
       REDIS_URL: "redis://redis:6379"
@@ -370,6 +399,8 @@ services:
       cart-service:
         condition: service_started
       order-service:
+        condition: service_started
+      payment-service:
         condition: service_started
       cad-service:
         condition: service_started
@@ -390,5 +421,6 @@ volumes:
   mongo-cadarb-data:
   mongo-notification-data:
   mongo-order-data:
+  mongo-payment-data:
   loki-data:
   grafana-data:

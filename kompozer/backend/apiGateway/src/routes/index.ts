@@ -17,6 +17,7 @@ export interface ServiceUrls {
   cad: string;
   cart: string;
   order: string;
+  payment: string;
   notification: string;
   reporting: string;
 }
@@ -82,6 +83,17 @@ export function buildRoutes(services: ServiceUrls): ReturnType<typeof Router> {
       target: services.order,
       changeOrigin: true,
       pathRewrite: (path: string) => `/orders${path}`,
+      on: { proxyReq: fixRequestBody },
+    }),
+  );
+
+  // ── paymentService ───────────────────────────────────────────────────────────
+  router.use(
+    '/payments',
+    createProxyMiddleware({
+      target: services.payment,
+      changeOrigin: true,
+      pathRewrite: (path: string) => `/payments${path}`,
       on: { proxyReq: fixRequestBody },
     }),
   );

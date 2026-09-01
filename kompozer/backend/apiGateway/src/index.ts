@@ -26,6 +26,7 @@ const app = buildApp({
     cad:          process.env.CAD_SERVICE_URL          || 'http://cad-service:3003',
     cart:         process.env.CART_SERVICE_URL         || 'http://cart-service:3004',
     order:        process.env.ORDER_SERVICE_URL        || 'http://order-service:3008',
+    payment:      process.env.PAYMENT_SERVICE_URL      || 'http://payment-service:3009',
     notification: process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3005',
     reporting:    process.env.REPORTING_SERVICE_URL    || 'http://reporting-service:3007',
   },

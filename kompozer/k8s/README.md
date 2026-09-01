@@ -12,7 +12,7 @@ della sessione collaborativa.
 | `00-namespace.yaml`              | Namespace`kompozer`                                             |
 | `01-secrets.yaml`                | Credenziali condivise (Mongo root, JWT)                           |
 | `10-redis.yaml`                  | Redis (cache/eventi)                                              |
-| `11-mongo-databases.yaml`        | Mongo single-node: auth, catalog, cart, notification, chat, order |
+| `11-mongo-databases.yaml`        | Mongo single-node: auth, catalog, cart, notification, chat, order, payment |
 | `12-mongo-cad-rs.yaml`           | Replica set CAD (StatefulSet 3 membri PSS) + Job di init          |
 | `20..27-*.yaml`                  | Microservizi backend                                              |
 | `30-api-gateway.yaml`            | API Gateway (NodePort 30000)                                      |
@@ -47,6 +47,7 @@ minikube image build -t kompozer/auth-service:latest         ./backend/authentic
 minikube image build -t kompozer/catalog-service:latest      ./backend/catalogService
 minikube image build -t kompozer/cart-service:latest         ./backend/cartService
 minikube image build -t kompozer/order-service:latest        ./backend/orderService
+minikube image build -t kompozer/payment-service:latest      ./backend/paymentService
 minikube image build -t kompozer/cad-service:latest          ./backend/cadService
 minikube image build -t kompozer/notification-service:latest ./backend/notificationService
 minikube image build -t kompozer/reporting-service:latest    ./backend/reportingService

@@ -16,6 +16,7 @@ Nel repository corrente sono presenti suite di test per ogni microservizio backe
 \item notifiche e subscription;
 \item chatbot e messaggistica contestuale;
 \item ordini e aggiornamento stato;
+\item pagamento: creazione, lettura e conferma di un tentativo di pagamento, incluso il rifiuto di una doppia conferma sullo stesso pagamento;
 \item reporting e trend ordini.
 \end{itemize}
 
@@ -58,7 +59,7 @@ Nel corso della documentazione e dell'allineamento del progetto sono stati consi
 
 \begin{itemize}
 \item backend: test di unit\`a e router per ciascun microservizio;
-\item e2e: suite per auth, CAD, cart, catalog, chatbot, notifiche, ordini e reporting;
+\item e2e: suite per auth, CAD, cart, catalog, chatbot, notifiche, ordini e reporting (payment service non ha ancora una suite e2e: e' allo stadio di scheletro, senza provider reali da esercitare);
 \item frontend: verifica della logica di store, composables e service layer;
 \item gateway: test dei routing BFF e health route;
 \item CAD: test su \texttt{SpineModel}, \texttt{deriveBom}, comando di configurazione e router.
