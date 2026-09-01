@@ -2,8 +2,8 @@
 /** Catalog browsing view: components grouped by category and type, with per-type size selection. */
 import { onMounted, reactive, computed } from 'vue';
 import { useCatalog } from '@/composables/useCatalog';
-import type { CatalogItem, ComponentType } from '@/types/catalog';
-import type { Category } from '@/types/cad';
+import type { CatalogItem } from '@/types/catalog';
+import { groupCatalog, dimensionLabel, type TypeGroup, type CategoryGroup } from '@/utils/catalogGrouping';
 
 const {
   items,
@@ -26,78 +26,7 @@ function formatCurrency(cents: number): string {
   }).format(cents / 100);
 }
 
-const CATEGORY_ORDER: Category[] = ['TONDO', 'QUADRO', 'KUBE', 'INTELLIGENTE'];
-
-const CATEGORY_LABELS: Record<Category, string> = {
-  TONDO: 'Tondo',
-  QUADRO: 'Quadro',
-  KUBE: 'Kube',
-  INTELLIGENTE: 'Intelligente',
-};
-
-const TYPE_LABELS: Record<ComponentType, string> = {
-  PIEDINO: 'Piedino',
-  MONTANTE: 'Montante',
-  RIPIANO: 'Ripiano',
-  TERMINALE: 'Terminale',
-  MENSOLA: 'Mensola',
-  RIPIANO_BORDO: 'Ripiano bordo',
-  RIPIANO_INTERMEDIO: 'Ripiano intermedio',
-};
-
-interface TypeGroup {
-  key: string;
-  type: ComponentType;
-  label: string;
-  variants: CatalogItem[];
-}
-
-interface CategoryGroup {
-  category: Category;
-  label: string;
-  types: TypeGroup[];
-}
-
-function dimensionLabel(item: CatalogItem): string {
-  if (!item.dimensions) return item.name;
-  const { widthMm, heightMm, depthMm } = item.dimensions;
-  return `${widthMm}×${heightMm}×${depthMm} mm`;
-}
-
-function volume(item: CatalogItem): number {
-  if (!item.dimensions) return 0;
-  const { widthMm, heightMm, depthMm } = item.dimensions;
-  return widthMm * heightMm * depthMm;
-}
-
-const groupedCatalog = computed<CategoryGroup[]>(() => {
-  const groups: CategoryGroup[] = [];
-
-  for (const cat of CATEGORY_ORDER) {
-    const categoryItems = items.value.filter((item) => item.category === cat);
-    if (categoryItems.length === 0) continue;
-
-    const typeMap = new Map<ComponentType, CatalogItem[]>();
-    for (const item of categoryItems) {
-      const bucket = typeMap.get(item.Type) ?? [];
-      bucket.push(item);
-      typeMap.set(item.Type, bucket);
-    }
-
-    const types: TypeGroup[] = Array.from(typeMap.entries())
-      .map(([type, variants]) => ({
-        key: `${cat}__${type}`,
-        type,
-        label: TYPE_LABELS[type] ?? type,
-        variants: [...variants].sort((a, b) => volume(a) - volume(b)),
-      }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-
-    groups.push({ category: cat, label: CATEGORY_LABELS[cat], types });
-  }
-
-  return groups;
-});
+const groupedCatalog = computed<CategoryGroup[]>(() => groupCatalog(items.value));
 
 // Ricorda la misura scelta dall'utente per ogni gruppo Type; senza selezione esplicita
 // si mostra come default la prima variante disponibile.
