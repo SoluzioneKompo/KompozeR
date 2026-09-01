@@ -1,14 +1,15 @@
 <script setup lang="ts">
-/** Catalog browsing view with filters and add-to-cart interactions. */
-import { onMounted } from 'vue';
+/** Catalog browsing view: components grouped by category and type, with per-type size selection. */
+import { onMounted, reactive, computed } from 'vue';
 import { useCatalog } from '@/composables/useCatalog';
+import type { CatalogItem, ComponentType } from '@/types/catalog';
+import type { Category } from '@/types/cad';
 
 const {
   items,
   loading,
   error,
   search,
-  category,
   availableOnly,
   load,
   addToCart,
@@ -23,6 +24,94 @@ function formatCurrency(cents: number): string {
     style: 'currency',
     currency: 'EUR',
   }).format(cents / 100);
+}
+
+const CATEGORY_ORDER: Category[] = ['TONDO', 'QUADRO', 'KUBE', 'INTELLIGENTE'];
+
+const CATEGORY_LABELS: Record<Category, string> = {
+  TONDO: 'Tondo',
+  QUADRO: 'Quadro',
+  KUBE: 'Kube',
+  INTELLIGENTE: 'Intelligente',
+};
+
+const TYPE_LABELS: Record<ComponentType, string> = {
+  PIEDINO: 'Piedino',
+  MONTANTE: 'Montante',
+  RIPIANO: 'Ripiano',
+  TERMINALE: 'Terminale',
+  MENSOLA: 'Mensola',
+  RIPIANO_BORDO: 'Ripiano bordo',
+  RIPIANO_INTERMEDIO: 'Ripiano intermedio',
+};
+
+interface TypeGroup {
+  key: string;
+  type: ComponentType;
+  label: string;
+  variants: CatalogItem[];
+}
+
+interface CategoryGroup {
+  category: Category;
+  label: string;
+  types: TypeGroup[];
+}
+
+function dimensionLabel(item: CatalogItem): string {
+  if (!item.dimensions) return item.name;
+  const { widthMm, heightMm, depthMm } = item.dimensions;
+  return `${widthMm}×${heightMm}×${depthMm} mm`;
+}
+
+function volume(item: CatalogItem): number {
+  if (!item.dimensions) return 0;
+  const { widthMm, heightMm, depthMm } = item.dimensions;
+  return widthMm * heightMm * depthMm;
+}
+
+const groupedCatalog = computed<CategoryGroup[]>(() => {
+  const groups: CategoryGroup[] = [];
+
+  for (const cat of CATEGORY_ORDER) {
+    const categoryItems = items.value.filter((item) => item.category === cat);
+    if (categoryItems.length === 0) continue;
+
+    const typeMap = new Map<ComponentType, CatalogItem[]>();
+    for (const item of categoryItems) {
+      const bucket = typeMap.get(item.Type) ?? [];
+      bucket.push(item);
+      typeMap.set(item.Type, bucket);
+    }
+
+    const types: TypeGroup[] = Array.from(typeMap.entries())
+      .map(([type, variants]) => ({
+        key: `${cat}__${type}`,
+        type,
+        label: TYPE_LABELS[type] ?? type,
+        variants: [...variants].sort((a, b) => volume(a) - volume(b)),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    groups.push({ category: cat, label: CATEGORY_LABELS[cat], types });
+  }
+
+  return groups;
+});
+
+// Ricorda la misura scelta dall'utente per ogni gruppo Type; senza selezione esplicita
+// si mostra come default la prima variante disponibile.
+const selectedVariantId = reactive<Record<string, string>>({});
+
+function selectedVariant(group: TypeGroup): CatalogItem {
+  const chosenId = selectedVariantId[group.key];
+  const chosen = chosenId ? group.variants.find((v) => v.id === chosenId) : undefined;
+  if (chosen) return chosen;
+  return group.variants.find((v) => v.isAvailable) ?? group.variants[0];
+}
+
+function onVariantChange(group: TypeGroup, event: Event): void {
+  selectedVariantId[group.key] = (event.target as HTMLSelectElement).value;
 }
 </script>
 
@@ -49,17 +138,6 @@ function formatCurrency(cents: number): string {
         />
       </label>
 
-      <label class="field">
-        <span class="field__label">Categoria</span>
-        <select v-model="category" class="field__input" aria-label="Filtro categoria" @change="load">
-          <option value="">Tutte</option>
-          <option value="TONDO">Tondo</option>
-          <option value="QUADRO">Quadro</option>
-          <option value="KUBE">Kube</option>
-          <option value="INTELLIGENTE">Intelligente</option>
-        </select>
-      </label>
-
       <label class="checkbox">
         <input v-model="availableOnly" type="checkbox" aria-label="Mostra solo componenti disponibili" @change="load" />
         Solo disponibili
@@ -74,30 +152,49 @@ function formatCurrency(cents: number): string {
     <p v-if="loading" class="placeholder">Caricamento catalogo...</p>
     <p v-else-if="items.length === 0" class="placeholder">Nessun componente trovato.</p>
 
-    <section v-else class="grid">
-      <article v-for="item in items" :key="item.id" class="card">
-        <div class="card__meta">
-          <span class="tag">{{ item.category }}</span>
-          <span :class="['availability', item.isAvailable ? 'ok' : 'no']">
-            {{ item.isAvailable ? 'Disponibile' : 'Non disponibile' }}
-          </span>
-        </div>
+    <template v-else>
+      <section v-for="catGroup in groupedCatalog" :key="catGroup.category" class="category-section">
+        <h2 class="category-section__title">{{ catGroup.label }}</h2>
 
-        <h2 class="card__title">{{ item.name }}</h2>
-        <p class="card__desc">{{ item.description }}</p>
+        <div class="grid">
+          <article v-for="group in catGroup.types" :key="group.key" class="card">
+            <div class="card__meta">
+              <h3 class="card__title">{{ group.label }}</h3>
+              <span :class="['availability', selectedVariant(group).isAvailable ? 'ok' : 'no']">
+                {{ selectedVariant(group).isAvailable ? 'Disponibile' : 'Non disponibile' }}
+              </span>
+            </div>
 
-        <div class="card__footer">
-          <span class="price">{{ formatCurrency(item.price) }}</span>
-          <button
-            class="btn btn--primary"
-            :disabled="!item.isAvailable"
-            @click="addToCart(item)"
-          >
-            Aggiungi
-          </button>
+            <p class="card__desc">{{ selectedVariant(group).description }}</p>
+
+            <label class="field">
+              <span class="field__label">Misura</span>
+              <select
+                class="field__input"
+                :aria-label="`Misura ${group.label}`"
+                :value="selectedVariant(group).id"
+                @change="onVariantChange(group, $event)"
+              >
+                <option v-for="variant in group.variants" :key="variant.id" :value="variant.id">
+                  {{ dimensionLabel(variant) }}
+                </option>
+              </select>
+            </label>
+
+            <div class="card__footer">
+              <span class="price">{{ formatCurrency(selectedVariant(group).price) }}</span>
+              <button
+                class="btn btn--primary"
+                :disabled="!selectedVariant(group).isAvailable"
+                @click="addToCart(selectedVariant(group))"
+              >
+                Aggiungi
+              </button>
+            </div>
+          </article>
         </div>
-      </article>
-    </section>
+      </section>
+    </template>
   </div>
 </template>
 
@@ -123,7 +220,7 @@ function formatCurrency(cents: number): string {
 .filters {
   margin-top: var(--space-6);
   display: grid;
-  grid-template-columns: 2fr 1fr auto auto;
+  grid-template-columns: 2fr auto auto;
   gap: var(--space-3);
   align-items: end;
 }
@@ -159,8 +256,18 @@ function formatCurrency(cents: number): string {
   margin-top: var(--space-4);
 }
 
+.category-section {
+  margin-top: var(--space-8);
+}
+
+.category-section__title {
+  font-size: var(--font-size-2xl);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
 .grid {
-  margin-top: var(--space-6);
+  margin-top: var(--space-4);
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: var(--space-4);
@@ -181,14 +288,6 @@ function formatCurrency(cents: number): string {
   justify-content: space-between;
   align-items: center;
   gap: var(--space-2);
-}
-
-.tag {
-  font-size: var(--font-size-xs);
-  background: var(--color-accent-subtle);
-  color: var(--color-accent);
-  border-radius: var(--radius-full);
-  padding: 2px 8px;
 }
 
 .availability {
