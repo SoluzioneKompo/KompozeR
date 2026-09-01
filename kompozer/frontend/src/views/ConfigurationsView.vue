@@ -234,8 +234,8 @@ async function reorder(configuration: ConfigurationDto): Promise<void> {
 }
 
 .metric-card--accent {
-  border-color: #cfd8c7;
-  box-shadow: inset 0 0 0 1px #dbe3d5;
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
 .metric-label {

@@ -13,22 +13,20 @@ export function useCatalog() {
   const error = ref('');
 
   const search = ref('');
-  const category = ref('');
   const cart = useCartStore();
   const availableOnly = ref(false);
 
   const notifications = useNotificationStore();
 
-  /** Fetches catalog items applying current search, category, and availability filters. */
+  /** Fetches catalog items applying current search and availability filters. All categories load together for the grouped view. */
   async function load(): Promise<void> {
     loading.value = true;
     error.value = '';
     try {
       const response = await catalogService.list({
         search: search.value || undefined,
-        category: category.value || undefined,
         available: availableOnly.value ? true : undefined,
-        limit: 50,
+        limit: 100,
         page: 1,
       });
       items.value = response.items;
@@ -60,7 +58,6 @@ export function useCatalog() {
     loading,
     error,
     search,
-    category,
     availableOnly,
     load,
     addToCart,

@@ -1288,7 +1288,7 @@ function stepActive(index: number): boolean {
           <header class="canvas-section__header">
             <div>
               <h3>Schema grafico</h3>
-              <p class="mini muted">Vista sempre visibile della struttura corrente</p>
+              <p class="mini muted">Profilo laterale schematico della struttura corrente</p>
             </div>
             <span class="canvas-size">{{ environmentDraft.maxWidthMm }} x {{ environmentDraft.maxHeightMm }} mm</span>
           </header>
@@ -1307,12 +1307,13 @@ function stepActive(index: number): boolean {
                   ),
                 }"
               >
-              <div class="canvas-column__scale">Y</div>
               <div class="canvas-column__body">
+                <span class="baseline-label">0</span>
+
                 <div
                   v-for="(level, idx) in column.levelPercents"
                   :key="`level-${column.index}-${idx}`"
-                  class="level-line"
+                  class="shelf-line"
                   :style="{ bottom: `${level}%` }"
                 >
                   <span>{{ column.levels[idx] }}mm</span>
@@ -1631,10 +1632,13 @@ function stepActive(index: number): boolean {
 .canvas-grid {
   display: flex;
   align-items: stretch;
-  gap: var(--space-2);
   min-height: 260px;
   min-width: 100%;
   width: max-content;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: linear-gradient(to top, #f2f6f8 0%, #ffffff 100%);
+  overflow: hidden;
 }
 
 .canvas-scroll {
@@ -1646,15 +1650,16 @@ function stepActive(index: number): boolean {
 .canvas-column {
   flex: var(--column-grow, 1) 0 0;
   min-width: 140px;
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
   padding: var(--space-2);
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: 1fr auto;
   gap: var(--space-2);
 }
 
-.canvas-column__scale,
+.canvas-column:not(:first-child) {
+  border-left: 1px dotted var(--color-border);
+}
+
 .canvas-column__x {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
@@ -1662,26 +1667,32 @@ function stepActive(index: number): boolean {
 
 .canvas-column__body {
   position: relative;
-  background: linear-gradient(to top, #f2f6f8 0%, #ffffff 100%);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
 }
 
-.level-line {
+.baseline-label {
   position: absolute;
-  left: 8px;
-  right: 8px;
+  bottom: 2px;
+  left: 4px;
+  font-size: 9px;
+  color: var(--color-text-muted);
+}
+
+.shelf-line {
+  position: absolute;
+  left: 0;
+  right: 0;
   border-top: 2px solid var(--color-accent);
 }
 
-.level-line span {
+.shelf-line span {
   position: absolute;
-  right: 0;
+  right: 4px;
   top: -14px;
   background: #fff;
   font-size: 10px;
   color: var(--color-text-secondary);
   padding: 0 4px;
+  white-space: nowrap;
 }
 
 .controls-section {

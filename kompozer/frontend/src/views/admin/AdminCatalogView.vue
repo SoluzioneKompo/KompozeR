@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /** Admin catalog management view for component CRUD and commercial updates. */
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, reactive, ref, computed } from 'vue';
 import { catalogService, type CatalogListParams } from '@/services/catalogService';
 import { useNotificationStore } from '@/store/notificationStore';
 import type { CatalogItem } from '@/types/catalog';
 import { ApiError } from '@/types/api';
+import { groupCatalog, dimensionLabel, type TypeGroup, type CategoryGroup } from '@/utils/catalogGrouping';
 
 const notifications = useNotificationStore();
 
@@ -91,6 +92,23 @@ function initCommercialState(list: CatalogItem[]): void {
       isAvailable: item.isAvailable,
     };
   }
+}
+
+const groupedCatalog = computed<CategoryGroup[]>(() => groupCatalog(items.value));
+
+// Ricorda la variante (misura) selezionata per ogni gruppo Category/Type;
+// le azioni di modifica/eliminazione agiscono sulla variante corrente.
+const selectedVariantId = reactive<Record<string, string>>({});
+
+function selectedVariant(group: TypeGroup): CatalogItem {
+  const chosenId = selectedVariantId[group.key];
+  const chosen = chosenId ? group.variants.find((v) => v.id === chosenId) : undefined;
+  if (chosen) return chosen;
+  return group.variants[0];
+}
+
+function onVariantChange(group: TypeGroup, event: Event): void {
+  selectedVariantId[group.key] = (event.target as HTMLSelectElement).value;
 }
 
 /** Loads catalog list for admin management and syncs editable state map. */
@@ -331,36 +349,68 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
     <p v-if="loading" class="placeholder">Caricamento catalogo...</p>
     <p v-else-if="items.length === 0" class="placeholder">Nessun componente trovato.</p>
 
-    <section v-else class="list">
-      <article v-for="item in items" :key="item.id" class="row">
-        <div class="row__main">
-          <h3>{{ item.name }}</h3>
-          <p class="meta">{{ item.sku }} · {{ item.category }} · {{ item.Type }}</p>
-          <p class="meta">Versione: {{ item.version }}</p>
-        </div>
+    <template v-else>
+      <section v-for="catGroup in groupedCatalog" :key="catGroup.category" class="category-section">
+        <h2 class="category-section__title">{{ catGroup.label }}</h2>
 
-        <div class="row__commercial">
-          <label class="field">
-            <span class="field__label">Prezzo (EUR)</span>
-            <input v-model="editCommercial[item.id].priceEuro" class="field__input field__input--compact" type="text" />
-          </label>
-          <label class="checkbox-field">
-            <input v-model="editCommercial[item.id].isAvailable" type="checkbox" />
-            <span class="field__label">Disponibile</span>
-          </label>
-          <p class="meta">Corrente: {{ formatCurrency(item.price) }}</p>
-        </div>
+        <div class="list">
+          <article v-for="group in catGroup.types" :key="group.key" class="row">
+            <div class="row__main">
+              <h3>{{ group.label }}</h3>
+              <p class="meta">{{ selectedVariant(group).sku }} · {{ catGroup.category }} · {{ group.type }}</p>
+              <p class="meta">Versione: {{ selectedVariant(group).version }}</p>
 
-        <div class="row__actions">
-          <button class="btn btn--primary" :disabled="updatingId === item.id" @click="saveCommercial(item)">
-            {{ updatingId === item.id ? 'Salvataggio...' : 'Salva prezzo/disponibilita' }}
-          </button>
-          <button class="btn btn--danger" :disabled="deletingId === item.id" @click="deleteComponent(item)">
-            {{ deletingId === item.id ? 'Eliminazione...' : 'Elimina componente' }}
-          </button>
+              <label class="field">
+                <span class="field__label">Misura</span>
+                <select
+                  class="field__input"
+                  :aria-label="`Misura ${group.label}`"
+                  :value="selectedVariant(group).id"
+                  @change="onVariantChange(group, $event)"
+                >
+                  <option v-for="variant in group.variants" :key="variant.id" :value="variant.id">
+                    {{ dimensionLabel(variant) }}
+                  </option>
+                </select>
+              </label>
+            </div>
+
+            <div class="row__commercial">
+              <label class="field">
+                <span class="field__label">Prezzo (EUR)</span>
+                <input
+                  v-model="editCommercial[selectedVariant(group).id].priceEuro"
+                  class="field__input field__input--compact"
+                  type="text"
+                />
+              </label>
+              <label class="checkbox-field">
+                <input v-model="editCommercial[selectedVariant(group).id].isAvailable" type="checkbox" />
+                <span class="field__label">Disponibile</span>
+              </label>
+              <p class="meta">Corrente: {{ formatCurrency(selectedVariant(group).price) }}</p>
+            </div>
+
+            <div class="row__actions">
+              <button
+                class="btn btn--primary"
+                :disabled="updatingId === selectedVariant(group).id"
+                @click="saveCommercial(selectedVariant(group))"
+              >
+                {{ updatingId === selectedVariant(group).id ? 'Salvataggio...' : 'Salva prezzo/disponibilita' }}
+              </button>
+              <button
+                class="btn btn--danger"
+                :disabled="deletingId === selectedVariant(group).id"
+                @click="deleteComponent(selectedVariant(group))"
+              >
+                {{ deletingId === selectedVariant(group).id ? 'Eliminazione...' : 'Elimina componente' }}
+              </button>
+            </div>
+          </article>
         </div>
-      </article>
-    </section>
+      </section>
+    </template>
   </div>
 </template>
 
@@ -504,7 +554,18 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
   color: var(--color-text-muted);
 }
 
+.category-section {
+  margin-top: var(--space-8);
+}
+
+.category-section__title {
+  font-size: var(--font-size-2xl);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
 .list {
+  margin-top: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -519,6 +580,12 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
   grid-template-columns: 1.2fr 1fr auto;
   gap: var(--space-4);
   align-items: center;
+}
+
+.row__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .row__main h3 {
