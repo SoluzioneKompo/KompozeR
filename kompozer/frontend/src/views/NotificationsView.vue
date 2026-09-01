@@ -167,8 +167,8 @@ function typeLabel(type: NotificationType): string {
 }
 
 .card--unread {
-  border-color: #cfd8c7;
-  box-shadow: inset 0 0 0 1px #dbe3d5;
+  border-color: var(--color-text-muted);
+  box-shadow: inset 0 0 0 1px var(--color-border);
 }
 
 .card__top {
