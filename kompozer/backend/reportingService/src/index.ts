@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { buildApp } from './app';
+import { logger } from './infrastructure/logger';
 
 /** HTTP port used by the reporting service. */
 const PORT = Number(process.env['REPORTING_PORT'] ?? process.env['PORT']) || 3007;
@@ -15,12 +16,12 @@ const app = buildApp();
 mongoose
   .connect(MONGO_URI)
   .then(() => {
-    console.log(`[reporting] MongoDB connected: ${MONGO_URI}`);
+    logger.info({ event: 'reporting.startup.mongo_connected' }, 'MongoDB connected');
     app.listen(PORT, () => {
-      console.log(`[reporting] Listening on port ${PORT}`);
+      logger.info({ event: 'reporting.startup.listening', port: PORT }, 'Reporting service listening');
     });
   })
   .catch((err: unknown) => {
-    console.error('[reporting] Failed to connect to MongoDB', err);
+    logger.error({ err }, 'Failed to connect to MongoDB');
     process.exit(1);
   });

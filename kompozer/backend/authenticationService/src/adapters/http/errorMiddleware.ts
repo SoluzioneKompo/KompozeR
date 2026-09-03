@@ -8,6 +8,7 @@
  * Unknown errors are masked and returned as 500 INTERNAL_ERROR.
  */
 import { Request, Response, NextFunction } from 'express';
+import { logger } from '../../infrastructure/logger';
 import {
   AuthError,
   ValidationError,
@@ -53,11 +54,14 @@ function statusFor(err: AuthError): number {
 
 export function errorMiddleware(
   err: unknown,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction,
 ): void {
+  const log = req.log ?? logger;
+
   if (err instanceof AuthError) {
+    const status = statusFor(err);
     const body: ApiError = {
       error: {
         code: err.code,
@@ -70,11 +74,20 @@ export function errorMiddleware(
       body.error.details = err.details;
     }
 
-    res.status(statusFor(err)).json(body);
+    if (status >= 500) {
+      log.error({ err, code: err.code }, 'Auth request failed with an unexpected server error');
+    } else {
+      // Expected business rejection (bad credentials, duplicate email, forbidden, ...) —
+      // not a bug, but worth an auditable trail of who was rejected and why.
+      log.warn({ event: 'auth.request.rejected', code: err.code, status }, err.message);
+    }
+
+    res.status(status).json(body);
     return;
   }
 
   if (isBodyParseError(err)) {
+    log.warn({ event: 'auth.request.rejected', code: 'INVALID_REQUEST' }, 'Malformed JSON body');
     res.status(400).json({
       error: {
         code: 'INVALID_REQUEST',
@@ -85,7 +98,8 @@ export function errorMiddleware(
     return;
   }
 
-  // Unexpected error — do not leak internals
+  // Unexpected error — do not leak internals to the client, but log it in full.
+  log.error({ err }, 'Unhandled error in authentication service');
   res.status(500).json({
     error: {
       code: 'INTERNAL_ERROR',

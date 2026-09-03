@@ -5,6 +5,7 @@
  */
 import mongoose from 'mongoose';
 import { buildApp } from './app';
+import { logger } from './infrastructure/logger';
 
 const PORT = Number(process.env['ORDER_PORT'] ?? process.env['PORT']) || 3008;
 const MONGO_URI =
@@ -17,12 +18,12 @@ const app = buildApp();
 mongoose
   .connect(MONGO_URI)
   .then(() => {
-    console.log(`[order] MongoDB connected: ${MONGO_URI}`);
+    logger.info({ event: 'order.startup.db_connected' }, 'MongoDB connected');
     app.listen(PORT, () => {
-      console.log(`[order] Listening on port ${PORT}`);
+      logger.info({ event: 'order.startup.listening', port: PORT }, `Listening on port ${PORT}`);
     });
   })
   .catch((err: unknown) => {
-    console.error('[order] Failed to connect to MongoDB', err);
+    logger.fatal({ err }, 'Failed to connect to MongoDB');
     process.exit(1);
   });

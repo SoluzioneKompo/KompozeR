@@ -3,6 +3,7 @@
  * Enforces identity headers and delegates business rules to use cases.
  */
 import { NextFunction, Request, Response, Router } from 'express';
+import { logger } from '../../infrastructure/logger';
 import { ConfirmPayment } from '../../useCases/ConfirmPayment';
 import { CreatePayment } from '../../useCases/CreatePayment';
 import { GetPayment } from '../../useCases/GetPayment';
@@ -39,6 +40,10 @@ function requireUserId(req: Request, res: Response, next: NextFunction): void {
 export function buildPaymentRouter(deps: PaymentRouterDeps) {
   const router = Router();
 
+  // pino-http attaches req.log in the real app; fall back to the base logger
+  // when the router is mounted without it (e.g. in HTTP tests).
+  const logFor = (req: Request) => req.log ?? logger;
+
   router.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok' });
   });
@@ -57,6 +62,19 @@ export function buildPaymentRouter(deps: PaymentRouterDeps) {
         currency: req.body.currency,
       });
 
+      logFor(req).info(
+        {
+          event: 'payment.create.success',
+          paymentId: payment.id,
+          orderId: payment.orderId,
+          userId: payment.userId,
+          method: payment.method,
+          amount: payment.amount,
+          currency: payment.currency,
+          status: payment.status,
+        },
+        'Payment created',
+      );
       res.status(201).json(payment);
     }),
   );
@@ -95,6 +113,17 @@ export function buildPaymentRouter(deps: PaymentRouterDeps) {
         failureReason: req.body.failureReason,
       });
 
+      logFor(req).info(
+        {
+          event: 'payment.confirm.success',
+          paymentId: payment.id,
+          orderId: payment.orderId,
+          status: payment.status,
+          providerReference: payment.providerReference,
+          failureReason: payment.failureReason,
+        },
+        'Payment confirmed',
+      );
       res.json(payment);
     }),
   );

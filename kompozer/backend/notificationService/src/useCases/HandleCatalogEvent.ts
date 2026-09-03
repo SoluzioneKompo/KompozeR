@@ -8,6 +8,7 @@ import { NotificationBroadcaster } from '../domain/ports/NotificationBroadcaster
 import { ImpactResolver } from '../domain/ports/ImpactResolver';
 import { NotificationRepository } from '../domain/ports/NotificationRepository';
 import { ProcessedEventRepository } from '../domain/ports/ProcessedEventRepository';
+import { logger } from '../infrastructure/logger';
 
 export interface IdGenerator {
   generate(): string;
@@ -71,6 +72,19 @@ export class HandleCatalogEvent {
     await Promise.allSettled(notifications.map((n) => this.broadcaster.push(n)));
 
     await this.processedEvents.markProcessed(event.eventId, new Date());
+
+    // Not HTTP request-scoped (triggered off the Redis catalog-events subscriber),
+    // so there's no req.log to attach a traceId to — use the base logger.
+    logger.info(
+      {
+        event: 'notification.sent',
+        catalogEventId: event.eventId,
+        catalogEventType: event.type,
+        sku: event.sku,
+        count: notifications.length,
+      },
+      'Notifications created and pushed for catalog event',
+    );
 
     return notifications.length;
   }

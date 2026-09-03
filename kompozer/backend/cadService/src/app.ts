@@ -1,6 +1,9 @@
 import cors from 'cors';
 import express from 'express';
 import { Request, Response } from 'express';
+import pinoHttp from 'pino-http';
+import { randomUUID } from 'crypto';
+import { logger, redactUrl } from './infrastructure/logger';
 import { buildCadRouter } from './adapters/http/cadRouter';
 import { HttpCatalogRulesProvider } from './adapters/http/HttpCatalogRulesProvider';
 import { HttpCartServiceClient } from './adapters/http/HttpCartServiceClient';
@@ -72,6 +75,29 @@ export function buildApp(deps: BuildAppDeps = {}) {
   const app = express();
 
   app.use(cors());
+  app.use(
+    pinoHttp({
+      logger,
+      // IMPORTANT: this service sits BEHIND the api-gateway, which already mints
+      // a trace id and forwards it as the x-trace-id header. Reuse it — do NOT
+      // mint a new one — so one request can be followed end-to-end across
+      // services in Grafana/Loki. Only api-gateway (the system's edge) mints.
+      genReqId: (req, res) => {
+        const incoming = req.headers['x-trace-id'];
+        const traceId = typeof incoming === 'string' && incoming ? incoming : randomUUID();
+        res.setHeader('x-trace-id', traceId);
+        return traceId;
+      },
+      customProps: (req) => ({ traceId: req.id }),
+      // Both this service's own health checks (root and under /cad) are
+      // liveness/readiness noise, not business traffic worth a log line.
+      autoLogging: { ignore: (req) => req.url === '/health' || req.url === '/cad/health' },
+      serializers: {
+        req: (req) => ({ method: req.method, url: redactUrl(req.url) }),
+        res: (res) => ({ statusCode: res.statusCode }),
+      },
+    }),
+  );
   app.use(express.json());
 
   app.get('/health', (_req: Request, res: Response) => {

@@ -4,6 +4,7 @@
  * business logic to use cases.
  */
 import { Router, Request, Response, NextFunction } from 'express';
+import { logger } from '../../infrastructure/logger';
 import { GetCart } from '../../useCases/GetCart';
 import { UpsertCartItem } from '../../useCases/UpsertCartItem';
 import { RemoveCartItem } from '../../useCases/RemoveCartItem';
@@ -11,6 +12,11 @@ import { ClearCart } from '../../useCases/ClearCart';
 import { CheckoutCart } from '../../useCases/CheckoutCart';
 import { validateBody } from './validateBody';
 import { upsertCartItemSchema, checkoutSchema, validateSkuParam } from './cartSchemas';
+
+// Many HTTP test suites build the router without pino-http wired, so req.log
+// is undefined there — always fall back to the base logger instead of
+// calling req.log directly.
+const logFor = (req: Request) => req.log ?? logger;
 
 export interface CartRouterDeps {
   getCart: GetCart;
@@ -27,6 +33,10 @@ function wrap(fn: (req: Request, res: Response, next: NextFunction) => Promise<v
 function requireUserId(req: Request, res: Response, next: NextFunction): void {
   const userId = req.headers['x-user-id'];
   if (!userId || typeof userId !== 'string') {
+    logFor(req).warn(
+      { event: 'cart.request.rejected', code: 'UNAUTHORIZED', status: 401 },
+      'Missing identity header X-User-Id',
+    );
     res.status(401).json({
       error: {
         code: 'UNAUTHORIZED',
@@ -77,6 +87,10 @@ export function buildCartRouter(deps: CartRouterDeps) {
         unitPrice,
         quantity,
       });
+      logFor(req).info(
+        { event: 'cart.item.upserted.success', userId, sku, quantity },
+        'Item upserted in cart',
+      );
       res.json(cart);
     }),
   );
@@ -87,10 +101,12 @@ export function buildCartRouter(deps: CartRouterDeps) {
     validateSkuParam,
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
+      const sku = req.params['sku'];
       const cart = await deps.removeCartItem.execute({
         userId,
-        sku: req.params['sku'],
+        sku,
       });
+      logFor(req).info({ event: 'cart.item.removed.success', userId, sku }, 'Item removed from cart');
       res.json(cart);
     }),
   );
@@ -101,6 +117,7 @@ export function buildCartRouter(deps: CartRouterDeps) {
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
       await deps.clearCart.execute({ userId });
+      logFor(req).info({ event: 'cart.cleared.success', userId }, 'Cart cleared');
       res.status(204).send();
     }),
   );
@@ -128,6 +145,10 @@ export function buildCartRouter(deps: CartRouterDeps) {
         userId,
         expeditionInfo: body.expeditionInfo,
       });
+      logFor(req).info(
+        { event: 'cart.checkout.success', userId, orderId: result.orderId, total: result.total },
+        'Cart checked out',
+      );
       res.status(200).json(result);
     }),
   );

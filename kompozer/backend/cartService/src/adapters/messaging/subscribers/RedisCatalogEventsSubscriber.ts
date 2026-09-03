@@ -5,6 +5,7 @@
 import Redis from 'ioredis';
 import { CatalogEvent } from '../../../domain/entities/CatalogEvent';
 import { RestoreUnavailableItems } from '../../../useCases/RestoreUnavailableItems';
+import { logger } from '../../../infrastructure/logger';
 
 export const CATALOG_EVENTS_CHANNEL = 'catalog:events';
 
@@ -29,14 +30,18 @@ export class RedisCatalogEventsSubscriber {
       try {
         const event = JSON.parse(payload) as CatalogEvent;
         if (event.type === 'AVAILABILITY_CHANGED' && event.newIsAvailable) {
+          logger.info(
+            { event: 'cart.item.restored.success', sku: event.sku },
+            'Restoring cart items for SKU that became available again',
+          );
           void this.restoreUnavailableItems.execute({ sku: event.sku });
         }
       } catch (error) {
-        console.error('[cart][redis-subscriber] Invalid catalog event payload', error);
+        logger.error({ err: error }, 'Invalid catalog event payload');
       }
     });
 
-    console.log('[cart][redis-subscriber] Subscribed to catalog:events');
+    logger.info({ channel: CATALOG_EVENTS_CHANNEL }, 'Subscribed to catalog:events');
   }
 
   async stop(): Promise<void> {

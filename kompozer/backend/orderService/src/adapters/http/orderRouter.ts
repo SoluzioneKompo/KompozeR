@@ -3,6 +3,7 @@
  * Enforces identity/role headers and delegates business rules to use cases.
  */
 import { NextFunction, Request, Response, Router } from 'express';
+import { logger } from '../../infrastructure/logger';
 import { CancelOrder } from '../../useCases/CancelOrder';
 import { CreateOrder } from '../../useCases/CreateOrder';
 import { GetOrder } from '../../useCases/GetOrder';
@@ -10,6 +11,11 @@ import { ListOrders } from '../../useCases/ListOrders';
 import { UpdateOrderStatus } from '../../useCases/UpdateOrderStatus';
 import { validateBody } from './validateBody';
 import { createOrderSchema, updateOrderStatusSchema } from './orderSchemas';
+
+// Many HTTP test suites build this router without pino-http wired, so
+// req.log can be undefined there — always go through this fallback rather
+// than calling req.log directly.
+const logFor = (req: Request) => req.log ?? logger;
 
 export interface OrderRouterDeps {
   createOrder: CreateOrder;
@@ -73,6 +79,10 @@ export function buildOrderRouter(deps: OrderRouterDeps) {
         total: req.body.total,
       });
 
+      logFor(req).info(
+        { event: 'order.created', orderId: order.id, userId: order.userId, total: order.total },
+        'Order created',
+      );
       res.status(201).json(order);
     }),
   );
@@ -114,6 +124,10 @@ export function buildOrderRouter(deps: OrderRouterDeps) {
         orderId,
         role: typeof role === 'string' ? role : undefined,
       });
+      logFor(req).info(
+        { event: 'order.cancelled', orderId: order.id, userId: order.userId, cancelledBy: userId },
+        'Order cancelled',
+      );
       res.json(order);
     }),
   );
@@ -131,6 +145,10 @@ export function buildOrderRouter(deps: OrderRouterDeps) {
         status: req.body.status,
       });
 
+      logFor(req).info(
+        { event: 'order.status_changed', orderId: order.id, to: order.status },
+        `Order status changed to ${order.status}`,
+      );
       res.json(order);
     }),
   );
