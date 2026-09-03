@@ -12,7 +12,7 @@ import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import { randomUUID } from 'crypto';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { logger } from './infrastructure/logger';
+import { logger, redactUrl } from './infrastructure/logger';
 import { buildJwtMiddleware } from './middleware/jwtMiddleware';
 import { gatewayErrorMiddleware } from './middleware/gatewayErrorMiddleware';
 import { buildRateLimiters } from './middleware/rateLimiters';
@@ -68,7 +68,7 @@ export function buildApp(config: GatewayConfig) {
       // Full header/query dumps are debugging noise for a human scanning
       // Grafana — keep the per-request line to what matters at a glance.
       serializers: {
-        req: (req) => ({ method: req.method, url: req.url }),
+        req: (req) => ({ method: req.method, url: redactUrl(req.url) }),
         res: (res) => ({ statusCode: res.statusCode }),
       },
     }),

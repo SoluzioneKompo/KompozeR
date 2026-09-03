@@ -19,3 +19,15 @@ export const logger = pino({
       }
     : undefined,
 });
+
+/**
+ * Strips the `token` query param value before a URL reaches the request log.
+ *
+ * The CAD collab socket.io handshake accepts `?token=<jwt>` as a fallback for
+ * browser clients that can't set an Authorization header (see jwtMiddleware).
+ * Without this, a valid JWT would sit in plain text in every Grafana/Loki
+ * entry for that route.
+ */
+export function redactUrl(url: string): string {
+  return url.replace(/([?&]token=)[^&]+/i, '$1[REDACTED]');
+}

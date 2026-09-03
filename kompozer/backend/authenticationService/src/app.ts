@@ -12,7 +12,7 @@ import express from 'express';
 import cors from 'cors';
 import pinoHttp from 'pino-http';
 import { randomUUID } from 'crypto';
-import { logger } from './infrastructure/logger';
+import { logger, redactUrl } from './infrastructure/logger';
 import { RegisterUser } from './useCases/RegisterUser';
 import { LoginUser } from './useCases/LoginUser';
 import { GenerateGuestSession } from './useCases/GenerateGuestSession';
@@ -91,7 +91,7 @@ export function buildApp(config: AppConfig) {
       // Full header/query dumps are debugging noise for a human scanning
       // Grafana — keep the per-request line to what matters at a glance.
       serializers: {
-        req: (req) => ({ method: req.method, url: req.url }),
+        req: (req) => ({ method: req.method, url: redactUrl(req.url) }),
         res: (res) => ({ statusCode: res.statusCode }),
       },
     }),

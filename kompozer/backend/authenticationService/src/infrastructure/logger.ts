@@ -19,3 +19,12 @@ export const logger = pino({
       }
     : undefined,
 });
+
+/**
+ * Strips the `token` query param value before a URL reaches the request log.
+ * Defense in depth: this service's own routes never take a token via query
+ * string, but the request log must never assume a caller got that right.
+ */
+export function redactUrl(url: string): string {
+  return url.replace(/([?&]token=)[^&]+/i, '$1[REDACTED]');
+}
