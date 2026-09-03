@@ -88,6 +88,12 @@ export function buildApp(config: AppConfig) {
       },
       customProps: (req) => ({ traceId: req.id }),
       autoLogging: { ignore: (req) => req.url === '/health' },
+      // Full header/query dumps are debugging noise for a human scanning
+      // Grafana — keep the per-request line to what matters at a glance.
+      serializers: {
+        req: (req) => ({ method: req.method, url: req.url }),
+        res: (res) => ({ statusCode: res.statusCode }),
+      },
     }),
   );
   app.use(express.json());
