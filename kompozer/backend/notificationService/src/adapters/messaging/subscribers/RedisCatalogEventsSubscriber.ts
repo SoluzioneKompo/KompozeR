@@ -5,6 +5,7 @@
 import Redis from 'ioredis';
 import { CatalogEvent } from '../../../domain/entities/CatalogEvent';
 import { HandleCatalogEvent } from '../../../useCases/HandleCatalogEvent';
+import { logger } from '../../../infrastructure/logger';
 
 export const CATALOG_EVENTS_CHANNEL = 'catalog:events';
 
@@ -27,11 +28,11 @@ export class RedisCatalogEventsSubscriber {
         const event = JSON.parse(payload) as CatalogEvent;
         void this.handler.execute(event);
       } catch (error) {
-        console.error('[notification][redis-subscriber] Invalid event payload', error);
+        logger.error({ err: error }, 'Invalid catalog event payload');
       }
     });
 
-    console.log('[notification][redis-subscriber] Subscribed to catalog:events');
+    logger.info({ event: 'notification.redis.subscribed' }, 'Subscribed to catalog:events');
   }
 
   async stop(): Promise<void> {

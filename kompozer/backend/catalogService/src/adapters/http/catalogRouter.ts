@@ -8,6 +8,7 @@
  * verification. This router never handles raw JWT tokens.
  */
 import { Router, Request, Response, NextFunction } from 'express';
+import { logger } from '../../infrastructure/logger';
 import { ListComponents }  from '../../useCases/ListComponents';
 import { GetComponent }    from '../../useCases/GetComponent';
 import { CreateComponent } from '../../useCases/CreateComponent';
@@ -47,6 +48,10 @@ function wrap(fn: (req: Request, res: Response, next: NextFunction) => Promise<v
 
 export function buildCatalogRouter(deps: CatalogRouterDeps) {
   const router = Router();
+
+  // pino-http attaches req.log in the real app; fall back to the base logger
+  // when the router is mounted without it (e.g. in HTTP tests).
+  const logFor = (req: Request) => req.log ?? logger;
 
   // GET /catalog/health - health check (must be before /:id).
   router.get('/health', (_req: Request, res: Response) => {
@@ -91,6 +96,10 @@ export function buildCatalogRouter(deps: CatalogRouterDeps) {
         ...req.body,
         requestingUserId: userId,
       });
+      logFor(req).info(
+        { event: 'catalog.item.created', componentId: dto.id, sku: dto.sku },
+        'Catalog item created',
+      );
       res.status(201).json(dto);
     }),
   );
@@ -107,6 +116,10 @@ export function buildCatalogRouter(deps: CatalogRouterDeps) {
         id:               req.params['id'],
         requestingUserId: userId,
       });
+      logFor(req).info(
+        { event: 'catalog.item.updated', componentId: dto.id, sku: dto.sku, version: dto.version },
+        'Catalog item updated',
+      );
       res.json(dto);
     }),
   );
@@ -116,7 +129,9 @@ export function buildCatalogRouter(deps: CatalogRouterDeps) {
     '/:id',
     requireAdmin,
     wrap(async (req, res) => {
-      await deps.deleteComponent.execute({ id: req.params['id'] });
+      const componentId = req.params['id'];
+      await deps.deleteComponent.execute({ id: componentId });
+      logFor(req).info({ event: 'catalog.item.deleted', componentId }, 'Catalog item deleted');
       res.status(204).send();
     }),
   );

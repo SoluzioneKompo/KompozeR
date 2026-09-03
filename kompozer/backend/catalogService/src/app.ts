@@ -9,6 +9,9 @@ import express from 'express';
 import { Request, Response } from 'express';
 import cors    from 'cors';
 import Redis   from 'ioredis';
+import pinoHttp from 'pino-http';
+import { randomUUID } from 'crypto';
+import { logger, redactUrl }            from './infrastructure/logger';
 import { MongoCatalogRepository }       from './adapters/persistence/MongoCatalogRepository';
 import { SystemClock }                  from './infrastructure/SystemClock';
 import { UuidIdGenerator }              from './infrastructure/UuidIdGenerator';
@@ -37,10 +40,10 @@ export function buildApp(config: AppConfig = {}) {
   if (config.redisUrl) {
     const redis = new Redis(config.redisUrl);
     publisher = new RedisCatalogEventPublisher(redis);
-    console.log(`[catalog] Redis event publisher connected: ${config.redisUrl}`);
+    logger.info({ event: 'catalog.startup.redis_connected' }, `Redis event publisher connected: ${config.redisUrl}`);
   } else {
     publisher = new NoopCatalogEventPublisher();
-    console.log('[catalog] Using noop event publisher (no Redis configured)');
+    logger.info({ event: 'catalog.startup.noop_publisher' }, 'Using noop event publisher (no Redis configured)');
   }
 
   const listComponents  = new ListComponents(componentRepo);
@@ -51,6 +54,29 @@ export function buildApp(config: AppConfig = {}) {
 
   const app = express();
   app.use(cors());
+  app.use(
+    pinoHttp({
+      logger,
+      // This service sits behind api-gateway, which already mints a trace id
+      // and forwards it as x-trace-id. Reuse it — never mint a new one — so a
+      // single request can be followed end-to-end across services in
+      // Grafana/Loki. Only api-gateway (the system's edge) mints.
+      genReqId: (req, res) => {
+        const incoming = req.headers['x-trace-id'];
+        const traceId = typeof incoming === 'string' && incoming ? incoming : randomUUID();
+        res.setHeader('x-trace-id', traceId);
+        return traceId;
+      },
+      customProps: (req) => ({ traceId: req.id }),
+      autoLogging: { ignore: (req) => req.url === '/health' },
+      // Full header/query dumps are debugging noise for a human scanning
+      // Grafana — keep the per-request line to what matters at a glance.
+      serializers: {
+        req: (req) => ({ method: req.method, url: redactUrl(req.url) }),
+        res: (res) => ({ statusCode: res.statusCode }),
+      },
+    }),
+  );
   app.use(express.json());
 
   app.get('/health', (_req: Request, res: Response) => res.json({ status: 'ok' }));

@@ -3,6 +3,7 @@
  * Requires X-User-Id identity header and delegates behavior to use cases.
  */
 import { Router, Request, Response, NextFunction } from 'express';
+import { logger } from '../../infrastructure/logger';
 import { CountUnreadNotifications } from '../../useCases/CountUnreadNotifications';
 import { ListNotifications } from '../../useCases/ListNotifications';
 import { MarkNotificationRead } from '../../useCases/MarkNotificationRead';
@@ -28,6 +29,10 @@ export interface NotificationsRouterDeps {
 function wrap(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 }
+
+// pino-http attaches req.log in the real app; fall back to the base logger
+// so this never throws in test suites that build the router without it wired.
+const logFor = (req: Request) => req.log ?? logger;
 
 function requireUserId(req: Request, res: Response, next: NextFunction): void {
   const userId = req.headers['x-user-id'];
@@ -71,6 +76,10 @@ export function buildNotificationsRouter(deps: NotificationsRouterDeps): ReturnT
         events,
         channel,
       });
+      logFor(req).info(
+        { event: 'notification.subscription.created', subscriptionId: created.id, userId, scope, channel },
+        'Subscription created',
+      );
       res.status(201).json(created);
     }),
   );
@@ -100,6 +109,10 @@ export function buildNotificationsRouter(deps: NotificationsRouterDeps): ReturnT
         events,
         isActive,
       });
+      logFor(req).info(
+        { event: 'notification.subscription.updated', subscriptionId, userId, isActive: sub.isActive },
+        'Subscription updated',
+      );
       res.json(sub);
     }),
   );
@@ -111,6 +124,10 @@ export function buildNotificationsRouter(deps: NotificationsRouterDeps): ReturnT
       const userId = req.headers['x-user-id'] as string;
       const subscriptionId = req.params['subscriptionId'] as string;
       await deps.deleteSubscription.execute({ userId, subscriptionId });
+      logFor(req).info(
+        { event: 'notification.subscription.deleted', subscriptionId, userId },
+        'Subscription deleted',
+      );
       res.status(204).send();
     }),
   );
@@ -154,6 +171,10 @@ export function buildNotificationsRouter(deps: NotificationsRouterDeps): ReturnT
         userId,
         notificationId,
       });
+      logFor(req).info(
+        { event: 'notification.marked_read', notificationId, userId },
+        'Notification marked as read',
+      );
       res.json(notification);
     }),
   );

@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { z } from 'zod';
+import { logger } from '../../infrastructure/logger';
 import { CATEGORIES, Category, isCategory } from '../../domain/entities/Category';
 import { ConfigurationStatus } from '../../domain/entities/ConfigurationStatus';
 import { ColumnDesign, ColumnPlan, Environment } from '../../domain/entities/Configuration';
@@ -45,6 +46,10 @@ const COLLAB_FIELD_PATHS: CollabFieldPath[] = [
 function wrap(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 }
+
+// pino-http attaches req.log in the real app; fall back to the base logger
+// when the router is mounted without it (e.g. in HTTP tests).
+const logFor = (req: Request) => req.log ?? logger;
 
 /** Enforces gateway-propagated user identity for all protected CAD routes. */
 function requireUserId(req: Request, res: Response, next: NextFunction): void {
@@ -302,6 +307,10 @@ export function buildCadRouter(deps: CadRouterDeps) {
         category,
       });
 
+      logFor(req).info(
+        { event: 'cad.configuration.created', configurationId: configuration.id, ownerId },
+        'CAD configuration created',
+      );
       res.status(201).json(configuration);
     }),
   );
@@ -442,6 +451,10 @@ export function buildCadRouter(deps: CadRouterDeps) {
         id: req.params['id'],
         ownerId,
       });
+      logFor(req).info(
+        { event: 'cad.configuration.finalized', configurationId: configuration.id, ownerId },
+        'CAD configuration finalized',
+      );
       res.json(configuration);
     }),
   );
@@ -456,6 +469,10 @@ export function buildCadRouter(deps: CadRouterDeps) {
         id: req.params['id'],
         ownerId,
       });
+      logFor(req).info(
+        { event: 'cad.configuration.reordered', configurationId: configuration.id, ownerId },
+        'CAD configuration reordered',
+      );
       res.json(configuration);
     }),
   );
@@ -471,6 +488,15 @@ export function buildCadRouter(deps: CadRouterDeps) {
         hostUserId,
       });
 
+      logFor(req).info(
+        {
+          event: 'cad.collab.session.created',
+          configurationId: session.configurationId,
+          sessionCode: session.sessionCode,
+          hostUserId,
+        },
+        'CAD collaborative session created',
+      );
       res.status(201).json({
         sessionCode: session.sessionCode,
         configurationId: session.configurationId,
@@ -494,6 +520,15 @@ export function buildCadRouter(deps: CadRouterDeps) {
         userId,
       });
 
+      logFor(req).info(
+        {
+          event: 'cad.collab.session.joined',
+          configurationId: session.configurationId,
+          sessionCode: session.sessionCode,
+          userId,
+        },
+        'CAD collaborative session joined',
+      );
       res.json({
         sessionCode: session.sessionCode,
         configurationId: session.configurationId,

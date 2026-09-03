@@ -1,5 +1,6 @@
 import { ConfigurationRepository } from '../../domain/ports/ConfigurationRepository';
 import { CatalogRulesProvider } from '../../domain/ports/CatalogRulesProvider';
+import { logger } from '../../infrastructure/logger';
 import {
   GetConfigurationInput,
   ConfigurationDto,
@@ -42,12 +43,18 @@ export class GetConfiguration {
       this.catalogRulesProvider
     ) {
       try {
-        console.log(`[CAD] Lazy migrating components for configuration ${configuration.id}`);
+        logger.info(
+          { event: 'cad.configuration.lazy_migration', configurationId: configuration.id },
+          'Lazy migrating components for configuration',
+        );
         const rules = await this.catalogRulesProvider.getRules(configuration.category);
         configuration.components = deriveBom(configuration, rules);
       } catch (err) {
         // Log but don't fail — return configuration as-is if deriveBom fails
-        console.error(`[CAD] Lazy migration failed for configuration ${configuration.id}:`, err);
+        logger.error(
+          { err, configurationId: configuration.id },
+          'Lazy migration failed for configuration',
+        );
       }
     }
 

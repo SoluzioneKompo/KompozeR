@@ -5,7 +5,10 @@
  */
 import express from 'express';
 import cors from 'cors';
+import pinoHttp from 'pino-http';
+import { randomUUID } from 'crypto';
 import Redis from 'ioredis';
+import { logger, redactUrl } from './infrastructure/logger';
 import { MongoCartRepository } from './adapters/persistence/MongoCartRepository';
 import { HttpCatalogSnapshotProvider } from './adapters/httpClient/HttpCatalogSnapshotProvider';
 import { HttpOrderServiceClient } from './adapters/httpClient/HttpOrderServiceClient';
@@ -41,7 +44,7 @@ export function buildApp(config: CartAppConfig = {}) {
     const restoreUnavailableItems = new RestoreUnavailableItems(repo, catalog, eventPublisher);
     const catalogSubscriber = new RedisCatalogEventsSubscriber(config.redisUrl, restoreUnavailableItems);
     void catalogSubscriber.start().catch((error) => {
-      console.error('[cart] Failed to start catalog events subscriber', error);
+      logger.error({ err: error }, 'Failed to start catalog events subscriber');
     });
   }
 
@@ -53,6 +56,27 @@ export function buildApp(config: CartAppConfig = {}) {
 
   const app = express();
   app.use(cors());
+  app.use(
+    pinoHttp({
+      logger,
+      // cartService sits BEHIND the api-gateway, which already mints a trace
+      // id and forwards it as the x-trace-id header. Reuse it — do NOT mint a
+      // new one — so one request can be followed end-to-end across services
+      // in Grafana/Loki. Only api-gateway (the system's edge) mints.
+      genReqId: (req, res) => {
+        const incoming = req.headers['x-trace-id'];
+        const traceId = typeof incoming === 'string' && incoming ? incoming : randomUUID();
+        res.setHeader('x-trace-id', traceId);
+        return traceId;
+      },
+      customProps: (req) => ({ traceId: req.id }),
+      autoLogging: { ignore: (req) => req.url === '/health' || req.url === '/cart/health' },
+      serializers: {
+        req: (req) => ({ method: req.method, url: redactUrl(req.url) }),
+        res: (res) => ({ statusCode: res.statusCode }),
+      },
+    }),
+  );
   app.use(express.json());
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
