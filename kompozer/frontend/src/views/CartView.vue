@@ -1,11 +1,12 @@
 <script setup lang="ts">
 /** Cart view for quantity updates, totals review, and checkout actions. */
 import { computed, onMounted, reactive, ref } from 'vue';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import { useCart } from '@/composables/useCart';
 import type { CartItem, ExpeditionInfo } from '@/types/cart';
 
 const { cart, loading, checkoutLoading, clearLoading, error, load, setQuantity, clearCart, checkout } = useCart();
+const router = useRouter();
 
 onMounted(() => {
   void load();
@@ -75,8 +76,9 @@ async function submitCheckout(): Promise<void> {
   };
 
   try {
-    await checkout(payload);
+    const orderId = await checkout(payload);
     closeCheckoutModal();
+    await router.push({ name: 'payment', params: { orderId } });
   } catch {
     checkoutError.value = 'Impossibile completare il checkout. Verifica i dati e riprova.';
   }

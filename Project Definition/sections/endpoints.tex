@@ -13,7 +13,7 @@ Il gateway espone il punto di ingresso unico per la SPA e applica il controllo J
 \item \texttt{/ws/notifications} per il proxy real-time delle notifiche;
 \item \texttt{/bff/dashboard};
 \item \texttt{/bff/configurator/:sessionId};
-\item proxy REST verso \texttt{/auth}, \texttt{/catalog}, \texttt{/cad}, \texttt{/cart}, \texttt{/orders}, \texttt{/notifications}, \texttt{/chatbot} e \texttt{/reports}.
+\item proxy REST verso \texttt{/auth}, \texttt{/catalog}, \texttt{/cad}, \texttt{/cart}, \texttt{/orders}, \texttt{/payments}, \texttt{/notifications}, \texttt{/chatbot} e \texttt{/reports}.
 \end{itemize}
 
 \section{authenticationService}
@@ -120,6 +120,20 @@ I path reali osservati nel router sono:
 \item \texttt{PATCH /orders/:orderId/cancel};
 \item \texttt{PATCH /orders/:orderId/status}.
 \end{itemize}
+
+\section{paymentService}
+
+Servizio ancora allo stadio di scheletro architetturale: i provider PayPal e carta sono adapter stub. I path reali sono:
+
+\begin{itemize}
+\item \texttt{GET /payments/health};
+\item \texttt{POST /payments};
+\item \texttt{GET /payments/order/:orderId};
+\item \texttt{GET /payments/:paymentId};
+\item \texttt{POST /payments/:paymentId/confirm}.
+\end{itemize}
+
+L'ultimo endpoint simula, per ora, la callback che in futuro arrivera' dal provider reale.
 
 \section{reportingService}
 

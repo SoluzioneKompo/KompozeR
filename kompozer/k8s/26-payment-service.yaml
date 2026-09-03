@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: kompozer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: kompozer/payment-service:latest
+          imagePullPolicy: Never
+          env:
+            - name: PAYMENT_PORT
+              value: "3009"
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kompozer-secrets
+                  key: mongoRootPassword
+            - name: PAYMENT_MONGO_URI
+              value: "mongodb://root:$(MONGO_PASSWORD)@mongo-payment:27017/paymentdb?authSource=admin"
+          ports:
+            - containerPort: 3009
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "96Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+          readinessProbe:
+            tcpSocket:
+              port: 3009
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3009
+            initialDelaySeconds: 20
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: kompozer
+spec:
+  selector:
+    app: payment-service
+  ports:
+    - port: 3009
+      targetPort: 3009
