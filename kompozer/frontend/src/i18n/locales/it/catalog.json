@@ -1,0 +1,56 @@
+{
+  "category": {
+    "TONDO": "Tondo",
+    "QUADRO": "Quadro",
+    "KUBE": "Kube",
+    "INTELLIGENTE": "Intelligente"
+  },
+  "componentType": {
+    "PIEDINO": "Piedino",
+    "MONTANTE": "Montante",
+    "RIPIANO": "Ripiano",
+    "TERMINALE": "Terminale",
+    "MENSOLA": "Mensola",
+    "RIPIANO_BORDO": "Ripiano bordo",
+    "RIPIANO_INTERMEDIO": "Ripiano intermedio"
+  },
+  "dimension": {
+    "width": "L",
+    "height": "H",
+    "depth": "P"
+  },
+  "page": {
+    "title": "Catalogo",
+    "subtitle": "Componenti disponibili per il tuo progetto",
+    "refresh": "Aggiorna"
+  },
+  "filters": {
+    "searchLabel": "Ricerca",
+    "searchAriaLabel": "Ricerca nel catalogo",
+    "searchPlaceholder": "Nome o descrizione",
+    "availableOnlyAriaLabel": "Mostra solo componenti disponibili",
+    "availableOnly": "Solo disponibili",
+    "applyAriaLabel": "Applica filtri catalogo",
+    "search": "Cerca"
+  },
+  "state": {
+    "loading": "Caricamento catalogo...",
+    "empty": "Nessun componente trovato."
+  },
+  "availability": {
+    "available": "Disponibile",
+    "unavailable": "Non disponibile"
+  },
+  "card": {
+    "sizeLabel": "Misura",
+    "sizeAriaLabel": "Misura {name}",
+    "addToCart": "Aggiungi"
+  },
+  "errors": {
+    "loadFailed": "Errore caricamento catalogo",
+    "addToCartFailed": "Errore aggiunta al carrello"
+  },
+  "toast": {
+    "addedToCart": "Aggiunto al carrello: {name}"
+  }
+}

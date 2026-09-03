@@ -1,10 +1,13 @@
 <script setup lang="ts">
 /** Cart view for quantity updates, totals review, and checkout actions. */
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { RouterLink, useRouter } from 'vue-router';
 import { useCart } from '@/composables/useCart';
+import { getIntlLocale } from '@/i18n/format';
 import type { CartItem, ExpeditionInfo } from '@/types/cart';
 
+const { t } = useI18n();
 const { cart, loading, checkoutLoading, clearLoading, error, load, setQuantity, clearCart, checkout } = useCart();
 const router = useRouter();
 
@@ -29,7 +32,7 @@ const checkoutForm = reactive<ExpeditionInfo>({
 });
 
 function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('it-IT', {
+  return new Intl.NumberFormat(getIntlLocale(), {
     style: 'currency',
     currency: 'EUR',
   }).format(cents / 100);
@@ -66,7 +69,7 @@ async function submitCheckout(): Promise<void> {
     !checkoutForm.address.trim() ||
     !checkoutForm.phone.trim()
   ) {
-    checkoutError.value = 'Compila tutti i campi obbligatori.';
+    checkoutError.value = t('cart.checkout.missingFields');
     return;
   }
 
@@ -80,7 +83,7 @@ async function submitCheckout(): Promise<void> {
     closeCheckoutModal();
     await router.push({ name: 'payment', params: { orderId } });
   } catch {
-    checkoutError.value = 'Impossibile completare il checkout. Verifica i dati e riprova.';
+    checkoutError.value = t('cart.checkout.genericError');
   }
 }
 </script>
@@ -89,20 +92,19 @@ async function submitCheckout(): Promise<void> {
   <div class="view-container">
     <header class="cart-header">
       <div>
-        <h1>Carrello</h1>
-        <p class="subtitle">Rivedi gli articoli prima del checkout</p>
+        <h1>{{ t('cart.title') }}</h1>
+        <p class="subtitle">{{ t('cart.subtitle') }}</p>
       </div>
-      <button class="btn btn--light" :disabled="loading" @click="load">Aggiorna</button>
+      <button class="btn btn--light" :disabled="loading" @click="load">{{ t('cart.refresh') }}</button>
     </header>
 
     <p v-if="error" class="error" role="alert" aria-live="assertive">{{ error }}</p>
-    <p v-if="loading" class="placeholder">Caricamento carrello...</p>
+    <p v-if="loading" class="placeholder">{{ t('cart.loading') }}</p>
     <div v-else-if="items.length === 0" class="empty-state">
-      <p class="placeholder">Il tuo carrello è vuoto.</p>
+      <p class="placeholder">{{ t('cart.empty.title') }}</p>
       <p class="empty-hint">
-        Se un componente è diventato non disponibile il carrello viene svuotato automaticamente.
-        Puoi <RouterLink :to="{ name: 'configurations' }" class="empty-link">riordinare una configurazione finalizzata</RouterLink>
-        o <RouterLink :to="{ name: 'cad' }" class="empty-link">crearne una nuova nel configuratore</RouterLink>.
+        {{ t('cart.empty.description') }}
+        {{ t('cart.empty.before') }}<RouterLink :to="{ name: 'configurations' }" class="empty-link">{{ t('cart.empty.reorderLink') }}</RouterLink>{{ t('cart.empty.between') }}<RouterLink :to="{ name: 'cad' }" class="empty-link">{{ t('cart.empty.createLink') }}</RouterLink>{{ t('cart.empty.after') }}
       </p>
     </div>
 
@@ -111,14 +113,14 @@ async function submitCheckout(): Promise<void> {
         <article v-for="item in items" :key="item.sku" class="item-row">
           <div class="item-main">
             <h2 class="item-name">{{ item.name }}</h2>
-            <p class="item-sku">SKU: {{ item.sku }}</p>
-            <p class="item-price">{{ formatCurrency(item.unitPrice) }} cad.</p>
+            <p class="item-sku">{{ t('cart.item.sku', { sku: item.sku }) }}</p>
+            <p class="item-price">{{ t('cart.item.unitPrice', { price: formatCurrency(item.unitPrice) }) }}</p>
           </div>
 
           <div class="qty-controls">
-            <button class="qty-btn" :aria-label="`Riduci quantita ${item.name}`" @click="decrement(item)">-</button>
+            <button class="qty-btn" :aria-label="t('cart.item.decreaseAria', { name: item.name })" @click="decrement(item)">-</button>
             <span class="qty-value">{{ item.quantity }}</span>
-            <button class="qty-btn" :aria-label="`Aumenta quantita ${item.name}`" @click="increment(item)">+</button>
+            <button class="qty-btn" :aria-label="t('cart.item.increaseAria', { name: item.name })" @click="increment(item)">+</button>
           </div>
 
           <div class="line-total">
@@ -128,72 +130,72 @@ async function submitCheckout(): Promise<void> {
       </section>
 
       <aside class="summary">
-        <h2>Riepilogo</h2>
+        <h2>{{ t('cart.summary.title') }}</h2>
         <div class="summary-row">
-          <span>Totale</span>
+          <span>{{ t('cart.summary.total') }}</span>
           <strong>{{ formatCurrency(total) }}</strong>
         </div>
         <button class="btn btn--danger summary-btn-secondary" :disabled="clearLoading" @click="clearCart">
-          {{ clearLoading ? 'Svuotamento in corso...' : 'Svuota carrello' }}
+          {{ clearLoading ? t('cart.summary.clearing') : t('cart.summary.clearButton') }}
         </button>
         <button
           class="btn btn--primary summary-btn"
           :disabled="checkoutLoading || clearLoading"
           @click="openCheckoutModal"
         >
-          {{ checkoutLoading ? 'Checkout in corso...' : 'Procedi al checkout' }}
+          {{ checkoutLoading ? t('cart.checkout.inProgress') : t('cart.summary.checkoutButton') }}
         </button>
       </aside>
     </div>
 
     <div v-if="showCheckoutModal" class="checkout-modal-backdrop" role="presentation">
       <div class="checkout-modal" role="dialog" aria-modal="true" aria-labelledby="checkout-modal-title">
-        <h2 id="checkout-modal-title" class="checkout-modal__title">Dati spedizione</h2>
+        <h2 id="checkout-modal-title" class="checkout-modal__title">{{ t('cart.checkout.modalTitle') }}</h2>
 
         <form class="checkout-form" @submit.prevent="submitCheckout">
           <label class="field">
-            <span class="field__label">Nome</span>
+            <span class="field__label">{{ t('cart.checkout.fields.name') }}</span>
             <input v-model="checkoutForm.name" class="field__input" type="text" required />
           </label>
           <label class="field">
-            <span class="field__label">Cognome</span>
+            <span class="field__label">{{ t('cart.checkout.fields.surname') }}</span>
             <input v-model="checkoutForm.surname" class="field__input" type="text" required />
           </label>
           <label class="field">
-            <span class="field__label">Email</span>
+            <span class="field__label">{{ t('cart.checkout.fields.email') }}</span>
             <input v-model="checkoutForm.mail" class="field__input" type="email" required />
           </label>
           <label class="field">
-            <span class="field__label">Nazione</span>
+            <span class="field__label">{{ t('cart.checkout.fields.nation') }}</span>
             <input v-model="checkoutForm.nation" class="field__input" type="text" required />
           </label>
           <label class="field">
-            <span class="field__label">Citta</span>
+            <span class="field__label">{{ t('cart.checkout.fields.city') }}</span>
             <input v-model="checkoutForm.city" class="field__input" type="text" required />
           </label>
           <label class="field">
-            <span class="field__label">CAP</span>
+            <span class="field__label">{{ t('cart.checkout.fields.cap') }}</span>
             <input v-model="checkoutForm.cap" class="field__input" type="text" required />
           </label>
           <label class="field field--full">
-            <span class="field__label">Indirizzo</span>
+            <span class="field__label">{{ t('cart.checkout.fields.address') }}</span>
             <input v-model="checkoutForm.address" class="field__input" type="text" required />
           </label>
           <label class="field">
-            <span class="field__label">Telefono</span>
+            <span class="field__label">{{ t('cart.checkout.fields.phone') }}</span>
             <input v-model="checkoutForm.phone" class="field__input" type="text" required />
           </label>
           <label class="field field--full">
-            <span class="field__label">Note consegna (opzionale)</span>
+            <span class="field__label">{{ t('cart.checkout.fields.deliveryNotes') }}</span>
             <textarea v-model="checkoutForm.deliveryNotes" class="field__textarea" rows="3" />
           </label>
 
           <p v-if="checkoutError" class="error" role="alert" aria-live="assertive">{{ checkoutError }}</p>
 
           <div class="checkout-modal__actions">
-            <button class="btn btn--light" type="button" @click="closeCheckoutModal">Annulla</button>
+            <button class="btn btn--light" type="button" @click="closeCheckoutModal">{{ t('cart.checkout.cancel') }}</button>
             <button class="btn btn--primary" type="submit" :disabled="checkoutLoading">
-              {{ checkoutLoading ? 'Checkout in corso...' : 'Conferma checkout' }}
+              {{ checkoutLoading ? t('cart.checkout.inProgress') : t('cart.checkout.confirm') }}
             </button>
           </div>
         </form>

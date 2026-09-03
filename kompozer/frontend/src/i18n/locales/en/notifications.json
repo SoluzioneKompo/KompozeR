@@ -1,0 +1,32 @@
+{
+  "types": {
+    "priceChanged": "Price updated",
+    "availabilityChanged": "Availability updated"
+  },
+  "view": {
+    "title": "Notifications",
+    "subtitle": "Updates on component pricing and availability",
+    "refresh": "Refresh",
+    "unreadOnly": "Unread only",
+    "count": "{count} notifications",
+    "loading": "Loading notifications...",
+    "empty": "No notifications to show.",
+    "defaultTitle": "Component update",
+    "markAsRead": "Mark as read",
+    "read": "Read",
+    "sku": "SKU: {sku}",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page} of {totalPages}"
+  },
+  "toast": {
+    "markedAsRead": "Notification marked as read"
+  },
+  "errors": {
+    "loadFailed": "Failed to load notifications",
+    "updateFailed": "Failed to update notification"
+  },
+  "toastHost": {
+    "close": "Close"
+  }
+}

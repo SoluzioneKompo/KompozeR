@@ -1,0 +1,57 @@
+{
+  "title": "Carrello",
+  "subtitle": "Rivedi gli articoli prima del checkout",
+  "refresh": "Aggiorna",
+  "loading": "Caricamento carrello...",
+  "empty": {
+    "title": "Il tuo carrello è vuoto.",
+    "description": "Se un componente è diventato non disponibile il carrello viene svuotato automaticamente.",
+    "before": "Puoi ",
+    "reorderLink": "riordinare una configurazione finalizzata",
+    "between": " o ",
+    "createLink": "crearne una nuova nel configuratore",
+    "after": "."
+  },
+  "item": {
+    "sku": "SKU: {sku}",
+    "unitPrice": "{price} cad.",
+    "decreaseAria": "Riduci quantità {name}",
+    "increaseAria": "Aumenta quantità {name}"
+  },
+  "summary": {
+    "title": "Riepilogo",
+    "total": "Totale",
+    "clearing": "Svuotamento in corso...",
+    "clearButton": "Svuota carrello",
+    "checkoutButton": "Procedi al checkout"
+  },
+  "checkout": {
+    "modalTitle": "Dati spedizione",
+    "fields": {
+      "name": "Nome",
+      "surname": "Cognome",
+      "email": "Email",
+      "nation": "Nazione",
+      "city": "Città",
+      "cap": "CAP",
+      "address": "Indirizzo",
+      "phone": "Telefono",
+      "deliveryNotes": "Note consegna (opzionale)"
+    },
+    "cancel": "Annulla",
+    "confirm": "Conferma checkout",
+    "inProgress": "Checkout in corso...",
+    "missingFields": "Compila tutti i campi obbligatori.",
+    "genericError": "Impossibile completare il checkout. Verifica i dati e riprova."
+  },
+  "errors": {
+    "load": "Errore caricamento carrello",
+    "updateQuantity": "Errore aggiornamento quantità",
+    "checkout": "Errore durante checkout",
+    "clear": "Errore durante svuotamento carrello"
+  },
+  "notifications": {
+    "orderCreated": "Ordine {orderId} creato con successo",
+    "cleared": "Carrello svuotato"
+  }
+}

@@ -1,9 +1,13 @@
 <script setup lang="ts">
 /** Catalog browsing view: components grouped by category and type, with per-type size selection. */
 import { onMounted, reactive, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useCatalog } from '@/composables/useCatalog';
 import type { CatalogItem } from '@/types/catalog';
 import { groupCatalog, dimensionLabel, type TypeGroup, type CategoryGroup } from '@/utils/catalogGrouping';
+import { getIntlLocale } from '@/i18n/format';
+
+const { t } = useI18n();
 
 const {
   items,
@@ -20,7 +24,7 @@ onMounted(() => {
 });
 
 function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('it-IT', {
+  return new Intl.NumberFormat(getIntlLocale(), {
     style: 'currency',
     currency: 'EUR',
   }).format(cents / 100);
@@ -28,8 +32,8 @@ function formatCurrency(cents: number): string {
 
 const groupedCatalog = computed<CategoryGroup[]>(() => groupCatalog(items.value));
 
-// Ricorda la misura scelta dall'utente per ogni gruppo Type; senza selezione esplicita
-// si mostra come default la prima variante disponibile.
+// Remembers the size chosen by the user for each Type group; without an explicit
+// selection, the first available variant is shown as the default.
 const selectedVariantId = reactive<Record<string, string>>({});
 
 function selectedVariant(group: TypeGroup): CatalogItem {
@@ -48,38 +52,38 @@ function onVariantChange(group: TypeGroup, event: Event): void {
   <div class="view-container">
     <header class="catalog-header">
       <div>
-        <h1>Catalogo</h1>
-        <p class="subtitle">Componenti disponibili per il tuo progetto</p>
+        <h1>{{ t('catalog.page.title') }}</h1>
+        <p class="subtitle">{{ t('catalog.page.subtitle') }}</p>
       </div>
-      <button class="btn btn--light" :disabled="loading" @click="load">Aggiorna</button>
+      <button class="btn btn--light" :disabled="loading" @click="load">{{ t('catalog.page.refresh') }}</button>
     </header>
 
     <section class="filters">
       <label class="field">
-        <span class="field__label">Ricerca</span>
+        <span class="field__label">{{ t('catalog.filters.searchLabel') }}</span>
         <input
           v-model="search"
           class="field__input"
           type="text"
-          aria-label="Ricerca nel catalogo"
-          placeholder="Nome o descrizione"
+          :aria-label="t('catalog.filters.searchAriaLabel')"
+          :placeholder="t('catalog.filters.searchPlaceholder')"
           @keyup.enter="load"
         />
       </label>
 
       <label class="checkbox">
-        <input v-model="availableOnly" type="checkbox" aria-label="Mostra solo componenti disponibili" @change="load" />
-        Solo disponibili
+        <input v-model="availableOnly" type="checkbox" :aria-label="t('catalog.filters.availableOnlyAriaLabel')" @change="load" />
+        {{ t('catalog.filters.availableOnly') }}
       </label>
 
-      <button class="btn btn--primary" :disabled="loading" aria-label="Applica filtri catalogo" @click="load">
-        Cerca
+      <button class="btn btn--primary" :disabled="loading" :aria-label="t('catalog.filters.applyAriaLabel')" @click="load">
+        {{ t('catalog.filters.search') }}
       </button>
     </section>
 
     <p v-if="error" class="error" role="alert" aria-live="assertive">{{ error }}</p>
-    <p v-if="loading" class="placeholder">Caricamento catalogo...</p>
-    <p v-else-if="items.length === 0" class="placeholder">Nessun componente trovato.</p>
+    <p v-if="loading" class="placeholder">{{ t('catalog.state.loading') }}</p>
+    <p v-else-if="items.length === 0" class="placeholder">{{ t('catalog.state.empty') }}</p>
 
     <template v-else>
       <section v-for="catGroup in groupedCatalog" :key="catGroup.category" class="category-section">
@@ -90,17 +94,17 @@ function onVariantChange(group: TypeGroup, event: Event): void {
             <div class="card__meta">
               <h3 class="card__title">{{ group.label }}</h3>
               <span :class="['availability', selectedVariant(group).isAvailable ? 'ok' : 'no']">
-                {{ selectedVariant(group).isAvailable ? 'Disponibile' : 'Non disponibile' }}
+                {{ selectedVariant(group).isAvailable ? t('catalog.availability.available') : t('catalog.availability.unavailable') }}
               </span>
             </div>
 
             <p class="card__desc">{{ selectedVariant(group).description }}</p>
 
             <label class="field">
-              <span class="field__label">Misura</span>
+              <span class="field__label">{{ t('catalog.card.sizeLabel') }}</span>
               <select
                 class="field__input"
-                :aria-label="`Misura ${group.label}`"
+                :aria-label="t('catalog.card.sizeAriaLabel', { name: group.label })"
                 :value="selectedVariant(group).id"
                 @change="onVariantChange(group, $event)"
               >
@@ -117,7 +121,7 @@ function onVariantChange(group: TypeGroup, event: Event): void {
                 :disabled="!selectedVariant(group).isAvailable"
                 @click="addToCart(selectedVariant(group))"
               >
-                Aggiungi
+                {{ t('catalog.card.addToCart') }}
               </button>
             </div>
           </article>

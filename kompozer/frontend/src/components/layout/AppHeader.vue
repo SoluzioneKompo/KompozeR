@@ -1,11 +1,15 @@
 <script setup lang="ts">
 /** Main application header with role-based navigation and live badge counters. */
 import { computed, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { RouterLink, useRouter } from 'vue-router';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useCartStore } from '@/store/cartStore';
 import appLogo from '@/assets/images/kompozer-logo.png';
+import LanguageSwitcher from '@/components/layout/LanguageSwitcher.vue';
+
+const { t } = useI18n();
 
 const auth = useAuthStore();
 const notifications = useNotificationStore();
@@ -36,24 +40,24 @@ onUnmounted(() => {
 const navLinks = computed(() => {
   if (auth.isAdmin) {
     return [
-      { name: 'catalog', label: 'Catalogo' },
-      { name: 'admin-catalog', label: 'Catalogo Admin' },
-      { name: 'configurations', label: 'Configurazioni' },
-      { name: 'cad', label: 'Configuratore' },
-      { name: 'admin-orders', label: 'Ordini' },
-      { name: 'admin-reports', label: 'Report' },
+      { name: 'catalog', label: t('layout.nav.catalog') },
+      { name: 'admin-catalog', label: t('layout.nav.adminCatalog') },
+      { name: 'configurations', label: t('layout.nav.configurations') },
+      { name: 'cad', label: t('layout.nav.cad') },
+      { name: 'admin-orders', label: t('layout.nav.adminOrders') },
+      { name: 'admin-reports', label: t('layout.nav.adminReports') },
     ];
   }
 
   if (auth.isGuest) {
     return [
-      { name: 'cad', label: 'Configuratore' },
+      { name: 'cad', label: t('layout.nav.cad') },
     ];
   }
 
   return [
-    { name: 'configurations', label: 'Configurazioni' },
-    { name: 'cad', label: 'Configuratore' },
+    { name: 'configurations', label: t('layout.nav.configurations') },
+    { name: 'cad', label: t('layout.nav.cad') },
   ];
 });
 
@@ -85,10 +89,12 @@ async function logout(): Promise<void> {
       </nav>
 
       <div class="app-header__actions">
+        <LanguageSwitcher />
+
         <RouterLink
           :to="{ name: 'cart' }"
           class="app-header__icon-link"
-          aria-label="Carrello"
+          :aria-label="t('layout.actions.cartAriaLabel')"
         >
           🛒
           <span v-if="cart.itemCount > 0" class="app-header__badge">
@@ -100,7 +106,7 @@ async function logout(): Promise<void> {
           v-if="auth.isLoggedIn"
           :to="{ name: 'notifications' }"
           class="app-header__icon-link app-header__bell"
-          aria-label="Notifiche"
+          :aria-label="t('layout.actions.notificationsAriaLabel')"
         >
           🔔
           <span v-if="notifications.unreadCount > 0" class="app-header__badge">
@@ -109,10 +115,16 @@ async function logout(): Promise<void> {
         </RouterLink>
 
         <span class="app-header__user">
-          {{ auth.isGuest ? 'Guest' : auth.user?.username }}
+          {{ auth.isGuest ? t('layout.actions.guest') : auth.user?.username }}
         </span>
 
-        <button class="app-header__logout" aria-label="Esci dal tuo account" @click="logout">Esci</button>
+        <button
+          class="app-header__logout"
+          :aria-label="t('layout.actions.logoutAriaLabel')"
+          @click="logout"
+        >
+          {{ t('layout.actions.logout') }}
+        </button>
       </div>
     </div>
   </header>

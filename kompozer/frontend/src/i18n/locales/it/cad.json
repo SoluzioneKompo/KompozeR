@@ -1,0 +1,180 @@
+{
+  "header": {
+    "title": "Configuratore CAD",
+    "subtitle": "Workspace di design con schema grafico indipendente",
+    "refreshDetail": "Aggiorna dettaglio",
+    "loadingDetail": "Caricamento dettaglio..."
+  },
+  "collab": {
+    "sessionLabel": "Sessione",
+    "start": "Collabora",
+    "starting": "Avvio...",
+    "codePrefix": "Codice:",
+    "endSession": "Termina sessione",
+    "endedWarning": "⚠️ Sessione terminata",
+    "backToSolitary": "Torna a solitaria",
+    "statusSelectOrCreate": "Seleziona o crea una configurazione",
+    "statusOwnerLeftEnded": "Il proprietario ha lasciato — sessione terminata",
+    "statusActive": "Collaborazione attiva · {count} partecipanti · Codice: {code}",
+    "statusReconnecting": "Collaborazione — riconnessione in corso...",
+    "statusSolitary": "Modalità solitaria",
+    "modal": {
+      "title": "Sessione collaborativa attiva",
+      "close": "Chiudi",
+      "shareInstruction": "Condividi questo codice con chi vuoi far partecipare:",
+      "note": "Sia utenti registrati che ospiti possono usarlo. La sessione termina quando esci dalla configurazione.",
+      "copyCode": "Copia codice"
+    }
+  },
+  "create": {
+    "title": "Crea nuova configurazione",
+    "hint": "Puoi iniziare da qui o entrare in una sessione collaborativa esistente.",
+    "nameLabel": "Nome configurazione",
+    "namePlaceholder": "Nuova configurazione",
+    "creating": "Creazione...",
+    "createButton": "Crea e apri configuratore",
+    "joinCodeLabel": "Codice sessione collaborativa",
+    "joinCodePlaceholder": "es. A3KP7X",
+    "joining": "Accesso...",
+    "joinButton": "Entra con codice"
+  },
+  "steps": {
+    "environment": "Ambiente",
+    "category": "Categoria",
+    "columns": "Colonne",
+    "design": "Design",
+    "finalize": "Finalizza"
+  },
+  "meta": {
+    "configuration": "Configurazione",
+    "status": "Stato",
+    "lastUpdate": "Ultimo update"
+  },
+  "environmentStep": {
+    "title": "Step 1 - Ambiente",
+    "maxWidth": "Larghezza max (mm)",
+    "maxHeight": "Altezza max (mm)",
+    "minWidth": "Larghezza min (mm)",
+    "minHeight": "Altezza min (mm)",
+    "saving": "Salvataggio...",
+    "save": "Salva ambiente"
+  },
+  "categoryStep": {
+    "title": "Step 2 - Categoria",
+    "label": "Categoria",
+    "placeholder": "Seleziona categoria",
+    "saving": "Salvataggio...",
+    "save": "Salva categoria"
+  },
+  "columnsStep": {
+    "title": "Step 3 - Piano colonne",
+    "countLabel": "Numero colonne (1-8)",
+    "loadingWidths": "Caricamento larghezze da catalogo...",
+    "noShelvesAvailable": "Nessun ripiano disponibile per la categoria selezionata.",
+    "columnLabel": "Colonna {n}",
+    "saving": "Salvataggio...",
+    "save": "Salva piano colonne"
+  },
+  "designStep": {
+    "title": "Step 4 - Costruzione livelli (+ / -)",
+    "fixedThickness": "Spessore ripiano fisso: {mm} mm",
+    "intelligenteBanner": "<strong>Modalità INTELLIGENTE</strong> — “+ Livello” aggiunge lo stesso ripiano a <em>tutte</em> le colonne simultaneamente. Le colonne esterne usano ripiani <strong>BORDO</strong>, quelle interne <strong>INTERMEZZO</strong>.",
+    "alignmentWarning": "Livelli non allineati tra colonne. Completa il design su tutte le colonne prima di finalizzare.",
+    "columnLabel": "Colonna {n}",
+    "currentLevels": "Livelli correnti: {levels}",
+    "none": "nessuno",
+    "firstLevelHint": "Primo livello: scegli un {type} o un ponte verso le colonne adiacenti",
+    "nextLevelHint": "Livello successivo: scegli un {type} o un ponte",
+    "bridgeHint": "Puoi creare un <strong>ponte</strong>: unire questa colonna alle adiacenti scavalcando un gap più alto dei montanti singoli.",
+    "pieceHeightLabel": "Altezza pezzo da aggiungere",
+    "selectHeightAriaLabel": "Seleziona altezza da aggiungere per colonna {n}",
+    "bridgeSuffix": " · ponte",
+    "notAllowedFallback": "NON_CONSENTITA",
+    "noOptionsAvailable": "Nessuna opzione disponibile dal backend per questa colonna.",
+    "noValidChoiceShort": "Nessuna scelta valida",
+    "noValidChoiceWithReasons": "Nessuna scelta valida: {reasons}",
+    "addLevel": "+ Livello",
+    "addLevelAriaLabel": "Aggiungi livello alla colonna {n}",
+    "removeLast": "- Ultimo",
+    "removeLastAriaLabel": "Rimuovi ultimo livello dalla colonna {n}"
+  },
+  "finalizeStep": {
+    "title": "Step 5 - Finalizzazione",
+    "finalizing": "Finalizzazione...",
+    "finalizeButton": "Finalizza e invia al carrello",
+    "hint": "Finalizzazione disponibile solo in READY_FOR_FINALIZE."
+  },
+  "schema": {
+    "title": "Schema grafico",
+    "subtitle": "Profilo laterale schematico della struttura corrente"
+  },
+  "bom": {
+    "title": "Distinta componenti",
+    "subtitle": "Anteprima aggiornata in tempo reale dal backend",
+    "empty": "Nessun componente disponibile: completa i passaggi di design.",
+    "emptyMobile": "Nessun componente disponibile.",
+    "totalPreview": "Totale preview",
+    "skuLine": "SKU: {sku} · {type}",
+    "componentFallback": "Componente"
+  },
+  "resetConfirm": {
+    "title": "Conferma reset progetto",
+    "message": "Cambiare ambiente o categoria dopo la definizione colonne resetta design e componenti. Vuoi continuare?",
+    "cancel": "Annulla",
+    "continue": "Continua"
+  },
+  "resetFinalConfirm": {
+    "title": "Seconda conferma richiesta",
+    "message": "Confermi definitivamente il reset dei passaggi successivi?",
+    "cancel": "Annulla",
+    "confirm": "Conferma reset"
+  },
+  "optionReason": {
+    "INVALID_GAP": "Altezza pezzo non valida",
+    "NON_INCREASING_LEVEL": "Il nuovo livello deve essere maggiore del precedente",
+    "MAX_HEIGHT_EXCEEDED": "Supera l'altezza massima configurata",
+    "ADJACENCY_CONFLICT": "Conflitto con la colonna adiacente (stessa quota)",
+    "LOOK_AHEAD_BLOCKED": "Questa scelta blocca i passi successivi",
+    "INVALID_FIRST_LEVEL": "Il primo livello deve corrispondere a un piedino di catalogo",
+    "INVALID_SEGMENT": "La spina condivisa richiede un montante non disponibile a catalogo",
+    "NO_TERMINAL_FIT": "Non esiste un terminale compatibile con l'altezza residua",
+    "SPINE_CONFLICT": "Questa scelta viola i vincoli della spina condivisa",
+    "default": "Opzione non consentita"
+  },
+  "moreReasonsCount": "+{count} altre",
+  "toasts": {
+    "httpError": "Errore HTTP {status}",
+    "startSessionFailed": "Avvio sessione collaborativa fallito",
+    "invalidCode": "Inserisci un codice valido",
+    "sessionJoined": "Sessione collaborativa agganciata ({code})",
+    "joinFailed": "Join sessione collaborativa fallito",
+    "codeCopied": "Codice {code} copiato",
+    "copyFailed": "Impossibile copiare il codice",
+    "realtimeError": "Errore realtime CAD",
+    "ownerLeft": "Il proprietario ha lasciato la sessione collaborativa",
+    "configurationCreated": "Configurazione creata: {name}",
+    "loadListError": "Errore caricamento configurazioni",
+    "loadDetailError": "Errore caricamento dettaglio configurazione",
+    "createError": "Errore creazione configurazione",
+    "categoryUpdated": "Categoria aggiornata",
+    "categoryUpdateError": "Errore aggiornamento categoria",
+    "environmentUpdated": "Ambiente aggiornato",
+    "environmentUpdateError": "Errore aggiornamento ambiente",
+    "columnPlanUpdated": "Piano colonne aggiornato",
+    "columnPlanUpdateError": "Errore aggiornamento piano colonne",
+    "designUpdated": "Design colonne aggiornato",
+    "designUpdateError": "Errore aggiornamento design",
+    "nextOptionsError": "Errore recupero opzioni disponibili",
+    "columnNotFound": "Colonna {n} non trovata",
+    "finalizeSuccess": "Configurazione finalizzata e inviata al carrello",
+    "finalizeError": "Errore finalizzazione configurazione",
+    "realtimeUnavailable": "Connessione realtime non disponibile",
+    "joinTimeout": "Timeout join sessione collaborativa",
+    "leaveTimeout": "Timeout leave sessione collaborativa",
+    "leaveCollabFailed": "Leave sessione collaborativa fallito",
+    "snapshotTimeout": "Timeout richiesta snapshot collaborativo",
+    "snapshotFailed": "Richiesta snapshot collaborativo fallita",
+    "operationTimeout": "Timeout operazione collaborativa",
+    "operationFailed": "Operazione collaborativa fallita"
+  }
+}

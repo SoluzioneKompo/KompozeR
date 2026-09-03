@@ -1,0 +1,32 @@
+{
+  "types": {
+    "priceChanged": "Prezzo aggiornato",
+    "availabilityChanged": "Disponibilita aggiornata"
+  },
+  "view": {
+    "title": "Notifiche",
+    "subtitle": "Aggiornamenti su prezzo e disponibilita dei componenti",
+    "refresh": "Aggiorna",
+    "unreadOnly": "Solo non lette",
+    "count": "{count} notifiche",
+    "loading": "Caricamento notifiche...",
+    "empty": "Nessuna notifica da mostrare.",
+    "defaultTitle": "Aggiornamento componente",
+    "markAsRead": "Segna come letta",
+    "read": "Letta",
+    "sku": "SKU: {sku}",
+    "previous": "Precedente",
+    "next": "Successiva",
+    "pageOf": "Pagina {page} di {totalPages}"
+  },
+  "toast": {
+    "markedAsRead": "Notifica segnata come letta"
+  },
+  "errors": {
+    "loadFailed": "Errore caricamento notifiche",
+    "updateFailed": "Errore aggiornamento notifica"
+  },
+  "toastHost": {
+    "close": "Chiudi"
+  }
+}

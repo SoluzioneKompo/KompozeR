@@ -1,0 +1,157 @@
+{
+  "catalog": {
+    "title": "Catalog Admin",
+    "subtitle": "Manage the catalog, kept separate from the customer-facing view.",
+    "addComponentAria": "Add component",
+    "refresh": "Refresh",
+    "modal": {
+      "addComponent": "Add component",
+      "close": "Close",
+      "requiredNote": "required fields",
+      "cancel": "Cancel",
+      "creating": "Creating..."
+    },
+    "fields": {
+      "sku": "SKU",
+      "name": "Name",
+      "category": "Category",
+      "type": "Type",
+      "price": "Price (EUR)",
+      "available": "Available",
+      "description": "Description",
+      "width": "Width",
+      "height": "Height",
+      "depth": "Depth",
+      "imageUrl": "Image URL",
+      "compatibleCategory": "Compatible category"
+    },
+    "placeholders": {
+      "sku": "E.g. TONDO-SKU-NEW-001",
+      "name": "Component name",
+      "price": "0.00",
+      "description": "Component description",
+      "imageUrl": "https://..."
+    },
+    "none": "None",
+    "filters": {
+      "search": "Search",
+      "category": "Category",
+      "all": "All",
+      "availableOnly": "Available only",
+      "filter": "Filter"
+    },
+    "loading": "Loading catalog...",
+    "empty": "No components found.",
+    "errors": {
+      "loadFailed": "Failed to load catalog",
+      "invalidPrice": "Invalid price",
+      "invalidField": "Invalid {field}",
+      "createFailed": "Failed to create component",
+      "updateFailed": "Failed to update component",
+      "deleteFailed": "Failed to delete component"
+    },
+    "toasts": {
+      "created": "Component created: {sku}",
+      "updated": "Component {sku} updated",
+      "deleted": "Component {sku} deleted"
+    },
+    "deleteConfirm": "Delete component {sku}?",
+    "row": {
+      "version": "Version: {version}",
+      "size": "Size",
+      "sizeAria": "Size {label}",
+      "current": "Current: {price}",
+      "saving": "Saving...",
+      "savePrice": "Save price/availability",
+      "deleting": "Deleting...",
+      "deleteComponent": "Delete component"
+    }
+  },
+  "orders": {
+    "title": "Order management",
+    "subtitle": "Review orders and move them to DONE status",
+    "refresh": "Refresh",
+    "metrics": {
+      "total": "Total"
+    },
+    "loading": "Loading orders...",
+    "empty": "No orders match the selected filter.",
+    "order": "Order",
+    "labels": {
+      "total": "Total",
+      "items": "Items",
+      "submitted": "Submitted",
+      "completed": "Completed"
+    },
+    "expedition": {
+      "title": "Shipping details",
+      "name": "Name:",
+      "email": "Email:",
+      "phone": "Phone:",
+      "nation": "Country:",
+      "city": "City:",
+      "cap": "ZIP:",
+      "address": "Address:",
+      "deliveryNotes": "Delivery notes:"
+    },
+    "itemsDetail": "Item detail",
+    "actions": {
+      "updating": "Updating...",
+      "markDone": "Mark as DONE",
+      "markCancelled": "Mark as CANCELLED"
+    },
+    "modals": {
+      "confirmUpdateTitle": "Confirm update",
+      "confirmDoneText": "Mark this order as DONE?",
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "unavailableTitle": "Action unavailable",
+      "close": "Close"
+    },
+    "errors": {
+      "loadFailed": "Failed to load orders",
+      "updateFailed": "Failed to update order status",
+      "notAllowed": "Action not allowed: order is in {status} status."
+    },
+    "toasts": {
+      "markedDone": "Order marked as DONE",
+      "markedCancelled": "Order marked as CANCELLED"
+    }
+  },
+  "reports": {
+    "title": "Order reports",
+    "refresh": "Refresh",
+    "filters": {
+      "from": "From",
+      "to": "To",
+      "apply": "Apply range",
+      "allTime": "All time"
+    },
+    "loading": "Loading report...",
+    "empty": "No data available.",
+    "errors": {
+      "loadFailed": "Failed to load order reports"
+    },
+    "kpis": {
+      "period": "Period",
+      "totalOrders": "Total orders",
+      "totalRevenue": "Total revenue"
+    },
+    "chart": {
+      "title": "Orders per day",
+      "ariaLabel": "Daily order trend chart",
+      "tooltip": "{count} orders · {revenue}"
+    },
+    "table": {
+      "title": "Daily detail",
+      "headers": {
+        "date": "Date",
+        "totalOrders": "Total orders",
+        "submitted": "Submitted",
+        "done": "Done",
+        "cancelled": "Cancelled",
+        "revenue": "Revenue"
+      }
+    }
+  }
+}

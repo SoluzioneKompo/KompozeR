@@ -1,11 +1,14 @@
 <script setup lang="ts">
 /** Admin orders board for status filtering and order state transitions. */
 import { computed, onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { orderService } from '@/services/orderService';
 import { useNotificationStore } from '@/store/notificationStore';
 import type { Order, OrderStatus } from '@/types/order';
 import { ApiError } from '@/types/api';
+import { formatCurrencyFromCents, getIntlLocale } from '@/i18n/format';
 
+const { t } = useI18n();
 const notifications = useNotificationStore();
 
 const items = ref<Order[]>([]);
@@ -33,10 +36,7 @@ onMounted(() => {
 
 /** Formats order totals from cents to localized euro string. */
 function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('it-IT', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(cents / 100);
+  return formatCurrencyFromCents(cents);
 }
 
 /** Formats optional order timestamps, returning placeholder when absent. */
@@ -44,7 +44,7 @@ function formatDate(iso?: string): string {
   if (!iso) {
     return '-';
   }
-  return new Intl.DateTimeFormat('it-IT', {
+  return new Intl.DateTimeFormat(getIntlLocale(), {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(new Date(iso));
@@ -58,7 +58,7 @@ async function load(): Promise<void> {
     const result = await orderService.list({ page: 1, limit: 100 });
     items.value = result.items;
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Errore caricamento ordini';
+    error.value = e instanceof ApiError ? e.message : t('admin.orders.errors.loadFailed');
   } finally {
     loading.value = false;
   }
@@ -70,10 +70,10 @@ async function markDone(order: Order): Promise<void> {
   try {
     const updated = await orderService.markDone(order.id);
     items.value = items.value.map((current) => (current.id === updated.id ? updated : current));
-    notifications.addToast('success', 'Ordine marcato come DONE');
+    notifications.addToast('success', t('admin.orders.toasts.markedDone'));
     orderToConfirmDone.value = null;
   } catch (e) {
-    const msg = e instanceof ApiError ? e.message : 'Errore aggiornamento stato ordine';
+    const msg = e instanceof ApiError ? e.message : t('admin.orders.errors.updateFailed');
     notifications.addToast('error', msg);
   } finally {
     updatingOrderId.value = '';
@@ -86,9 +86,9 @@ async function markCancelled(order: Order): Promise<void> {
   try {
     const updated = await orderService.markCancelled(order.id);
     items.value = items.value.map((current) => (current.id === updated.id ? updated : current));
-    notifications.addToast('success', 'Ordine marcato come CANCELLED');
+    notifications.addToast('success', t('admin.orders.toasts.markedCancelled'));
   } catch (e) {
-    const msg = e instanceof ApiError ? e.message : 'Errore aggiornamento stato ordine';
+    const msg = e instanceof ApiError ? e.message : t('admin.orders.errors.updateFailed');
     notifications.addToast('error', msg);
   } finally {
     updatingOrderId.value = '';
@@ -126,7 +126,7 @@ function closeBlockedActionModal(): void {
 /** Guards DONE transition requests to submitted orders only. */
 function requestMarkDone(order: Order): void {
   if (order.status !== 'SUBMITTED') {
-    blockedActionMessage.value = `Operazione non consentita: ordine in stato ${order.status}.`;
+    blockedActionMessage.value = t('admin.orders.errors.notAllowed', { status: order.status });
     return;
   }
   openDoneConfirmation(order);
@@ -135,7 +135,7 @@ function requestMarkDone(order: Order): void {
 /** Guards CANCELLED transition requests to submitted orders only. */
 function requestMarkCancelled(order: Order): void {
   if (order.status !== 'SUBMITTED') {
-    blockedActionMessage.value = `Operazione non consentita: ordine in stato ${order.status}.`;
+    blockedActionMessage.value = t('admin.orders.errors.notAllowed', { status: order.status });
     return;
   }
   void markCancelled(order);
@@ -158,10 +158,10 @@ function formatExpeditionName(order: Order): string {
   <div class="view-container">
     <header class="header">
       <div>
-        <h1>Gestione ordini</h1>
-        <p class="subtitle">Controlla gli ordini e avanzali allo stato DONE</p>
+        <h1>{{ t('admin.orders.title') }}</h1>
+        <p class="subtitle">{{ t('admin.orders.subtitle') }}</p>
       </div>
-      <button class="btn btn--light" :disabled="loading" @click="load">Aggiorna</button>
+      <button class="btn btn--light" :disabled="loading" @click="load">{{ t('admin.orders.refresh') }}</button>
     </header>
 
     <section class="metrics">
@@ -173,7 +173,7 @@ function formatExpeditionName(order: Order): string {
         @keydown.enter.prevent="setStatusFilter('')"
         @keydown.space.prevent="setStatusFilter('')"
       >
-        <span class="metric-label">Totali</span>
+        <span class="metric-label">{{ t('admin.orders.metrics.total') }}</span>
         <strong class="metric-value">{{ items.length }}</strong>
       </article>
       <article
@@ -212,59 +212,59 @@ function formatExpeditionName(order: Order): string {
     </section>
 
     <p v-if="error" class="error" role="alert" aria-live="assertive">{{ error }}</p>
-    <p v-if="loading" class="placeholder">Caricamento ordini...</p>
-    <p v-else-if="filteredItems.length === 0" class="placeholder">Nessun ordine per il filtro selezionato.</p>
+    <p v-if="loading" class="placeholder">{{ t('admin.orders.loading') }}</p>
+    <p v-else-if="filteredItems.length === 0" class="placeholder">{{ t('admin.orders.empty') }}</p>
 
     <section v-else class="list">
       <article class="order" v-for="order in filteredItems" :key="order.id">
         <div class="order__top">
           <div>
-            <h2>Ordine</h2>
+            <h2>{{ t('admin.orders.order') }}</h2>
           </div>
           <span :class="['status', order.status.toLowerCase()]">{{ order.status }}</span>
         </div>
 
         <div class="order__grid">
           <div>
-            <span class="label">Totale</span>
+            <span class="label">{{ t('admin.orders.labels.total') }}</span>
             <strong>{{ formatCurrency(order.total) }}</strong>
           </div>
           <div>
-            <span class="label">Articoli</span>
+            <span class="label">{{ t('admin.orders.labels.items') }}</span>
             <strong>{{ order.items.length }}</strong>
           </div>
           <div>
-            <span class="label">Sottomesso</span>
+            <span class="label">{{ t('admin.orders.labels.submitted') }}</span>
             <strong>{{ formatDate(order.submittedAt) }}</strong>
           </div>
           <div>
-            <span class="label">Completato</span>
+            <span class="label">{{ t('admin.orders.labels.completed') }}</span>
             <strong>{{ formatDate(order.doneAt) }}</strong>
           </div>
         </div>
 
         <div class="order__expedition">
-          <p class="items-title">Dati spedizione</p>
+          <p class="items-title">{{ t('admin.orders.expedition.title') }}</p>
           <div class="order__expedition-grid">
-            <p><strong>Nome:</strong> {{ formatExpeditionName(order) }}</p>
-            <p><strong>Email:</strong> {{ formatExpeditionValue(order.expeditionInfo?.mail) }}</p>
-            <p><strong>Telefono:</strong> {{ formatExpeditionValue(order.expeditionInfo?.phone) }}</p>
-            <p><strong>Nazione:</strong> {{ formatExpeditionValue(order.expeditionInfo?.nation) }}</p>
-            <p><strong>Citta:</strong> {{ formatExpeditionValue(order.expeditionInfo?.city) }}</p>
-            <p><strong>CAP:</strong> {{ formatExpeditionValue(order.expeditionInfo?.cap) }}</p>
+            <p><strong>{{ t('admin.orders.expedition.name') }}</strong> {{ formatExpeditionName(order) }}</p>
+            <p><strong>{{ t('admin.orders.expedition.email') }}</strong> {{ formatExpeditionValue(order.expeditionInfo?.mail) }}</p>
+            <p><strong>{{ t('admin.orders.expedition.phone') }}</strong> {{ formatExpeditionValue(order.expeditionInfo?.phone) }}</p>
+            <p><strong>{{ t('admin.orders.expedition.nation') }}</strong> {{ formatExpeditionValue(order.expeditionInfo?.nation) }}</p>
+            <p><strong>{{ t('admin.orders.expedition.city') }}</strong> {{ formatExpeditionValue(order.expeditionInfo?.city) }}</p>
+            <p><strong>{{ t('admin.orders.expedition.cap') }}</strong> {{ formatExpeditionValue(order.expeditionInfo?.cap) }}</p>
             <p class="order__expedition-address">
-              <strong>Indirizzo:</strong>
+              <strong>{{ t('admin.orders.expedition.address') }}</strong>
               {{ formatExpeditionValue(order.expeditionInfo?.address) }}
             </p>
             <p class="order__expedition-address">
-              <strong>Note consegna:</strong>
+              <strong>{{ t('admin.orders.expedition.deliveryNotes') }}</strong>
               {{ formatExpeditionValue(order.expeditionInfo?.deliveryNotes) }}
             </p>
           </div>
         </div>
 
         <div class="order__items">
-          <p class="items-title">Dettaglio articoli</p>
+          <p class="items-title">{{ t('admin.orders.itemsDetail') }}</p>
           <ul>
             <li v-for="item in order.items" :key="`${order.id}-${item.sku}`">
               {{ item.name }} ({{ item.sku }}) x{{ item.quantity }} · {{ formatCurrency(item.unitPrice) }}
@@ -278,14 +278,14 @@ function formatExpeditionName(order: Order): string {
             :disabled="updatingOrderId === order.id"
             @click="requestMarkDone(order)"
           >
-            {{ updatingOrderId === order.id ? 'Aggiornamento...' : 'Segna come DONE' }}
+            {{ updatingOrderId === order.id ? t('admin.orders.actions.updating') : t('admin.orders.actions.markDone') }}
           </button>
           <button
             class="btn btn--danger"
             :disabled="updatingOrderId === order.id"
             @click="requestMarkCancelled(order)"
           >
-            {{ updatingOrderId === order.id ? 'Aggiornamento...' : 'Segna come CANCELLED' }}
+            {{ updatingOrderId === order.id ? t('admin.orders.actions.updating') : t('admin.orders.actions.markCancelled') }}
           </button>
         </div>
       </article>
@@ -293,12 +293,12 @@ function formatExpeditionName(order: Order): string {
 
     <div v-if="orderToConfirmDone" class="modal-backdrop" role="presentation">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="done-confirm-title">
-        <h2 id="done-confirm-title" class="modal__title">Conferma aggiornamento</h2>
-        <p class="modal__text">Vuoi segnare questo ordine come DONE?</p>
+        <h2 id="done-confirm-title" class="modal__title">{{ t('admin.orders.modals.confirmUpdateTitle') }}</h2>
+        <p class="modal__text">{{ t('admin.orders.modals.confirmDoneText') }}</p>
         <div class="modal__actions">
-          <button class="btn btn--light" type="button" @click="closeDoneConfirmation">Annulla</button>
+          <button class="btn btn--light" type="button" @click="closeDoneConfirmation">{{ t('admin.orders.modals.cancel') }}</button>
           <button class="btn btn--primary" type="button" :disabled="updatingOrderId === orderToConfirmDone.id" @click="confirmMarkDone">
-            Conferma
+            {{ t('admin.orders.modals.confirm') }}
           </button>
         </div>
       </div>
@@ -306,10 +306,10 @@ function formatExpeditionName(order: Order): string {
 
     <div v-if="blockedActionMessage" class="modal-backdrop" role="presentation">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="blocked-action-title">
-        <h2 id="blocked-action-title" class="modal__title">Operazione non disponibile</h2>
+        <h2 id="blocked-action-title" class="modal__title">{{ t('admin.orders.modals.unavailableTitle') }}</h2>
         <p class="modal__text">{{ blockedActionMessage }}</p>
         <div class="modal__actions">
-          <button class="btn btn--primary" type="button" @click="closeBlockedActionModal">Chiudi</button>
+          <button class="btn btn--primary" type="button" @click="closeBlockedActionModal">{{ t('admin.orders.modals.close') }}</button>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /** Root shell that wires auth-aware realtime notifications and global layout. */
 import { onUnmounted, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { RouterView } from 'vue-router';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
@@ -9,7 +10,9 @@ import { notificationSocket } from '@/services/notificationSocket';
 import type { Notification } from '@/types/notification';
 import AppHeader from '@/components/layout/AppHeader.vue';
 import ToastHost from '@/components/notifications/ToastHost.vue';
+import LanguageSwitcher from '@/components/layout/LanguageSwitcher.vue';
 
+const { t } = useI18n();
 const auth = useAuthStore();
 const notifications = useNotificationStore();
 const cart = useCartStore();
@@ -38,7 +41,7 @@ watch(
 
     removeConnectionRestoredListener = notificationSocket.onConnectionRestored(() => {
       void Promise.all([notifications.refreshUnreadCount(), cart.refreshItemCount()]);
-      notifications.addToast('info', 'Connessione realtime ripristinata');
+      notifications.addToast('info', t('layout.realtime.reconnected'));
     });
 
     removeNotificationPushListener = notificationSocket.onPush((payload) => {
@@ -84,7 +87,8 @@ onUnmounted(() => {
 <template>
   <div class="app-shell">
     <AppHeader v-if="auth.isLoggedIn" />
-    <main class="app-content">
+    <LanguageSwitcher v-else class="app-shell__language-switcher" />
+    <main class="app-content" :class="{ 'app-content--no-header': !auth.isLoggedIn }">
       <RouterView />
     </main>
     <ToastHost />
@@ -101,5 +105,16 @@ onUnmounted(() => {
 .app-content {
   flex: 1;
   padding-top: var(--header-height);
+}
+
+.app-content--no-header {
+  padding-top: 0;
+}
+
+.app-shell__language-switcher {
+  position: fixed;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 100;
 }
 </style>

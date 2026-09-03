@@ -2,6 +2,7 @@
 /** CAD configurator view orchestrating environment, design, and BOM workflows. */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import type {
   Category,
   ColumnDesign,
@@ -16,6 +17,10 @@ import { cadCollabSocket, type CollabFieldPath, type CollabPresencePayload } fro
 import { catalogService } from '@/services/catalogService';
 import type { CatalogItem } from '@/types/catalog';
 import type { ConfigurationDto } from '@/types/cad';
+import { typeLabel } from '@/utils/catalogGrouping';
+import { getIntlLocale } from '@/i18n/format';
+
+const { t } = useI18n();
 
 const {
   selected,
@@ -163,7 +168,7 @@ async function startCollabSession(): Promise<void> {
         'Authorization': `Bearer ${localStorage.getItem('kompozer_token') ?? ''}`,
       },
     });
-    if (!res.ok) throw new Error(`Errore HTTP ${res.status}`);
+    if (!res.ok) throw new Error(t('cad.toasts.httpError', { status: res.status }));
     const data = await res.json() as { sessionCode: string; configurationId: string; participants: string[]; ownerId: string; lamport: number };
 
     collabSessionCode.value = data.sessionCode;
@@ -180,7 +185,7 @@ async function startCollabSession(): Promise<void> {
 
     showCollabModal.value = true;
   } catch (err) {
-    notifications.addToast('error', err instanceof Error ? err.message : 'Avvio sessione collaborativa fallito');
+    notifications.addToast('error', err instanceof Error ? err.message : t('cad.toasts.startSessionFailed'));
   } finally {
     startCollabLoading.value = false;
   }
@@ -190,7 +195,7 @@ async function startCollabSession(): Promise<void> {
 async function joinByCode(): Promise<void> {
   const code = joinCodeInput.value.trim().toUpperCase();
   if (!code) {
-    notifications.addToast('error', 'Inserisci un codice valido');
+    notifications.addToast('error', t('cad.toasts.invalidCode'));
     return;
   }
 
@@ -206,7 +211,7 @@ async function joinByCode(): Promise<void> {
         'Authorization': `Bearer ${localStorage.getItem('kompozer_token') ?? ''}`,
       },
     });
-    if (!res.ok) throw new Error(`Errore HTTP ${res.status}`);
+    if (!res.ok) throw new Error(t('cad.toasts.httpError', { status: res.status }));
     const data = await res.json() as { sessionCode: string; configurationId: string; participants: string[]; ownerId: string; lamport: number; snapshot: ConfigurationDto };
 
     collabSessionCode.value = data.sessionCode;
@@ -223,9 +228,9 @@ async function joinByCode(): Promise<void> {
 
     await syncFromSessionSnapshot(data.snapshot);
     joinCodeInput.value = '';
-    notifications.addToast('success', `Sessione collaborativa agganciata (${data.sessionCode})`);
+    notifications.addToast('success', t('cad.toasts.sessionJoined', { code: data.sessionCode }));
   } catch (err) {
-    notifications.addToast('error', err instanceof Error ? err.message : 'Join sessione collaborativa fallito');
+    notifications.addToast('error', err instanceof Error ? err.message : t('cad.toasts.joinFailed'));
   } finally {
     joinLoading.value = false;
   }
@@ -236,9 +241,9 @@ async function copySessionCode(): Promise<void> {
   if (!collabSessionCode.value) return;
   try {
     await navigator.clipboard.writeText(collabSessionCode.value);
-    notifications.addToast('success', `Codice ${collabSessionCode.value} copiato`);
+    notifications.addToast('success', t('cad.toasts.codeCopied', { code: collabSessionCode.value }));
   } catch {
-    notifications.addToast('error', 'Impossibile copiare il codice');
+    notifications.addToast('error', t('cad.toasts.copyFailed'));
   }
 }
 
@@ -268,7 +273,7 @@ onMounted(() => {
 
   removeCollabErrorListener = cadCollabSocket.onError((payload) => {
     const code = payload.error?.code || 'COLLAB_ERROR';
-    const message = payload.error?.message || 'Errore realtime CAD';
+    const message = payload.error?.message || t('cad.toasts.realtimeError');
     if (code === 'COLLAB_OPERATION_STALE' && selected.value && collabSessionCode.value) {
       void cadCollabSocket
         .requestSnapshot(selected.value.id, collabSessionCode.value)
@@ -302,7 +307,7 @@ onMounted(() => {
     if (payload.sessionCode !== collabSessionCode.value) return;
     collabOwnerDisconnected.value = true;
     collabConnected.value = false;
-    notifications.addToast('error', 'Il proprietario ha lasciato la sessione collaborativa');
+    notifications.addToast('error', t('cad.toasts.ownerLeft'));
   });
 
   void (async () => {
@@ -433,17 +438,17 @@ const canEditDesign = computed(() => {
 
 const collabStatusLabel = computed(() => {
   if (!selected.value) {
-    return 'Seleziona o crea una configurazione';
+    return t('cad.collab.statusSelectOrCreate');
   }
   if (collabOwnerDisconnected.value) {
-    return 'Il proprietario ha lasciato — sessione terminata';
+    return t('cad.collab.statusOwnerLeftEnded');
   }
   if (collabMode.value === 'shared') {
     return collabConnected.value
-      ? `Collaborazione attiva · ${collabParticipants.value.length} partecipanti · Codice: ${collabSessionCode.value}`
-      : 'Collaborazione — riconnessione in corso...';
+      ? t('cad.collab.statusActive', { count: collabParticipants.value.length, code: collabSessionCode.value })
+      : t('cad.collab.statusReconnecting');
   }
-  return 'Modalità solitaria';
+  return t('cad.collab.statusSolitary');
 });
 
 const isCollabOwner = computed(() =>
@@ -568,7 +573,7 @@ watch(
 );
 
 function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('it-IT', {
+  return new Intl.DateTimeFormat(getIntlLocale(), {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(new Date(iso));
@@ -606,7 +611,7 @@ async function broadcastCollabOperation(
 
 /** Formats BOM or pricing values using localized euro currency. */
 function formatPrice(value: number): string {
-  return new Intl.NumberFormat('it-IT', {
+  return new Intl.NumberFormat(getIntlLocale(), {
     style: 'currency',
     currency: 'EUR',
     maximumFractionDigits: 2,
@@ -622,26 +627,6 @@ function syncDraftLengths(nextCount: number): void {
 /** Normalizes catalog component type values for safe comparisons. */
 function normalizedType(item: CatalogItem): string {
   return String(item.Type ?? '').trim().toUpperCase();
-}
-
-/** Maps backend component type identifiers to user-facing labels. */
-function formatComponentTypeLabel(componentType?: string): string {
-  switch (componentType) {
-    case 'RIPIANO':
-      return 'Ripiano';
-    case 'RIPIANO_BORDO':
-      return 'Ripiano Bordo';
-    case 'RIPIANO_INTERMEDIO':
-      return 'Ripiano Intermezzo';
-    case 'PIEDINO':
-      return 'Piedino';
-    case 'MONTANTE':
-      return 'Montante';
-    case 'TERMINALE':
-      return 'Terminale';
-    default:
-      return componentType || 'Componente';
-  }
 }
 
 /** Deduplicates and sorts numeric values in ascending order. */
@@ -804,28 +789,28 @@ function effectiveOptions(columnIndex: number): NextOption[] {
 function optionReason(option: NextOption): string {
   switch (option.reasonCode) {
     case 'INVALID_GAP':
-      return 'Altezza pezzo non valida';
+      return t('cad.optionReason.INVALID_GAP');
     case 'NON_INCREASING_LEVEL':
-      return 'Il nuovo livello deve essere maggiore del precedente';
+      return t('cad.optionReason.NON_INCREASING_LEVEL');
     case 'MAX_HEIGHT_EXCEEDED':
-      return 'Supera l altezza massima configurata';
+      return t('cad.optionReason.MAX_HEIGHT_EXCEEDED');
     case 'ADJACENCY_CONFLICT':
-      return 'Conflitto con la colonna adiacente (stessa quota)';
+      return t('cad.optionReason.ADJACENCY_CONFLICT');
     case 'LOOK_AHEAD_BLOCKED':
-      return 'Questa scelta blocca i passi successivi';
+      return t('cad.optionReason.LOOK_AHEAD_BLOCKED');
     case 'INVALID_FIRST_LEVEL':
-      return 'Il primo livello deve corrispondere a un piedino di catalogo';
+      return t('cad.optionReason.INVALID_FIRST_LEVEL');
     case 'INVALID_SEGMENT':
-      return 'La spina condivisa richiede un montante non disponibile a catalogo';
+      return t('cad.optionReason.INVALID_SEGMENT');
     case 'NO_TERMINAL_FIT':
-      return 'Non esiste un terminale compatibile con l altezza residua';
+      return t('cad.optionReason.NO_TERMINAL_FIT');
     case 'SPINE_CONFLICT':
-      return 'Questa scelta viola i vincoli della spina condivisa';
+      return t('cad.optionReason.SPINE_CONFLICT');
     default:
       if (option.reason && option.reason.trim().length > 0) {
         return option.reason;
       }
-      return 'Opzione non consentita';
+      return t('cad.optionReason.default');
   }
 }
 
@@ -852,14 +837,14 @@ function blockedReasons(columnIndex: number): string[] {
 function blockedReasonsSummary(columnIndex: number): string {
   const reasons = blockedReasons(columnIndex);
   if (reasons.length === 0) {
-    return 'Nessuna scelta valida';
+    return t('cad.designStep.noValidChoiceShort');
   }
 
   const MAX_REASONS = 3;
   const visible = reasons.slice(0, MAX_REASONS);
   const hiddenCount = reasons.length - visible.length;
   return hiddenCount > 0
-    ? `${visible.join(' · ')} · +${hiddenCount} altre`
+    ? `${visible.join(' · ')} · ${t('cad.moreReasonsCount', { count: hiddenCount })}`
     : visible.join(' · ');
 }
 
@@ -992,18 +977,18 @@ function stepActive(index: number): boolean {
   <div class="cad-workspace">
     <header class="cad-header">
       <div>
-        <h1>Configuratore CAD</h1>
-        <p class="subtitle">Workspace di design con schema grafico indipendente</p>
+        <h1>{{ t('cad.header.title') }}</h1>
+        <p class="subtitle">{{ t('cad.header.subtitle') }}</p>
       </div>
       <div class="header-actions">
-        <button class="btn btn--light" :disabled="detailLoading || !selected" @click="reloadSelected">Aggiorna dettaglio</button>
-        <button class="btn btn--light bom-mobile-btn" @click="showBomMobile = true">Distinta componenti</button>
+        <button class="btn btn--light" :disabled="detailLoading || !selected" @click="reloadSelected">{{ t('cad.header.refreshDetail') }}</button>
+        <button class="btn btn--light bom-mobile-btn" @click="showBomMobile = true">{{ t('cad.bom.title') }}</button>
       </div>
     </header>
 
     <section v-if="selected" class="collab-strip" aria-live="polite">
       <div>
-        <p class="mini muted">Sessione</p>
+        <p class="mini muted">{{ t('cad.collab.sessionLabel') }}</p>
         <strong>{{ collabStatusLabel }}</strong>
       </div>
       <div class="collab-actions">
@@ -1014,26 +999,26 @@ function stepActive(index: number): boolean {
             :disabled="!selected || startCollabLoading"
             @click="startCollabSession"
           >
-            {{ startCollabLoading ? 'Avvio...' : 'Collabora' }}
+            {{ startCollabLoading ? t('cad.collab.starting') : t('cad.collab.start') }}
           </button>
         </template>
         <!-- Shared: show code + stop -->
         <template v-if="collabMode === 'shared' && !collabOwnerDisconnected">
           <button class="btn btn--light btn--small" @click="showCollabModal = true">
-            Codice: <strong>{{ collabSessionCode }}</strong>
+            {{ t('cad.collab.codePrefix') }} <strong>{{ collabSessionCode }}</strong>
           </button>
           <button
             v-if="isCollabOwner"
             class="btn btn--light btn--small"
             @click="() => { if (selected && collabSessionCode) { void cadCollabSocket.leaveSession(selected.id, collabSessionCode); resetCollabState(); } }"
           >
-            Termina sessione
+            {{ t('cad.collab.endSession') }}
           </button>
         </template>
         <!-- Owner disconnected -->
         <template v-if="collabOwnerDisconnected">
-          <span class="muted mini">⚠️ Sessione terminata</span>
-          <button class="btn btn--light btn--small" @click="resetCollabState">Torna a solitaria</button>
+          <span class="muted mini">{{ t('cad.collab.endedWarning') }}</span>
+          <button class="btn btn--light btn--small" @click="resetCollabState">{{ t('cad.collab.backToSolitary') }}</button>
         </template>
       </div>
     </section>
@@ -1042,34 +1027,34 @@ function stepActive(index: number): boolean {
 
     <div class="cad-layout">
       <main class="center-panel">
-        <p v-if="detailLoading" class="placeholder">Caricamento dettaglio...</p>
+        <p v-if="detailLoading" class="placeholder">{{ t('cad.header.loadingDetail') }}</p>
         <section v-else-if="!selected" class="create-card">
-          <h3>Crea nuova configurazione</h3>
-          <p class="muted">Puoi iniziare da qui o entrare in una sessione collaborativa esistente.</p>
+          <h3>{{ t('cad.create.title') }}</h3>
+          <p class="muted">{{ t('cad.create.hint') }}</p>
           <div class="actions-row">
             <label class="field" style="flex: 1; min-width: 220px;">
-              <span class="field__label">Nome configurazione</span>
-              <input v-model="createName" class="field__input" type="text" placeholder="Nuova configurazione" />
+              <span class="field__label">{{ t('cad.create.nameLabel') }}</span>
+              <input v-model="createName" class="field__input" type="text" :placeholder="t('cad.create.namePlaceholder')" />
             </label>
             <button class="btn btn--primary" :disabled="createLoading" @click="createFromCad">
-              {{ createLoading ? 'Creazione...' : 'Crea e apri configuratore' }}
+              {{ createLoading ? t('cad.create.creating') : t('cad.create.createButton') }}
             </button>
           </div>
 
           <div class="actions-row" style="margin-top: var(--space-3);">
             <label class="field" style="flex: 1; min-width: 220px;">
-              <span class="field__label">Codice sessione collaborativa</span>
+              <span class="field__label">{{ t('cad.create.joinCodeLabel') }}</span>
               <input
                 v-model="joinCodeInput"
                 class="field__input"
                 type="text"
-                placeholder="es. A3KP7X"
+                :placeholder="t('cad.create.joinCodePlaceholder')"
                 maxlength="6"
                 style="text-transform: uppercase;"
               />
             </label>
             <button class="btn btn--light" :disabled="joinLoading" @click="joinFromCad">
-              {{ joinLoading ? 'Accesso...' : 'Entra con codice' }}
+              {{ joinLoading ? t('cad.create.joining') : t('cad.create.joinButton') }}
             </button>
           </div>
         </section>
@@ -1078,68 +1063,68 @@ function stepActive(index: number): boolean {
           <section class="stepper">
             <article class="step" :class="{ 'step--done': stepDone(0), 'step--active': stepActive(0) }">
               <span class="step__index">1</span>
-              <span class="step__label">Ambiente</span>
+              <span class="step__label">{{ t('cad.steps.environment') }}</span>
             </article>
             <article class="step" :class="{ 'step--done': stepDone(1), 'step--active': stepActive(1) }">
               <span class="step__index">2</span>
-              <span class="step__label">Categoria</span>
+              <span class="step__label">{{ t('cad.steps.category') }}</span>
             </article>
             <article class="step" :class="{ 'step--done': stepDone(2), 'step--active': stepActive(2) }">
               <span class="step__index">3</span>
-              <span class="step__label">Colonne</span>
+              <span class="step__label">{{ t('cad.steps.columns') }}</span>
             </article>
             <article class="step" :class="{ 'step--done': stepDone(3), 'step--active': stepActive(3) }">
               <span class="step__index">4</span>
-              <span class="step__label">Design</span>
+              <span class="step__label">{{ t('cad.steps.design') }}</span>
             </article>
             <article class="step" :class="{ 'step--done': stepDone(4), 'step--active': stepActive(4) }">
               <span class="step__index">5</span>
-              <span class="step__label">Finalizza</span>
+              <span class="step__label">{{ t('cad.steps.finalize') }}</span>
             </article>
           </section>
 
           <section class="meta-row">
-            <div><span class="muted">Configurazione</span><strong>{{ selected.name }}</strong></div>
-            <div><span class="muted">Stato</span><strong>{{ selected.status }}</strong></div>
-            <div><span class="muted">Ultimo update</span><strong>{{ formatDate(selected.updatedAt) }}</strong></div>
+            <div><span class="muted">{{ t('cad.meta.configuration') }}</span><strong>{{ selected.name }}</strong></div>
+            <div><span class="muted">{{ t('cad.meta.status') }}</span><strong>{{ selected.status }}</strong></div>
+            <div><span class="muted">{{ t('cad.meta.lastUpdate') }}</span><strong>{{ formatDate(selected.updatedAt) }}</strong></div>
           </section>
 
           <section class="controls-section">
             <article class="control-card">
-              <h3>Step 1 - Ambiente</h3>
+              <h3>{{ t('cad.environmentStep.title') }}</h3>
               <div class="two-cols">
                 <label class="field">
-                  <span class="field__label">Larghezza max (mm)</span>
+                  <span class="field__label">{{ t('cad.environmentStep.maxWidth') }}</span>
                   <input v-model.number="environmentDraft.maxWidthMm" class="field__input" type="number" min="1" />
                 </label>
                 <label class="field">
-                  <span class="field__label">Altezza max (mm)</span>
+                  <span class="field__label">{{ t('cad.environmentStep.maxHeight') }}</span>
                   <input v-model.number="environmentDraft.maxHeightMm" class="field__input" type="number" min="1" />
                 </label>
                 <label class="field">
-                  <span class="field__label">Larghezza min (mm)</span>
+                  <span class="field__label">{{ t('cad.environmentStep.minWidth') }}</span>
                   <input v-model.number="environmentDraft.minWidthMm" class="field__input" type="number" min="1" />
                 </label>
                 <label class="field">
-                  <span class="field__label">Altezza min (mm)</span>
+                  <span class="field__label">{{ t('cad.environmentStep.minHeight') }}</span>
                   <input v-model.number="environmentDraft.minHeightMm" class="field__input" type="number" min="1" />
                 </label>
               </div>
               <button class="btn btn--light" :disabled="!canEditEnvironment || environmentLoading" @click="saveEnvironment">
-                {{ environmentLoading ? 'Salvataggio...' : 'Salva ambiente' }}
+                {{ environmentLoading ? t('cad.environmentStep.saving') : t('cad.environmentStep.save') }}
               </button>
             </article>
 
             <article class="control-card">
-              <h3>Step 2 - Categoria</h3>
+              <h3>{{ t('cad.categoryStep.title') }}</h3>
               <label class="field">
-                <span class="field__label">Categoria</span>
+                <span class="field__label">{{ t('cad.categoryStep.label') }}</span>
                 <select
                   class="field__input"
                   v-model="categoryDraft"
                   :disabled="!canEditCategory || categoryLoading"
                 >
-                  <option disabled value="">Seleziona categoria</option>
+                  <option disabled value="">{{ t('cad.categoryStep.placeholder') }}</option>
                   <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
                 </select>
               </label>
@@ -1148,14 +1133,14 @@ function stepActive(index: number): boolean {
                 :disabled="!canEditCategory || categoryLoading || !canSubmitCategory"
                 @click="submitCategory"
               >
-                {{ categoryLoading ? 'Salvataggio...' : 'Salva categoria' }}
+                {{ categoryLoading ? t('cad.categoryStep.saving') : t('cad.categoryStep.save') }}
               </button>
             </article>
 
             <article class="control-card">
-              <h3>Step 3 - Piano colonne</h3>
+              <h3>{{ t('cad.columnsStep.title') }}</h3>
               <label class="field">
-                <span class="field__label">Numero colonne (1-8)</span>
+                <span class="field__label">{{ t('cad.columnsStep.countLabel') }}</span>
                 <input
                   :value="columnCountDraft"
                   class="field__input"
@@ -1166,13 +1151,13 @@ function stepActive(index: number): boolean {
                   @change="syncDraftLengths(Number(($event.target as HTMLInputElement).value))"
                 />
               </label>
-              <p class="mini muted" v-if="catalogLoading">Caricamento larghezze da catalogo...</p>
+              <p class="mini muted" v-if="catalogLoading">{{ t('cad.columnsStep.loadingWidths') }}</p>
               <p class="mini muted" v-else-if="availableShelfWidths.length === 0">
-                Nessun ripiano disponibile per la categoria selezionata.
+                {{ t('cad.columnsStep.noShelvesAvailable') }}
               </p>
               <div class="column-widths">
                 <label v-for="(_, i) in columnCountDraft" :key="`col-width-${i}`" class="field">
-                  <span class="field__label">Colonna {{ i + 1 }}</span>
+                  <span class="field__label">{{ t('cad.columnsStep.columnLabel', { n: i + 1 }) }}</span>
                   <select
                     v-model.number="shelfWidthsDraft[i]"
                     class="field__input"
@@ -1189,25 +1174,25 @@ function stepActive(index: number): boolean {
                 :disabled="!canEditColumns || columnPlanLoading || availableShelfWidths.length === 0"
                 @click="saveColumnPlan"
               >
-                {{ columnPlanLoading ? 'Salvataggio...' : 'Salva piano colonne' }}
+                {{ columnPlanLoading ? t('cad.columnsStep.saving') : t('cad.columnsStep.save') }}
               </button>
             </article>
 
             <article class="control-card">
-              <h3>Step 4 - Costruzione livelli (+ / -)</h3>
-              <p class="mini muted">Spessore ripiano fisso: {{ shelfThicknessDraft }} mm</p>
+              <h3>{{ t('cad.designStep.title') }}</h3>
+              <p class="mini muted">{{ t('cad.designStep.fixedThickness', { mm: shelfThicknessDraft }) }}</p>
 
               <div v-if="isIntelligente" class="intelligente-banner" role="note">
-                <strong>Modalità INTELLIGENTE</strong> — “+ Livello” aggiunge lo stesso ripiano a <em>tutte</em> le colonne simultaneamente. Le colonne esterne usano ripiani <strong>BORDO</strong>, quelle interne <strong>INTERMEZZO</strong>.
+                <span v-html="t('cad.designStep.intelligenteBanner')"></span>
                 <span v-if="!columnsAligned" class="alignment-warning" role="alert">
-                  ⚠️ Livelli non allineati tra colonne. Completa il design su tutte le colonne prima di finalizzare.
+                  ⚠️ {{ t('cad.designStep.alignmentWarning') }}
                 </span>
               </div>
 
               <div class="design-columns">
                 <article v-for="column in canvasColumns" :key="`design-col-${column.index}`" class="design-column">
                   <header>
-                    <strong>Colonna {{ column.index + 1 }}</strong>
+                    <strong>{{ t('cad.designStep.columnLabel', { n: column.index + 1 }) }}</strong>
                     <span>{{ column.shelfWidthMm }}mm</span>
                     <span
                       v-if="isIntelligente"
@@ -1216,19 +1201,23 @@ function stepActive(index: number): boolean {
                     >{{ columnRoles.get(column.index) ?? '' }}</span>
                   </header>
 
-                  <p class="mini muted">Livelli correnti: {{ column.levels.join(', ') || 'nessuno' }}</p>
+                  <p class="mini muted">{{ t('cad.designStep.currentLevels', { levels: column.levels.length > 0 ? column.levels.join(', ') : t('cad.designStep.none') }) }}</p>
                   <p class="mini muted">
-                    {{ column.levels.length === 0 ? 'Primo livello: scegli un PIEDINO o un ponte verso le colonne adiacenti' : 'Livello successivo: scegli un MONTANTE o un ponte' }}
+                    {{
+                      column.levels.length === 0
+                        ? t('cad.designStep.firstLevelHint', { type: typeLabel('PIEDINO') })
+                        : t('cad.designStep.nextLevelHint', { type: typeLabel('MONTANTE') })
+                    }}
                   </p>
                   <p v-if="!isIntelligente && hasBridgeOption(column.index)" class="mini bridge-hint">
-                    🌉 Puoi creare un <strong>ponte</strong>: unire questa colonna alle adiacenti scavalcando un gap più alto dei montanti singoli.
+                    🌉 <span v-html="t('cad.designStep.bridgeHint')"></span>
                   </p>
 
                   <label class="field" v-if="effectiveOptions(column.index).length > 0">
-                    <span class="field__label">Altezza pezzo da aggiungere</span>
+                    <span class="field__label">{{ t('cad.designStep.pieceHeightLabel') }}</span>
                     <select
                       class="field__input field__input--column-select"
-                      :aria-label="`Seleziona altezza da aggiungere per colonna ${column.index + 1}`"
+                      :aria-label="t('cad.designStep.selectHeightAriaLabel', { n: column.index + 1 })"
                       :disabled="!canEditDesign || designLoading"
                       v-model.number="selectedGapByColumn[column.index]"
                     >
@@ -1238,34 +1227,34 @@ function stepActive(index: number): boolean {
                         :value="option.allowed ? option.heightMm : null"
                         :disabled="!option.allowed"
                       >
-                          {{ option.heightMm }}mm{{ option.kind === 'bridge' ? ' · ponte' : '' }}{{ option.allowed ? '' : ` - ${option.reasonCode || 'NON_CONSENTITA'}` }}
+                          {{ option.heightMm }}mm{{ option.kind === 'bridge' ? t('cad.designStep.bridgeSuffix') : '' }}{{ option.allowed ? '' : ` - ${option.reasonCode || t('cad.designStep.notAllowedFallback')}` }}
                       </option>
                     </select>
                   </label>
 
                   <p class="mini muted" v-if="effectiveOptions(column.index).length === 0">
-                    Nessuna opzione disponibile dal backend per questa colonna.
+                    {{ t('cad.designStep.noOptionsAvailable') }}
                   </p>
                   <p class="mini blocked-reasons" v-else-if="!hasAllowedOption(column.index)">
-                    Nessuna scelta valida: {{ blockedReasonsSummary(column.index) }}
+                    {{ t('cad.designStep.noValidChoiceWithReasons', { reasons: blockedReasonsSummary(column.index) }) }}
                   </p>
 
                   <div class="actions-row">
                     <button
                       class="btn btn--primary btn--small"
-                      :aria-label="`Aggiungi livello alla colonna ${column.index + 1}`"
+                      :aria-label="t('cad.designStep.addLevelAriaLabel', { n: column.index + 1 })"
                       :disabled="!canEditDesign || designLoading || !selectedGapByColumn[column.index]"
                       @click="addShelf(column.index)"
                     >
-                      + Livello
+                      {{ t('cad.designStep.addLevel') }}
                     </button>
                     <button
                       class="btn btn--light btn--small"
-                      :aria-label="`Rimuovi ultimo livello dalla colonna ${column.index + 1}`"
+                      :aria-label="t('cad.designStep.removeLastAriaLabel', { n: column.index + 1 })"
                       :disabled="!canEditDesign || designLoading || column.levels.length === 0"
                       @click="removeShelf(column.index)"
                     >
-                      - Ultimo
+                      {{ t('cad.designStep.removeLast') }}
                     </button>
                   </div>
                 </article>
@@ -1273,11 +1262,11 @@ function stepActive(index: number): boolean {
             </article>
 
             <article class="control-card finalize-card">
-              <h3>Step 5 - Finalizzazione</h3>
+              <h3>{{ t('cad.finalizeStep.title') }}</h3>
               <button class="btn btn--primary" :disabled="!canFinalize || finalizeLoading" @click="finalizeSelected">
-                {{ finalizeLoading ? 'Finalizzazione...' : 'Finalizza e invia al carrello' }}
+                {{ finalizeLoading ? t('cad.finalizeStep.finalizing') : t('cad.finalizeStep.finalizeButton') }}
               </button>
-              <p v-if="!canFinalize" class="hint">Finalizzazione disponibile solo in READY_FOR_FINALIZE.</p>
+              <p v-if="!canFinalize" class="hint">{{ t('cad.finalizeStep.hint') }}</p>
             </article>
           </section>
         </template>
@@ -1287,8 +1276,8 @@ function stepActive(index: number): boolean {
         <section class="canvas-section">
           <header class="canvas-section__header">
             <div>
-              <h3>Schema grafico</h3>
-              <p class="mini muted">Profilo laterale schematico della struttura corrente</p>
+              <h3>{{ t('cad.schema.title') }}</h3>
+              <p class="mini muted">{{ t('cad.schema.subtitle') }}</p>
             </div>
             <span class="canvas-size">{{ environmentDraft.maxWidthMm }} x {{ environmentDraft.maxHeightMm }} mm</span>
           </header>
@@ -1327,14 +1316,14 @@ function stepActive(index: number): boolean {
       </aside>
 
       <aside class="right-panel" v-if="selected">
-        <h2>Distinta componenti</h2>
-        <p class="muted">Anteprima aggiornata in tempo reale dal backend</p>
+        <h2>{{ t('cad.bom.title') }}</h2>
+        <p class="muted">{{ t('cad.bom.subtitle') }}</p>
 
         <div class="bom-list" v-if="(selected.bom?.length ?? 0) > 0">
           <article class="bom-row" v-for="item in selected.bom" :key="`${item.sku}-${item.componentType || 'GEN'}`">
             <div>
               <strong>{{ item.name }}</strong>
-              <p class="mini">SKU: {{ item.sku }} · {{ formatComponentTypeLabel(item.componentType) }}</p>
+              <p class="mini">{{ t('cad.bom.skuLine', { sku: item.sku, type: item.componentType ? typeLabel(item.componentType) : t('cad.bom.componentFallback') }) }}</p>
             </div>
             <div class="bom-row__right">
               <span>x{{ item.quantity }}</span>
@@ -1344,10 +1333,10 @@ function stepActive(index: number): boolean {
             </div>
           </article>
         </div>
-        <p v-else class="placeholder">Nessun componente disponibile: completa i passaggi di design.</p>
+        <p v-else class="placeholder">{{ t('cad.bom.empty') }}</p>
 
         <footer class="total-box">
-          <span>Totale preview</span>
+          <span>{{ t('cad.bom.totalPreview') }}</span>
           <strong>{{ formatPrice(totalPrice) }}</strong>
         </footer>
       </aside>
@@ -1356,14 +1345,14 @@ function stepActive(index: number): boolean {
     <div v-if="showBomMobile" class="modal-overlay" @click.self="showBomMobile = false">
       <article class="modal-card">
         <header class="modal-header">
-          <h3>Distinta componenti</h3>
-          <button class="btn btn--light btn--small" @click="showBomMobile = false">Chiudi</button>
+          <h3>{{ t('cad.bom.title') }}</h3>
+          <button class="btn btn--light btn--small" @click="showBomMobile = false">{{ t('cad.collab.modal.close') }}</button>
         </header>
         <div class="bom-list" v-if="(selected?.bom?.length ?? 0) > 0">
           <article class="bom-row" v-for="item in selected?.bom" :key="`mob-${item.sku}-${item.componentType || 'GEN'}`">
             <div>
               <strong>{{ item.name }}</strong>
-              <p class="mini">SKU: {{ item.sku }} · {{ formatComponentTypeLabel(item.componentType) }}</p>
+              <p class="mini">{{ t('cad.bom.skuLine', { sku: item.sku, type: item.componentType ? typeLabel(item.componentType) : t('cad.bom.componentFallback') }) }}</p>
             </div>
             <div class="bom-row__right">
               <span>x{{ item.quantity }}</span>
@@ -1373,9 +1362,9 @@ function stepActive(index: number): boolean {
             </div>
           </article>
         </div>
-        <p v-else class="placeholder">Nessun componente disponibile.</p>
+        <p v-else class="placeholder">{{ t('cad.bom.emptyMobile') }}</p>
         <footer class="total-box">
-          <span>Totale preview</span>
+          <span>{{ t('cad.bom.totalPreview') }}</span>
           <strong>{{ formatPrice(totalPrice) }}</strong>
         </footer>
       </article>
@@ -1384,38 +1373,38 @@ function stepActive(index: number): boolean {
     <div v-if="showCollabModal" class="modal-overlay" @click.self="showCollabModal = false">
       <article class="modal-card modal-card--narrow">
         <header class="modal-header">
-          <h3>Sessione collaborativa attiva</h3>
-          <button class="btn btn--light btn--small" @click="showCollabModal = false">Chiudi</button>
+          <h3>{{ t('cad.collab.modal.title') }}</h3>
+          <button class="btn btn--light btn--small" @click="showCollabModal = false">{{ t('cad.collab.modal.close') }}</button>
         </header>
-        <p>Condividi questo codice con chi vuoi far partecipare:</p>
+        <p>{{ t('cad.collab.modal.shareInstruction') }}</p>
         <p class="collab-code-display">{{ collabSessionCode }}</p>
-        <p class="mini muted">Sia utenti registrati che ospiti possono usarlo. La sessione termina quando esci dalla configurazione.</p>
+        <p class="mini muted">{{ t('cad.collab.modal.note') }}</p>
         <div class="actions-row">
-          <button class="btn btn--primary" @click="copySessionCode">Copia codice</button>
+          <button class="btn btn--primary" @click="copySessionCode">{{ t('cad.collab.modal.copyCode') }}</button>
         </div>
       </article>
     </div>
 
     <div v-if="showResetConfirm" class="modal-overlay" @click.self="cancelReset">
       <article class="modal-card modal-card--narrow">
-        <h3>Conferma reset progetto</h3>
+        <h3>{{ t('cad.resetConfirm.title') }}</h3>
         <p>
-          Cambiare ambiente o categoria dopo la definizione colonne resetta design e componenti. Vuoi continuare?
+          {{ t('cad.resetConfirm.message') }}
         </p>
         <div class="actions-row">
-          <button class="btn btn--light" @click="cancelReset">Annulla</button>
-          <button class="btn btn--primary" @click="confirmResetStepOne">Continua</button>
+          <button class="btn btn--light" @click="cancelReset">{{ t('cad.resetConfirm.cancel') }}</button>
+          <button class="btn btn--primary" @click="confirmResetStepOne">{{ t('cad.resetConfirm.continue') }}</button>
         </div>
       </article>
     </div>
 
     <div v-if="showResetFinalConfirm" class="modal-overlay" @click.self="cancelReset">
       <article class="modal-card modal-card--narrow">
-        <h3>Seconda conferma richiesta</h3>
-        <p>Confermi definitivamente il reset dei passaggi successivi?</p>
+        <h3>{{ t('cad.resetFinalConfirm.title') }}</h3>
+        <p>{{ t('cad.resetFinalConfirm.message') }}</p>
         <div class="actions-row">
-          <button class="btn btn--light" @click="cancelReset">Annulla</button>
-          <button class="btn btn--primary" @click="confirmResetStepTwo">Conferma reset</button>
+          <button class="btn btn--light" @click="cancelReset">{{ t('cad.resetFinalConfirm.cancel') }}</button>
+          <button class="btn btn--primary" @click="confirmResetStepTwo">{{ t('cad.resetFinalConfirm.confirm') }}</button>
         </div>
       </article>
     </div>

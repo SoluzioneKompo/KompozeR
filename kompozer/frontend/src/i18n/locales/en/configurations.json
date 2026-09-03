@@ -1,0 +1,51 @@
+{
+  "title": "My Configurations",
+  "subtitle": "Quick overview and fast access to the CAD configurator",
+  "actions": {
+    "refresh": "Refresh",
+    "createAndOpen": "Create and open in CAD",
+    "creating": "Creating...",
+    "openInCad": "Open in CAD",
+    "reorder": "Reorder",
+    "reordering": "Reordering..."
+  },
+  "metrics": {
+    "total": "Total",
+    "draft": "Drafts",
+    "readyForFinalize": "Ready to finalize",
+    "finalized": "Finalized",
+    "inProgress": "In progress"
+  },
+  "placeholders": {
+    "loadingDashboard": "Loading dashboard...",
+    "loadingList": "Loading list...",
+    "empty": "You don't have any saved configurations yet."
+  },
+  "quickCreate": {
+    "title": "Quick new configuration",
+    "defaultName": "New configuration",
+    "nameLabel": "Name",
+    "nameAriaLabel": "Configuration name",
+    "namePlaceholder": "E.g. Study wall",
+    "categoryLabel": "Starting category",
+    "categoryAriaLabel": "Configuration starting category",
+    "categoryNone": "None",
+    "createAriaLabel": "Create a new configuration and open it in CAD"
+  },
+  "recent": {
+    "title": "Recent configurations",
+    "noCategory": "No category",
+    "updatedAt": "Updated: {date}",
+    "reorderAriaLabel": "Reorder configuration {name}",
+    "openAriaLabel": "Open configuration {name} in CAD"
+  },
+  "errors": {
+    "loadDashboard": "Failed to load configurations dashboard",
+    "create": "Failed to create configuration",
+    "reorder": "Failed to reorder configuration"
+  },
+  "toasts": {
+    "created": "Configuration created: {name}",
+    "itemsAddedToCart": "Items from \"{name}\" added to cart"
+  }
+}

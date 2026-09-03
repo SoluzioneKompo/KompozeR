@@ -1,6 +1,7 @@
 /** Shared category/type grouping logic for catalog browsing and admin views. */
 import type { CatalogItem, ComponentType } from '@/types/catalog';
 import type { Category } from '@/types/cad';
+import { i18n } from '@/i18n';
 
 export interface TypeGroup {
   key: string;
@@ -17,32 +18,28 @@ export interface CategoryGroup {
 
 export const CATEGORY_ORDER: Category[] = ['TONDO', 'QUADRO', 'KUBE', 'INTELLIGENTE'];
 
-export const CATEGORY_LABELS: Record<Category, string> = {
-  TONDO: 'Tondo',
-  QUADRO: 'Quadro',
-  KUBE: 'Kube',
-  INTELLIGENTE: 'Intelligente',
-};
+/** Translated display label for a catalog category — reactive to the active locale. */
+export function categoryLabel(category: Category): string {
+  return i18n.global.t(`catalog.category.${category}`);
+}
 
-export const TYPE_LABELS: Record<ComponentType, string> = {
-  PIEDINO: 'Piedino',
-  MONTANTE: 'Montante',
-  RIPIANO: 'Ripiano',
-  TERMINALE: 'Terminale',
-  MENSOLA: 'Mensola',
-  RIPIANO_BORDO: 'Ripiano bordo',
-  RIPIANO_INTERMEDIO: 'Ripiano intermedio',
-};
+/** Translated display label for a component type — reactive to the active locale. */
+export function typeLabel(type: ComponentType): string {
+  return i18n.global.t(`catalog.componentType.${type}`);
+}
 
 const HEIGHT_ONLY_TYPES: ComponentType[] = ['PIEDINO', 'MONTANTE', 'TERMINALE'];
 
 export function dimensionLabel(item: CatalogItem): string {
   if (!item.dimensions) return item.name;
   const { widthMm, heightMm, depthMm } = item.dimensions;
+  const h = i18n.global.t('catalog.dimension.height');
   if (HEIGHT_ONLY_TYPES.includes(item.Type)) {
-    return `H${heightMm} mm`;
+    return `${h}${heightMm} mm`;
   }
-  return `L${widthMm} × H${heightMm} × P${depthMm} mm`;
+  const w = i18n.global.t('catalog.dimension.width');
+  const d = i18n.global.t('catalog.dimension.depth');
+  return `${w}${widthMm} × ${h}${heightMm} × ${d}${depthMm} mm`;
 }
 
 export function volume(item: CatalogItem): number {
@@ -70,12 +67,12 @@ export function groupCatalog(items: CatalogItem[]): CategoryGroup[] {
       .map(([type, variants]) => ({
         key: `${cat}__${type}`,
         type,
-        label: TYPE_LABELS[type] ?? type,
+        label: typeLabel(type),
         variants: [...variants].sort((a, b) => volume(a) - volume(b)),
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
 
-    groups.push({ category: cat, label: CATEGORY_LABELS[cat], types });
+    groups.push({ category: cat, label: categoryLabel(cat), types });
   }
 
   return groups;

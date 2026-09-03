@@ -1,0 +1,38 @@
+{
+  "title": "Payment",
+  "orderLabel": "Order {orderId}",
+  "loadingOrder": "Loading order...",
+  "summary": {
+    "title": "Summary",
+    "totalDue": "Total due"
+  },
+  "methods": {
+    "title": "Choose a payment method",
+    "paypal": "PayPal",
+    "card": "Credit/debit card",
+    "starting": "Starting payment..."
+  },
+  "status": {
+    "title": "Payment status",
+    "methodLabel": "Method: {method}",
+    "methodCard": "Card",
+    "pending": "Waiting for confirmation from the provider ({reference}).",
+    "completed": "Payment completed.",
+    "failed": "Payment failed"
+  },
+  "dev": {
+    "note": "PayPal/Card integration is not yet active: simulate here the outcome the provider would send.",
+    "simulateSuccess": "Simulate successful payment",
+    "simulateFailure": "Simulate failed payment"
+  },
+  "backToCatalog": "Back to catalog",
+  "errors": {
+    "loadOrder": "Failed to load order",
+    "startPayment": "Failed to start payment",
+    "confirmPayment": "Failed to confirm payment"
+  },
+  "toasts": {
+    "completed": "Payment completed",
+    "failed": "Payment failed"
+  }
+}

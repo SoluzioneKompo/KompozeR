@@ -1,0 +1,157 @@
+{
+  "catalog": {
+    "title": "Catalogo Admin",
+    "subtitle": "Gestisci il catalogo mantenendo separata la vista acquisto.",
+    "addComponentAria": "Aggiungi componente",
+    "refresh": "Aggiorna",
+    "modal": {
+      "addComponent": "Aggiungi componente",
+      "close": "Chiudi",
+      "requiredNote": "campi obbligatori",
+      "cancel": "Annulla",
+      "creating": "Creazione..."
+    },
+    "fields": {
+      "sku": "SKU",
+      "name": "Nome",
+      "category": "Categoria",
+      "type": "Tipo",
+      "price": "Prezzo (EUR)",
+      "available": "Disponibile",
+      "description": "Descrizione",
+      "width": "Larghezza",
+      "height": "Altezza",
+      "depth": "Profondita",
+      "imageUrl": "URL Immagine",
+      "compatibleCategory": "Compatibile con categoria"
+    },
+    "placeholders": {
+      "sku": "Es. TONDO-SKU-NUOVO-001",
+      "name": "Nome componente",
+      "price": "0,00",
+      "description": "Descrizione componente",
+      "imageUrl": "https://..."
+    },
+    "none": "Nessuna",
+    "filters": {
+      "search": "Ricerca",
+      "category": "Categoria",
+      "all": "Tutte",
+      "availableOnly": "Solo disponibili",
+      "filter": "Filtra"
+    },
+    "loading": "Caricamento catalogo...",
+    "empty": "Nessun componente trovato.",
+    "errors": {
+      "loadFailed": "Errore caricamento catalogo",
+      "invalidPrice": "Prezzo non valido",
+      "invalidField": "{field} non valida",
+      "createFailed": "Errore creazione componente",
+      "updateFailed": "Errore aggiornamento componente",
+      "deleteFailed": "Errore eliminazione componente"
+    },
+    "toasts": {
+      "created": "Componente creato: {sku}",
+      "updated": "Componente {sku} aggiornato",
+      "deleted": "Componente {sku} eliminato"
+    },
+    "deleteConfirm": "Eliminare il componente {sku}?",
+    "row": {
+      "version": "Versione: {version}",
+      "size": "Misura",
+      "sizeAria": "Misura {label}",
+      "current": "Corrente: {price}",
+      "saving": "Salvataggio...",
+      "savePrice": "Salva prezzo/disponibilita",
+      "deleting": "Eliminazione...",
+      "deleteComponent": "Elimina componente"
+    }
+  },
+  "orders": {
+    "title": "Gestione ordini",
+    "subtitle": "Controlla gli ordini e avanzali allo stato DONE",
+    "refresh": "Aggiorna",
+    "metrics": {
+      "total": "Totali"
+    },
+    "loading": "Caricamento ordini...",
+    "empty": "Nessun ordine per il filtro selezionato.",
+    "order": "Ordine",
+    "labels": {
+      "total": "Totale",
+      "items": "Articoli",
+      "submitted": "Sottomesso",
+      "completed": "Completato"
+    },
+    "expedition": {
+      "title": "Dati spedizione",
+      "name": "Nome:",
+      "email": "Email:",
+      "phone": "Telefono:",
+      "nation": "Nazione:",
+      "city": "Citta:",
+      "cap": "CAP:",
+      "address": "Indirizzo:",
+      "deliveryNotes": "Note consegna:"
+    },
+    "itemsDetail": "Dettaglio articoli",
+    "actions": {
+      "updating": "Aggiornamento...",
+      "markDone": "Segna come DONE",
+      "markCancelled": "Segna come CANCELLED"
+    },
+    "modals": {
+      "confirmUpdateTitle": "Conferma aggiornamento",
+      "confirmDoneText": "Vuoi segnare questo ordine come DONE?",
+      "cancel": "Annulla",
+      "confirm": "Conferma",
+      "unavailableTitle": "Operazione non disponibile",
+      "close": "Chiudi"
+    },
+    "errors": {
+      "loadFailed": "Errore caricamento ordini",
+      "updateFailed": "Errore aggiornamento stato ordine",
+      "notAllowed": "Operazione non consentita: ordine in stato {status}."
+    },
+    "toasts": {
+      "markedDone": "Ordine marcato come DONE",
+      "markedCancelled": "Ordine marcato come CANCELLED"
+    }
+  },
+  "reports": {
+    "title": "Report ordini",
+    "refresh": "Aggiorna",
+    "filters": {
+      "from": "Dal",
+      "to": "Al",
+      "apply": "Applica range",
+      "allTime": "Di Sempre"
+    },
+    "loading": "Caricamento report...",
+    "empty": "Nessun dato disponibile.",
+    "errors": {
+      "loadFailed": "Errore caricamento report ordini"
+    },
+    "kpis": {
+      "period": "Periodo",
+      "totalOrders": "Ordini totali",
+      "totalRevenue": "Fatturato totale"
+    },
+    "chart": {
+      "title": "Ordini per giorno",
+      "ariaLabel": "Grafico trend ordini giornalieri",
+      "tooltip": "{count} ordini · {revenue}"
+    },
+    "table": {
+      "title": "Dettaglio giornaliero",
+      "headers": {
+        "date": "Data",
+        "totalOrders": "Totale ordini",
+        "submitted": "Submitted",
+        "done": "Done",
+        "cancelled": "Cancelled",
+        "revenue": "Fatturato"
+      }
+    }
+  }
+}
