@@ -6,6 +6,7 @@ import { useNotificationStore } from '@/store/notificationStore';
 import { useCartStore } from '@/store/cartStore';
 import type { CatalogItem } from '@/types/catalog';
 import { ApiError } from '@/types/api';
+import { i18n } from '@/i18n';
 
 export function useCatalog() {
   const items = ref<CatalogItem[]>([]);
@@ -31,7 +32,7 @@ export function useCatalog() {
       });
       items.value = response.items;
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Errore caricamento catalogo';
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('catalog.errors.loadFailed');
     } finally {
       loading.value = false;
     }
@@ -46,9 +47,9 @@ export function useCatalog() {
         quantity: 1,
       });
       cart.setFromCart(updatedCart);
-      notifications.addToast('success', `Aggiunto al carrello: ${item.name}`);
+      notifications.addToast('success', i18n.global.t('catalog.toast.addedToCart', { name: item.name }));
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore aggiunta al carrello';
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('catalog.errors.addToCartFailed');
       notifications.addToast('error', msg);
     }
   }

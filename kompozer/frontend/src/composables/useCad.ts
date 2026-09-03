@@ -11,6 +11,9 @@ import type {
   NextOptionsDto,
 } from '@/types/cad';
 import { ApiError } from '@/types/api';
+import { i18n } from '@/i18n';
+
+const t = i18n.global.t;
 
 const SHELF_THICKNESS_MM = 20;
 
@@ -39,7 +42,7 @@ export function useCad() {
   const statusFilter = ref<ServiceConfigurationStatus | ''>('');
   const nextOptionsByColumn = ref<Record<number, NextOptionsDto['options']>>({});
 
-  const createName = ref('Nuova configurazione');
+  const createName = ref(t('cad.create.namePlaceholder'));
 
   const canPrev = computed(() => page.value > 1);
   const canNext = computed(() => page.value < totalPages.value);
@@ -65,7 +68,7 @@ export function useCad() {
         }
       }
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Errore caricamento configurazioni';
+      error.value = e instanceof ApiError ? e.message : t('cad.toasts.loadListError');
     } finally {
       loading.value = false;
     }
@@ -77,7 +80,7 @@ export function useCad() {
     try {
       selected.value = await cadService.get(id);
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore caricamento dettaglio configurazione';
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.loadDetailError');
       notifications.addToast('error', msg);
     } finally {
       detailLoading.value = false;
@@ -91,11 +94,11 @@ export function useCad() {
       const created = await cadService.create({
         name: createName.value.trim() || undefined,
       });
-      notifications.addToast('success', `Configurazione creata: ${created.name}`);
+      notifications.addToast('success', t('cad.toasts.configurationCreated', { name: created.name }));
       selected.value = created;
       await loadList();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore creazione configurazione';
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.createError');
       notifications.addToast('error', msg);
     } finally {
       createLoading.value = false;
@@ -110,10 +113,10 @@ export function useCad() {
     categoryLoading.value = true;
     try {
       selected.value = await cadService.setCategory(selected.value.id, category);
-      notifications.addToast('success', 'Categoria aggiornata');
+      notifications.addToast('success', t('cad.toasts.categoryUpdated'));
       await loadList();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore aggiornamento categoria';
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.categoryUpdateError');
       notifications.addToast('error', msg);
     } finally {
       categoryLoading.value = false;
@@ -128,10 +131,10 @@ export function useCad() {
     environmentLoading.value = true;
     try {
       selected.value = await cadService.setEnvironment(selected.value.id, environment);
-      notifications.addToast('success', 'Ambiente aggiornato');
+      notifications.addToast('success', t('cad.toasts.environmentUpdated'));
       await loadList();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore aggiornamento ambiente';
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.environmentUpdateError');
       notifications.addToast('error', msg);
     } finally {
       environmentLoading.value = false;
@@ -146,10 +149,10 @@ export function useCad() {
     columnPlanLoading.value = true;
     try {
       selected.value = await cadService.setColumnPlan(selected.value.id, columnPlan);
-      notifications.addToast('success', 'Piano colonne aggiornato');
+      notifications.addToast('success', t('cad.toasts.columnPlanUpdated'));
       await loadList();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore aggiornamento piano colonne';
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.columnPlanUpdateError');
       notifications.addToast('error', msg);
     } finally {
       columnPlanLoading.value = false;
@@ -164,10 +167,10 @@ export function useCad() {
     designLoading.value = true;
     try {
       selected.value = await cadService.updateDesign(selected.value.id, columnDesigns);
-      notifications.addToast('success', 'Design colonne aggiornato');
+      notifications.addToast('success', t('cad.toasts.designUpdated'));
       await loadList();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore aggiornamento design';
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.designUpdateError');
       notifications.addToast('error', msg);
     } finally {
       designLoading.value = false;
@@ -190,7 +193,7 @@ export function useCad() {
       return result.options;
     } catch (e) {
       if (!(e instanceof ApiError) || e.status !== 404) {
-        const msg = e instanceof ApiError ? e.message : 'Errore recupero opzioni disponibili';
+        const msg = e instanceof ApiError ? e.message : t('cad.toasts.nextOptionsError');
         notifications.addToast('error', msg);
       }
       return [];
@@ -243,7 +246,7 @@ export function useCad() {
     const draft = createDesignDraft(shelfThicknessMm);
     const target = draft.find((design) => design.columnIndex === columnIndex);
     if (!target) {
-      notifications.addToast('error', `Colonna ${columnIndex + 1} non trovata`);
+      notifications.addToast('error', t('cad.toasts.columnNotFound', { n: columnIndex + 1 }));
       return;
     }
 
@@ -283,10 +286,10 @@ export function useCad() {
     finalizeLoading.value = true;
     try {
       selected.value = await cadService.finalize(selected.value.id);
-      notifications.addToast('success', 'Configurazione finalizzata e inviata al carrello');
+      notifications.addToast('success', t('cad.toasts.finalizeSuccess'));
       await loadList();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore finalizzazione configurazione';
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.finalizeError');
       notifications.addToast('error', msg);
     } finally {
       finalizeLoading.value = false;

@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { orderService } from '@/services/orderService';
 import { paymentService } from '@/services/paymentService';
 import { useNotificationStore } from '@/store/notificationStore';
+import { i18n } from '@/i18n';
 import type { Order } from '@/types/order';
 import type { Payment, PaymentMethod } from '@/types/payment';
 import { ApiError } from '@/types/api';
@@ -32,7 +33,7 @@ export function usePayment() {
         payment.value = null;
       }
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Errore caricamento ordine';
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('payment.errors.loadOrder');
     } finally {
       loading.value = false;
     }
@@ -47,7 +48,7 @@ export function usePayment() {
     try {
       payment.value = await paymentService.create(orderId, method, order.value.total, 'EUR');
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore durante avvio pagamento';
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('payment.errors.startPayment');
       notifications.addToast('error', msg);
     } finally {
       payLoading.value = false;
@@ -64,10 +65,12 @@ export function usePayment() {
       payment.value = await paymentService.confirm(payment.value.id, status);
       notifications.addToast(
         status === 'COMPLETED' ? 'success' : 'error',
-        status === 'COMPLETED' ? 'Pagamento completato' : 'Pagamento fallito',
+        status === 'COMPLETED'
+          ? i18n.global.t('payment.toasts.completed')
+          : i18n.global.t('payment.toasts.failed'),
       );
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore durante conferma pagamento';
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('payment.errors.confirmPayment');
       notifications.addToast('error', msg);
     } finally {
       confirmLoading.value = false;

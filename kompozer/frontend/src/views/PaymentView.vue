@@ -6,13 +6,16 @@
  * the PENDING payment to COMPLETED/FAILED until real providers are wired.
  */
 import { computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { usePayment } from '@/composables/usePayment';
+import { formatCurrencyFromCents } from '@/i18n/format';
 import type { PaymentMethod } from '@/types/payment';
 
 const route = useRoute();
 const router = useRouter();
 const orderId = route.params.orderId as string;
+const { t } = useI18n();
 
 const { order, payment, loading, payLoading, confirmLoading, error, load, pay, simulateOutcome } =
   usePayment();
@@ -24,10 +27,7 @@ onMounted(() => {
 const total = computed(() => order.value?.total ?? 0);
 
 function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('it-IT', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(cents / 100);
+  return formatCurrencyFromCents(cents);
 }
 
 function selectMethod(method: PaymentMethod): void {
@@ -42,73 +42,78 @@ function backToCatalog(): void {
 <template>
   <div class="view-container">
     <header class="payment-header">
-      <h1>Pagamento</h1>
-      <p class="subtitle">Ordine {{ orderId }}</p>
+      <h1>{{ t('payment.title') }}</h1>
+      <p class="subtitle">{{ t('payment.orderLabel', { orderId }) }}</p>
     </header>
 
     <p v-if="error" class="error" role="alert" aria-live="assertive">{{ error }}</p>
-    <p v-if="loading" class="placeholder">Caricamento ordine...</p>
+    <p v-if="loading" class="placeholder">{{ t('payment.loadingOrder') }}</p>
 
     <div v-else class="layout">
       <section class="summary">
-        <h2>Riepilogo</h2>
+        <h2>{{ t('payment.summary.title') }}</h2>
         <div class="summary-row">
-          <span>Totale da pagare</span>
+          <span>{{ t('payment.summary.totalDue') }}</span>
           <strong>{{ formatCurrency(total) }}</strong>
         </div>
       </section>
 
       <section class="payment-panel">
         <template v-if="!payment">
-          <h2>Scegli metodo di pagamento</h2>
+          <h2>{{ t('payment.methods.title') }}</h2>
           <div class="method-grid">
             <button class="method-btn" :disabled="payLoading" @click="selectMethod('PAYPAL')">
-              PayPal
+              {{ t('payment.methods.paypal') }}
             </button>
             <button class="method-btn" :disabled="payLoading" @click="selectMethod('CARD')">
-              Carta di credito/debito
+              {{ t('payment.methods.card') }}
             </button>
           </div>
-          <p v-if="payLoading" class="placeholder">Avvio pagamento...</p>
+          <p v-if="payLoading" class="placeholder">{{ t('payment.methods.starting') }}</p>
         </template>
 
         <template v-else>
-          <h2>Stato pagamento</h2>
-          <p class="method-label">Metodo: {{ payment.method === 'PAYPAL' ? 'PayPal' : 'Carta' }}</p>
+          <h2>{{ t('payment.status.title') }}</h2>
+          <p class="method-label">
+            {{
+              t('payment.status.methodLabel', {
+                method: payment.method === 'PAYPAL' ? t('payment.methods.paypal') : t('payment.status.methodCard'),
+              })
+            }}
+          </p>
 
           <p v-if="payment.status === 'PENDING'" class="status status--pending">
-            In attesa di conferma dal provider ({{ payment.providerReference }}).
+            {{ t('payment.status.pending', { reference: payment.providerReference }) }}
           </p>
           <p v-else-if="payment.status === 'COMPLETED'" class="status status--completed">
-            Pagamento completato.
+            {{ t('payment.status.completed') }}
           </p>
           <p v-else class="status status--failed">
-            Pagamento fallito<span v-if="payment.failureReason">: {{ payment.failureReason }}</span>.
+            {{ t('payment.status.failed') }}<span v-if="payment.failureReason">: {{ payment.failureReason }}</span>.
           </p>
 
           <div v-if="payment.status === 'PENDING'" class="dev-actions">
             <p class="dev-note">
-              Integrazione PayPal/Carta non ancora attiva: simula qui l'esito che il provider
-              invierebbe.
+              {{ t('payment.dev.note') }}
             </p>
             <button
               class="btn btn--primary"
               :disabled="confirmLoading"
               @click="simulateOutcome('COMPLETED')"
             >
-              Simula pagamento riuscito
+              {{ t('payment.dev.simulateSuccess') }}
             </button>
             <button
               class="btn btn--light"
               :disabled="confirmLoading"
               @click="simulateOutcome('FAILED')"
             >
-              Simula pagamento fallito
+              {{ t('payment.dev.simulateFailure') }}
             </button>
           </div>
 
           <button v-if="payment.status === 'COMPLETED'" class="btn btn--primary" @click="backToCatalog">
-            Torna al catalogo
+            {{ t('payment.backToCatalog') }}
           </button>
         </template>
       </section>

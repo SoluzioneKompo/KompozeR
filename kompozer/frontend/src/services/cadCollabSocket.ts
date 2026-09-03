@@ -1,6 +1,7 @@
 /** WebSocket client for collaborative CAD sessions (join/presence/operations). */
 import { io, type Socket } from 'socket.io-client';
 import type { Category, ColumnDesign, ColumnPlan, ConfigurationDto, Environment } from '@/types/cad';
+import { i18n } from '@/i18n';
 
 interface AckError {
   code: string;
@@ -152,7 +153,7 @@ class CadCollabSocketService {
   async joinSession(sessionCode: string): Promise<CollabSessionOutput> {
     this.connect();
     if (!this.socket) {
-      throw new Error('Connessione realtime non disponibile');
+      throw new Error(i18n.global.t('cad.toasts.realtimeUnavailable'));
     }
 
     const payload = {
@@ -166,12 +167,12 @@ class CadCollabSocketService {
         payload,
         (err: Error | null, ack?: AckResponse<CollabSessionOutput>) => {
           if (err) {
-            reject(new Error('Timeout join sessione collaborativa'));
+            reject(new Error(i18n.global.t('cad.toasts.joinTimeout')));
             return;
           }
 
           if (!ack?.ok || !ack.data) {
-            reject(new Error(ack?.error?.message ?? 'Join sessione collaborativa fallito'));
+            reject(new Error(ack?.error?.message ?? i18n.global.t('cad.toasts.joinFailed')));
             return;
           }
 
@@ -201,12 +202,12 @@ class CadCollabSocketService {
         payload,
         (err: Error | null, ack?: AckResponse<unknown>) => {
           if (err) {
-            reject(new Error('Timeout leave sessione collaborativa'));
+            reject(new Error(i18n.global.t('cad.toasts.leaveTimeout')));
             return;
           }
 
           if (!ack?.ok) {
-            reject(new Error(ack?.error?.message ?? 'Leave sessione collaborativa fallito'));
+            reject(new Error(ack?.error?.message ?? i18n.global.t('cad.toasts.leaveCollabFailed')));
             return;
           }
 
@@ -219,7 +220,7 @@ class CadCollabSocketService {
   async requestSnapshot(configurationId: string, sessionCode: string): Promise<CollabSessionOutput> {
     this.connect();
     if (!this.socket) {
-      throw new Error('Connessione realtime non disponibile');
+      throw new Error(i18n.global.t('cad.toasts.realtimeUnavailable'));
     }
 
     const payload = {
@@ -236,12 +237,12 @@ class CadCollabSocketService {
         payload,
         (err: Error | null, ack?: AckResponse<CollabSessionOutput>) => {
           if (err) {
-            reject(new Error('Timeout richiesta snapshot collaborativo'));
+            reject(new Error(i18n.global.t('cad.toasts.snapshotTimeout')));
             return;
           }
 
           if (!ack?.ok || !ack.data) {
-            reject(new Error(ack?.error?.message ?? 'Richiesta snapshot collaborativo fallita'));
+            reject(new Error(ack?.error?.message ?? i18n.global.t('cad.toasts.snapshotFailed')));
             return;
           }
 
@@ -262,7 +263,7 @@ class CadCollabSocketService {
   }): Promise<CollabOperationOutput> {
     this.connect();
     if (!this.socket) {
-      throw new Error('Connessione realtime non disponibile');
+      throw new Error(i18n.global.t('cad.toasts.realtimeUnavailable'));
     }
 
     const payload = {
@@ -284,12 +285,12 @@ class CadCollabSocketService {
         payload,
         (err: Error | null, ack?: AckResponse<CollabOperationOutput>) => {
           if (err) {
-            reject(new Error('Timeout operazione collaborativa'));
+            reject(new Error(i18n.global.t('cad.toasts.operationTimeout')));
             return;
           }
 
           if (!ack?.ok || !ack.data) {
-            reject(new Error(ack?.error?.message ?? 'Operazione collaborativa fallita'));
+            reject(new Error(ack?.error?.message ?? i18n.global.t('cad.toasts.operationFailed')));
             return;
           }
 

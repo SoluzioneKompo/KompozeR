@@ -1,0 +1,56 @@
+{
+  "category": {
+    "TONDO": "Round",
+    "QUADRO": "Square",
+    "KUBE": "Kube",
+    "INTELLIGENTE": "Smart"
+  },
+  "componentType": {
+    "PIEDINO": "Foot",
+    "MONTANTE": "Upright",
+    "RIPIANO": "Shelf",
+    "TERMINALE": "End panel",
+    "MENSOLA": "Bracket",
+    "RIPIANO_BORDO": "Edge shelf",
+    "RIPIANO_INTERMEDIO": "Intermediate shelf"
+  },
+  "dimension": {
+    "width": "W",
+    "height": "H",
+    "depth": "D"
+  },
+  "page": {
+    "title": "Catalog",
+    "subtitle": "Components available for your project",
+    "refresh": "Refresh"
+  },
+  "filters": {
+    "searchLabel": "Search",
+    "searchAriaLabel": "Search the catalog",
+    "searchPlaceholder": "Name or description",
+    "availableOnlyAriaLabel": "Show only available components",
+    "availableOnly": "Available only",
+    "applyAriaLabel": "Apply catalog filters",
+    "search": "Search"
+  },
+  "state": {
+    "loading": "Loading catalog...",
+    "empty": "No components found."
+  },
+  "availability": {
+    "available": "Available",
+    "unavailable": "Unavailable"
+  },
+  "card": {
+    "sizeLabel": "Size",
+    "sizeAriaLabel": "Size {name}",
+    "addToCart": "Add"
+  },
+  "errors": {
+    "loadFailed": "Failed to load catalog",
+    "addToCartFailed": "Failed to add to cart"
+  },
+  "toast": {
+    "addedToCart": "Added to cart: {name}"
+  }
+}

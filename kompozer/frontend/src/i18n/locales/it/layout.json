@@ -1,0 +1,20 @@
+{
+  "nav": {
+    "catalog": "Catalogo",
+    "adminCatalog": "Catalogo Admin",
+    "configurations": "Configurazioni",
+    "cad": "Configuratore",
+    "adminOrders": "Ordini",
+    "adminReports": "Report"
+  },
+  "actions": {
+    "cartAriaLabel": "Carrello",
+    "notificationsAriaLabel": "Notifiche",
+    "guest": "Guest",
+    "logoutAriaLabel": "Esci dal tuo account",
+    "logout": "Esci"
+  },
+  "realtime": {
+    "reconnected": "Connessione realtime ripristinata"
+  }
+}

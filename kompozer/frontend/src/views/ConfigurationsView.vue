@@ -2,13 +2,17 @@
 /** Dashboard view for configuration overview, quick creation, and reorder actions. */
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { cadService } from '@/services/cadService';
 import { useNotificationStore } from '@/store/notificationStore';
 import type { Category, ConfigurationDto, ConfigurationStatus } from '@/types/cad';
 import { ApiError } from '@/types/api';
+import { getIntlLocale } from '@/i18n/format';
+import { CATEGORY_ORDER, categoryLabel } from '@/utils/catalogGrouping';
 
 const router = useRouter();
 const notifications = useNotificationStore();
+const { t } = useI18n();
 
 const loading = ref(false);
 const createLoading = ref(false);
@@ -22,7 +26,7 @@ const finalized = ref(0);
 
 const recent = ref<ConfigurationDto[]>([]);
 
-const quickName = ref('Nuova configurazione');
+const quickName = ref(t('configurations.quickCreate.defaultName'));
 const quickCategory = ref<Category | ''>('');
 
 const inProgress = computed(() => Math.max(0, total.value - finalized.value));
@@ -33,7 +37,7 @@ onMounted(() => {
 
 /** Formats ISO datetime values for configuration cards. */
 function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('it-IT', {
+  return new Intl.DateTimeFormat(getIntlLocale(), {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(new Date(iso));
@@ -64,7 +68,7 @@ async function loadDashboard(): Promise<void> {
     finalized.value = finalizedCount;
     recent.value = recents.items;
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Errore caricamento dashboard configurazioni';
+    error.value = e instanceof ApiError ? e.message : t('configurations.errors.loadDashboard');
   } finally {
     loading.value = false;
   }
@@ -78,10 +82,10 @@ async function quickCreate(): Promise<void> {
       name: quickName.value.trim() || undefined,
       category: quickCategory.value || undefined,
     });
-    notifications.addToast('success', `Configurazione creata: ${created.name}`);
+    notifications.addToast('success', t('configurations.toasts.created', { name: created.name }));
     await router.push({ name: 'cad', query: { configurationId: created.id } });
   } catch (e) {
-    const msg = e instanceof ApiError ? e.message : 'Errore creazione configurazione';
+    const msg = e instanceof ApiError ? e.message : t('configurations.errors.create');
     notifications.addToast('error', msg);
   } finally {
     createLoading.value = false;
@@ -98,10 +102,10 @@ async function reorder(configuration: ConfigurationDto): Promise<void> {
   reorderLoadingId.value = configuration.id;
   try {
     await cadService.reorder(configuration.id);
-    notifications.addToast('success', `Componenti di "${configuration.name}" aggiunti al carrello`);
+    notifications.addToast('success', t('configurations.toasts.itemsAddedToCart', { name: configuration.name }));
     await router.push({ name: 'cart' });
   } catch (e) {
-    const msg = e instanceof ApiError ? e.message : 'Errore riordino configurazione';
+    const msg = e instanceof ApiError ? e.message : t('configurations.errors.reorder');
     notifications.addToast('error', msg);
   } finally {
     reorderLoadingId.value = null;
@@ -113,83 +117,82 @@ async function reorder(configuration: ConfigurationDto): Promise<void> {
   <div class="view-container">
     <header class="header">
       <div>
-        <h1>Le mie configurazioni</h1>
-        <p class="subtitle">Panoramica rapida e accesso veloce al configuratore CAD</p>
+        <h1>{{ t('configurations.title') }}</h1>
+        <p class="subtitle">{{ t('configurations.subtitle') }}</p>
       </div>
-      <button class="btn btn--light" :disabled="loading" @click="loadDashboard">Aggiorna</button>
+      <button class="btn btn--light" :disabled="loading" @click="loadDashboard">{{ t('configurations.actions.refresh') }}</button>
     </header>
 
     <p v-if="error" class="error" role="alert" aria-live="assertive">{{ error }}</p>
 
     <section class="metrics" v-if="!loading">
       <article class="metric-card">
-        <span class="metric-label">Totali</span>
+        <span class="metric-label">{{ t('configurations.metrics.total') }}</span>
         <strong class="metric-value">{{ total }}</strong>
       </article>
       <article class="metric-card">
-        <span class="metric-label">Bozze</span>
+        <span class="metric-label">{{ t('configurations.metrics.draft') }}</span>
         <strong class="metric-value">{{ draft }}</strong>
       </article>
       <article class="metric-card">
-        <span class="metric-label">Pronte a finalizzare</span>
+        <span class="metric-label">{{ t('configurations.metrics.readyForFinalize') }}</span>
         <strong class="metric-value">{{ readyForFinalize }}</strong>
       </article>
       <article class="metric-card">
-        <span class="metric-label">Finalizzate</span>
+        <span class="metric-label">{{ t('configurations.metrics.finalized') }}</span>
         <strong class="metric-value">{{ finalized }}</strong>
       </article>
       <article class="metric-card metric-card--accent">
-        <span class="metric-label">In lavorazione</span>
+        <span class="metric-label">{{ t('configurations.metrics.inProgress') }}</span>
         <strong class="metric-value">{{ inProgress }}</strong>
       </article>
     </section>
-    <p v-else class="placeholder">Caricamento dashboard...</p>
+    <p v-else class="placeholder">{{ t('configurations.placeholders.loadingDashboard') }}</p>
 
     <section class="quick-create">
-      <h2>Nuova configurazione rapida</h2>
+      <h2>{{ t('configurations.quickCreate.title') }}</h2>
       <div class="quick-create__grid">
         <label class="field">
-          <span class="field__label">Nome</span>
-          <input v-model="quickName" class="field__input" type="text" aria-label="Nome configurazione" placeholder="Es. Parete studio" />
+          <span class="field__label">{{ t('configurations.quickCreate.nameLabel') }}</span>
+          <input v-model="quickName" class="field__input" type="text" :aria-label="t('configurations.quickCreate.nameAriaLabel')" :placeholder="t('configurations.quickCreate.namePlaceholder')" />
         </label>
         <label class="field">
-          <span class="field__label">Categoria iniziale</span>
-          <select v-model="quickCategory" class="field__input" aria-label="Categoria iniziale configurazione">
-            <option value="">Nessuna</option>
-            <option value="TONDO">TONDO</option>
-            <option value="QUADRO">QUADRO</option>
-            <option value="KUBE">KUBE</option>
-            <option value="INTELLIGENTE">INTELLIGENTE</option>
+          <span class="field__label">{{ t('configurations.quickCreate.categoryLabel') }}</span>
+          <select v-model="quickCategory" class="field__input" :aria-label="t('configurations.quickCreate.categoryAriaLabel')">
+            <option value="">{{ t('configurations.quickCreate.categoryNone') }}</option>
+            <option v-for="category in CATEGORY_ORDER" :key="category" :value="category">
+              {{ categoryLabel(category) }}
+            </option>
           </select>
         </label>
-        <button class="btn btn--primary" :disabled="createLoading" aria-label="Crea una nuova configurazione e aprila nel CAD" @click="quickCreate">
-          {{ createLoading ? 'Creazione...' : 'Crea e apri in CAD' }}
+        <button class="btn btn--primary" :disabled="createLoading" :aria-label="t('configurations.quickCreate.createAriaLabel')" @click="quickCreate">
+          {{ createLoading ? t('configurations.actions.creating') : t('configurations.actions.createAndOpen') }}
         </button>
       </div>
     </section>
 
     <section class="recent">
-      <h2>Ultime configurazioni</h2>
-      <p v-if="loading" class="placeholder">Caricamento elenco...</p>
-      <p v-else-if="recent.length === 0" class="placeholder">Non hai ancora configurazioni salvate.</p>
+      <h2>{{ t('configurations.recent.title') }}</h2>
+      <p v-if="loading" class="placeholder">{{ t('configurations.placeholders.loadingList') }}</p>
+      <p v-else-if="recent.length === 0" class="placeholder">{{ t('configurations.placeholders.empty') }}</p>
       <div v-else class="recent-list">
         <article class="recent-item" v-for="item in recent" :key="item.id">
           <div>
             <h3>{{ item.name }}</h3>
-            <p class="meta">{{ item.status }} · {{ item.category || 'Senza categoria' }}</p>
-            <p class="meta">Aggiornata: {{ formatDate(item.updatedAt) }}</p>
+            <p class="meta">{{ item.status }} · {{ item.category || t('configurations.recent.noCategory') }}</p>
+            <p class="meta">{{ t('configurations.recent.updatedAt', { date: formatDate(item.updatedAt) }) }}</p>
           </div>
           <div class="recent-item__actions">
             <button
               v-if="item.status === 'FINALIZED'"
               class="btn btn--light"
               :disabled="reorderLoadingId === item.id"
-              :aria-label="`Riordina la configurazione ${item.name}`"
+              :aria-label="t('configurations.recent.reorderAriaLabel', { name: item.name })"
               @click="reorder(item)"
             >
-              {{ reorderLoadingId === item.id ? 'Riordino...' : 'Riordina' }}
+              {{ reorderLoadingId === item.id ? t('configurations.actions.reordering') : t('configurations.actions.reorder') }}
             </button>
-            <button class="btn btn--light" :aria-label="`Apri la configurazione ${item.name} nel CAD`" @click="openInCad(item)">Apri in CAD</button>
+            <button class="btn btn--light" :aria-label="t('configurations.recent.openAriaLabel', { name: item.name })" @click="openInCad(item)">{{ t('configurations.actions.openInCad') }}</button>
           </div>
         </article>
       </div>

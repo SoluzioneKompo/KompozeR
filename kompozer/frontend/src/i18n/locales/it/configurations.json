@@ -1,0 +1,51 @@
+{
+  "title": "Le mie configurazioni",
+  "subtitle": "Panoramica rapida e accesso veloce al configuratore CAD",
+  "actions": {
+    "refresh": "Aggiorna",
+    "createAndOpen": "Crea e apri in CAD",
+    "creating": "Creazione...",
+    "openInCad": "Apri in CAD",
+    "reorder": "Riordina",
+    "reordering": "Riordino..."
+  },
+  "metrics": {
+    "total": "Totali",
+    "draft": "Bozze",
+    "readyForFinalize": "Pronte a finalizzare",
+    "finalized": "Finalizzate",
+    "inProgress": "In lavorazione"
+  },
+  "placeholders": {
+    "loadingDashboard": "Caricamento dashboard...",
+    "loadingList": "Caricamento elenco...",
+    "empty": "Non hai ancora configurazioni salvate."
+  },
+  "quickCreate": {
+    "title": "Nuova configurazione rapida",
+    "defaultName": "Nuova configurazione",
+    "nameLabel": "Nome",
+    "nameAriaLabel": "Nome configurazione",
+    "namePlaceholder": "Es. Parete studio",
+    "categoryLabel": "Categoria iniziale",
+    "categoryAriaLabel": "Categoria iniziale configurazione",
+    "categoryNone": "Nessuna",
+    "createAriaLabel": "Crea una nuova configurazione e aprila nel CAD"
+  },
+  "recent": {
+    "title": "Ultime configurazioni",
+    "noCategory": "Senza categoria",
+    "updatedAt": "Aggiornata: {date}",
+    "reorderAriaLabel": "Riordina la configurazione {name}",
+    "openAriaLabel": "Apri la configurazione {name} nel CAD"
+  },
+  "errors": {
+    "loadDashboard": "Errore caricamento dashboard configurazioni",
+    "create": "Errore creazione configurazione",
+    "reorder": "Errore riordino configurazione"
+  },
+  "toasts": {
+    "created": "Configurazione creata: {name}",
+    "itemsAddedToCart": "Componenti di \"{name}\" aggiunti al carrello"
+  }
+}

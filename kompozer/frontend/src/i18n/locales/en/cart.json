@@ -1,0 +1,57 @@
+{
+  "title": "Cart",
+  "subtitle": "Review your items before checkout",
+  "refresh": "Refresh",
+  "loading": "Loading cart...",
+  "empty": {
+    "title": "Your cart is empty.",
+    "description": "If a component becomes unavailable, the cart is automatically emptied.",
+    "before": "You can ",
+    "reorderLink": "reorder a finalized configuration",
+    "between": " or ",
+    "createLink": "create a new one in the configurator",
+    "after": "."
+  },
+  "item": {
+    "sku": "SKU: {sku}",
+    "unitPrice": "{price} each",
+    "decreaseAria": "Decrease quantity for {name}",
+    "increaseAria": "Increase quantity for {name}"
+  },
+  "summary": {
+    "title": "Summary",
+    "total": "Total",
+    "clearing": "Clearing...",
+    "clearButton": "Clear cart",
+    "checkoutButton": "Proceed to checkout"
+  },
+  "checkout": {
+    "modalTitle": "Shipping details",
+    "fields": {
+      "name": "First name",
+      "surname": "Last name",
+      "email": "Email",
+      "nation": "Country",
+      "city": "City",
+      "cap": "Postal code",
+      "address": "Address",
+      "phone": "Phone",
+      "deliveryNotes": "Delivery notes (optional)"
+    },
+    "cancel": "Cancel",
+    "confirm": "Confirm checkout",
+    "inProgress": "Processing checkout...",
+    "missingFields": "Please fill in all required fields.",
+    "genericError": "Unable to complete checkout. Please check your details and try again."
+  },
+  "errors": {
+    "load": "Failed to load cart",
+    "updateQuantity": "Failed to update quantity",
+    "checkout": "Checkout failed",
+    "clear": "Failed to clear cart"
+  },
+  "notifications": {
+    "orderCreated": "Order {orderId} created successfully",
+    "cleared": "Cart cleared"
+  }
+}

@@ -1,8 +1,12 @@
 <script setup lang="ts">
 /** Notifications inbox view with unread filtering and pagination controls. */
 import { onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { NotificationType } from '@/types/notification';
 import { useNotifications } from '@/composables/useNotifications';
+import { getIntlLocale } from '@/i18n/format';
+
+const { t } = useI18n();
 
 const {
   items,
@@ -27,7 +31,7 @@ onMounted(() => {
 
 /** Formats notification creation timestamps for list rendering. */
 function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('it-IT', {
+  return new Intl.DateTimeFormat(getIntlLocale(), {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(new Date(iso));
@@ -36,9 +40,9 @@ function formatDate(iso: string): string {
 /** Converts notification type codes to localized labels. */
 function typeLabel(type: NotificationType): string {
   if (type === 'PRICE_CHANGED') {
-    return 'Prezzo aggiornato';
+    return t('notifications.types.priceChanged');
   }
-  return 'Disponibilita aggiornata';
+  return t('notifications.types.availabilityChanged');
 }
 </script>
 
@@ -46,10 +50,10 @@ function typeLabel(type: NotificationType): string {
   <div class="view-container">
     <header class="header">
       <div>
-        <h1>Notifiche</h1>
-        <p class="subtitle">Aggiornamenti su prezzo e disponibilita dei componenti</p>
+        <h1>{{ t('notifications.view.title') }}</h1>
+        <p class="subtitle">{{ t('notifications.view.subtitle') }}</p>
       </div>
-      <button class="btn btn--light" :disabled="loading" @click="load">Aggiorna</button>
+      <button class="btn btn--light" :disabled="loading" @click="load">{{ t('notifications.view.refresh') }}</button>
     </header>
 
     <section class="toolbar">
@@ -59,14 +63,14 @@ function typeLabel(type: NotificationType): string {
           type="checkbox"
           @change="setUnreadOnly(($event.target as HTMLInputElement).checked)"
         />
-        Solo non lette
+        {{ t('notifications.view.unreadOnly') }}
       </label>
-      <span class="meta">{{ total }} notifiche</span>
+      <span class="meta">{{ t('notifications.view.count', { count: total }) }}</span>
     </section>
 
     <p v-if="error" class="error" role="alert" aria-live="assertive">{{ error }}</p>
-    <p v-if="loading" class="placeholder">Caricamento notifiche...</p>
-    <p v-else-if="items.length === 0" class="placeholder">Nessuna notifica da mostrare.</p>
+    <p v-if="loading" class="placeholder">{{ t('notifications.view.loading') }}</p>
+    <p v-else-if="items.length === 0" class="placeholder">{{ t('notifications.view.empty') }}</p>
 
     <section v-else class="list">
       <article v-for="item in items" :key="item.id" :class="['card', { 'card--unread': !item.read }]">
@@ -75,27 +79,27 @@ function typeLabel(type: NotificationType): string {
           <span class="date">{{ formatDate(item.createdAt) }}</span>
         </div>
 
-        <h2 class="title">{{ item.title || 'Aggiornamento componente' }}</h2>
+        <h2 class="title">{{ item.title || t('notifications.view.defaultTitle') }}</h2>
         <p class="message">{{ item.message }}</p>
 
         <div class="card__bottom">
-          <span class="sku">SKU: {{ item.sku }}</span>
+          <span class="sku">{{ t('notifications.view.sku', { sku: item.sku }) }}</span>
           <button
             v-if="!item.read"
             class="btn btn--primary"
             @click="markAsRead(item)"
           >
-            Segna come letta
+            {{ t('notifications.view.markAsRead') }}
           </button>
-          <span v-else class="read-badge">Letta</span>
+          <span v-else class="read-badge">{{ t('notifications.view.read') }}</span>
         </div>
       </article>
     </section>
 
     <footer class="pagination" v-if="totalPages > 1">
-      <button class="btn btn--light" :disabled="!canPrev || loading" @click="prevPage">Precedente</button>
-      <span>Pagina {{ page }} di {{ totalPages }}</span>
-      <button class="btn btn--light" :disabled="!canNext || loading" @click="nextPage">Successiva</button>
+      <button class="btn btn--light" :disabled="!canPrev || loading" @click="prevPage">{{ t('notifications.view.previous') }}</button>
+      <span>{{ t('notifications.view.pageOf', { page, totalPages }) }}</span>
+      <button class="btn btn--light" :disabled="!canNext || loading" @click="nextPage">{{ t('notifications.view.next') }}</button>
     </footer>
   </div>
 </template>
