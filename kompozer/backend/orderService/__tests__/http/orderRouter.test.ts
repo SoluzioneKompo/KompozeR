@@ -41,18 +41,25 @@ function buildTestApp() {
   );
   app.use(errorMiddleware);
 
-  return app;
+  return { app, repo };
+}
+
+/** Simulates a completed payment, moving an order past AWAITING_PAYMENT. */
+async function forwardOrder(repo: FakeOrderRepository, orderId: string): Promise<void> {
+  const order = await repo.findById(orderId);
+  if (!order) throw new Error('Order not found in fake repository');
+  await repo.update({ ...order, status: 'SUBMITTED' });
 }
 
 describe('orderRouter', () => {
   it('POST /orders -> 401 when identity header is missing', async () => {
-    const app = buildTestApp();
+    const { app } = buildTestApp();
     const res = await request(app).post('/orders').send({});
     expect(res.status).toBe(401);
   });
 
   it('order lifecycle works for owner', async () => {
-    const app = buildTestApp();
+    const { app } = buildTestApp();
 
     const createRes = await request(app)
       .post('/orders')
@@ -91,7 +98,7 @@ describe('orderRouter', () => {
   });
 
   it('POST /orders -> 422 when an item has the wrong type instead of being persisted as-is', async () => {
-    const app = buildTestApp();
+    const { app } = buildTestApp();
 
     const res = await request(app)
       .post('/orders')
@@ -107,7 +114,7 @@ describe('orderRouter', () => {
   });
 
   it('POST /orders -> 422 on unknown/extra top-level fields', async () => {
-    const app = buildTestApp();
+    const { app } = buildTestApp();
 
     const res = await request(app)
       .post('/orders')
@@ -124,7 +131,7 @@ describe('orderRouter', () => {
   });
 
   it('PATCH /orders/:id/status -> 422 when status is omitted instead of silently defaulting to DONE', async () => {
-    const app = buildTestApp();
+    const { app } = buildTestApp();
 
     const createRes = await request(app)
       .post('/orders')
@@ -147,7 +154,7 @@ describe('orderRouter', () => {
   });
 
   it('POST /orders -> 400 on syntactically invalid JSON', async () => {
-    const app = buildTestApp();
+    const { app } = buildTestApp();
 
     const res = await request(app)
       .post('/orders')
@@ -160,7 +167,7 @@ describe('orderRouter', () => {
   });
 
   it('GET /orders -> admin sees orders from all users', async () => {
-    const app = buildTestApp();
+    const { app } = buildTestApp();
 
     await request(app)
       .post('/orders')
@@ -192,7 +199,7 @@ describe('orderRouter', () => {
   });
 
   it('PATCH /orders/:id/status -> 403 for non-admin user', async () => {
-    const app = buildTestApp();
+    const { app } = buildTestApp();
 
     const createRes = await request(app)
       .post('/orders')
@@ -216,7 +223,7 @@ describe('orderRouter', () => {
   });
 
   it('PATCH /orders/:id/status -> 200 for admin and sets DONE', async () => {
-    const app = buildTestApp();
+    const { app, repo } = buildTestApp();
 
     const createRes = await request(app)
       .post('/orders')
@@ -228,6 +235,7 @@ describe('orderRouter', () => {
       });
 
     const orderId = createRes.body.id as string;
+    await forwardOrder(repo, orderId);
 
     const updateRes = await request(app)
       .patch(`/orders/${orderId}/status`)
@@ -241,7 +249,7 @@ describe('orderRouter', () => {
   });
 
   it('PATCH /orders/:id/cancel -> 403 for non-admin on another user order', async () => {
-    const app = buildTestApp();
+    const { app } = buildTestApp();
 
     const createRes = await request(app)
       .post('/orders')
@@ -265,7 +273,7 @@ describe('orderRouter', () => {
   });
 
   it('PATCH /orders/:id/cancel -> 200 for admin on another user order', async () => {
-    const app = buildTestApp();
+    const { app } = buildTestApp();
 
     const createRes = await request(app)
       .post('/orders')

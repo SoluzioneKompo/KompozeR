@@ -67,4 +67,52 @@ describe('ConfirmPayment', () => {
       PaymentAlreadyFinalizedError,
     );
   });
+
+  it('publishes a PAYMENT_COMPLETED event on success', async () => {
+    const repo = new FakePaymentRepository();
+    const createPayment = new CreatePayment(repo, new FakePaymentGatewayFactory());
+    const publisher = { publish: jest.fn().mockResolvedValue(undefined) };
+    const useCase = new ConfirmPayment(repo, publisher);
+
+    const created = await createPayment.execute({
+      userId: 'usr_1',
+      orderId: 'order_1',
+      method: 'PAYPAL',
+      amount: 1990,
+      currency: 'EUR',
+    });
+
+    await useCase.execute({ paymentId: created.id, status: 'COMPLETED' });
+
+    expect(publisher.publish).toHaveBeenCalledTimes(1);
+    expect(publisher.publish).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'PAYMENT_COMPLETED', paymentId: created.id, orderId: 'order_1' }),
+    );
+  });
+
+  it('publishes a PAYMENT_FAILED event with the failure reason', async () => {
+    const repo = new FakePaymentRepository();
+    const createPayment = new CreatePayment(repo, new FakePaymentGatewayFactory());
+    const publisher = { publish: jest.fn().mockResolvedValue(undefined) };
+    const useCase = new ConfirmPayment(repo, publisher);
+
+    const created = await createPayment.execute({
+      userId: 'usr_1',
+      orderId: 'order_1',
+      method: 'PAYPAL',
+      amount: 1990,
+      currency: 'EUR',
+    });
+
+    await useCase.execute({ paymentId: created.id, status: 'FAILED', failureReason: 'card declined' });
+
+    expect(publisher.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'PAYMENT_FAILED',
+        paymentId: created.id,
+        orderId: 'order_1',
+        failureReason: 'card declined',
+      }),
+    );
+  });
 });

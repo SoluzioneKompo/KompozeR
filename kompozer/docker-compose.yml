@@ -173,7 +173,7 @@ services:
     environment:
       MONGO_URI: ${PAYMENT_MONGO_URI}
       PORT: ${PAYMENT_PORT}
-    depends_on: [mongo-payment]
+    depends_on: [mongo-payment, redis]
 
   notification-service:
     build: ./backend/notificationService

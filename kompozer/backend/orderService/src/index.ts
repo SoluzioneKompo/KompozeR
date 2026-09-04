@@ -13,7 +13,7 @@ const MONGO_URI =
   process.env['MONGO_URI'] ??
   'mongodb://localhost:27017/kompozer-order';
 
-const app = buildApp();
+const app = buildApp({ redisUrl: process.env['REDIS_URL'] });
 
 mongoose
   .connect(MONGO_URI)
