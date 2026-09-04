@@ -7,6 +7,7 @@ import cors from 'cors';
 import express from 'express';
 import pinoHttp from 'pino-http';
 import { randomUUID } from 'crypto';
+import Redis from 'ioredis';
 import { buildOrderRouter } from './adapters/http/orderRouter';
 import { errorMiddleware } from './adapters/http/errorMiddleware';
 import { MongoOrderRepository } from './adapters/persistence/MongoOrderRepository';
@@ -16,8 +17,14 @@ import { CreateOrder } from './useCases/CreateOrder';
 import { GetOrder } from './useCases/GetOrder';
 import { ListOrders } from './useCases/ListOrders';
 import { UpdateOrderStatus } from './useCases/UpdateOrderStatus';
+import { HandlePaymentEvent } from './useCases/HandlePaymentEvent';
+import { RedisPaymentEventsSubscriber } from './adapters/messaging/subscribers/RedisPaymentEventsSubscriber';
 
-export function buildApp() {
+export interface OrderAppConfig {
+  redisUrl?: string;
+}
+
+export function buildApp(config: OrderAppConfig = {}) {
   const repo = new MongoOrderRepository();
 
   const createOrder = new CreateOrder(repo);
@@ -25,6 +32,20 @@ export function buildApp() {
   const getOrder = new GetOrder(repo);
   const cancelOrder = new CancelOrder(repo);
   const updateOrderStatus = new UpdateOrderStatus(repo);
+
+  if (config.redisUrl) {
+    const paymentEventHandler = new HandlePaymentEvent(repo);
+    const redis = new Redis(config.redisUrl);
+    const paymentSubscriber = new RedisPaymentEventsSubscriber(redis, paymentEventHandler);
+    void paymentSubscriber.start().catch((error) => {
+      logger.error({ err: error }, 'Failed to start payment events subscriber');
+    });
+  } else {
+    logger.warn(
+      { event: 'order.redis.disabled' },
+      'Redis disabled: orders will not be forwarded automatically on payment completion',
+    );
+  }
 
   const app = express();
   app.use(cors());

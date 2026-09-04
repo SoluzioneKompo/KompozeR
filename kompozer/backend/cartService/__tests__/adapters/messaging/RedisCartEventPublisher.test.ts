@@ -1,13 +1,13 @@
 /**
  * Unit tests for RedisCartEventPublisher adapter.
  */
-import { CART_EVENTS_CHANNEL, RedisCartEventPublisher } from '../../../src/adapters/messaging/publishers/RedisCartEventPublisher';
+import { CART_EVENTS_STREAM, RedisCartEventPublisher } from '../../../src/adapters/messaging/publishers/RedisCartEventPublisher';
 import { CartEvent } from '../../../src/domain/entities/CartEvent';
 
 describe('RedisCartEventPublisher', () => {
-  it('publishes cart events to cart:events channel as JSON payload', async () => {
-    const publish = jest.fn().mockResolvedValue(1);
-    const redis = { publish } as unknown as { publish: (channel: string, payload: string) => Promise<number> };
+  it('appends cart events to the cart:events stream as a JSON payload field, trimmed', async () => {
+    const xadd = jest.fn().mockResolvedValue('1-0');
+    const redis = { xadd };
     const publisher = new RedisCartEventPublisher(redis as never);
 
     const event: CartEvent = {
@@ -23,7 +23,7 @@ describe('RedisCartEventPublisher', () => {
 
     await publisher.publish(event);
 
-    expect(publish).toHaveBeenCalledTimes(1);
-    expect(publish).toHaveBeenCalledWith(CART_EVENTS_CHANNEL, JSON.stringify(event));
+    expect(xadd).toHaveBeenCalledTimes(1);
+    expect(xadd).toHaveBeenCalledWith(CART_EVENTS_STREAM, 'MAXLEN', '~', 10_000, '*', 'payload', JSON.stringify(event));
   });
 });

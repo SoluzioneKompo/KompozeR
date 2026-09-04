@@ -1,5 +1,7 @@
 /**
- * Use case for creating a new order in SUBMITTED state.
+ * Use case for creating a new order in AWAITING_PAYMENT state.
+ * The order is only forwarded (status SUBMITTED) once paymentService
+ * confirms the payment — see HandlePaymentEvent.
  */
 import { randomUUID } from 'crypto';
 import { ExpeditionInfo, Order } from '../domain/entities/Order';
@@ -39,7 +41,7 @@ export class CreateOrder {
       expeditionInfo,
       items: input.items.map((item) => ({ ...item })),
       total: input.total,
-      status: 'SUBMITTED',
+      status: 'AWAITING_PAYMENT',
       submittedAt: now,
     };
 

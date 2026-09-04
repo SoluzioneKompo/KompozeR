@@ -8,6 +8,7 @@ import cors from 'cors';
 import pinoHttp from 'pino-http';
 import { randomUUID } from 'crypto';
 import { Server as HttpServer } from 'http';
+import Redis from 'ioredis';
 import { logger, redactUrl } from './infrastructure/logger';
 import { MongoNotificationRepository } from './adapters/persistence/MongoNotificationRepository';
 import { MongoProcessedEventRepository } from './adapters/persistence/MongoProcessedEventRepository';
@@ -83,7 +84,7 @@ export function buildApp(config: NotificationAppConfig = {}): NotificationRuntim
   const deleteSubscription = new DeleteSubscription(notifications);
 
   const redisSubscriber = config.redisUrl
-    ? new RedisCatalogEventsSubscriber(config.redisUrl, eventHandler)
+    ? new RedisCatalogEventsSubscriber(new Redis(config.redisUrl), eventHandler)
     : null;
 
   const app = express();

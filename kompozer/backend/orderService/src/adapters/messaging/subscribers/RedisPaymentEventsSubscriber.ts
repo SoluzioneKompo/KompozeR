@@ -1,23 +1,27 @@
 /**
- * Redis Streams consumer for catalog:events (consumer group
- * 'notification-service'). Forwards decoded events to HandleCatalogEvent,
- * which is itself idempotent (tracks processed event IDs), so redelivery
- * after a crash or restart is safe.
+ * Redis Streams consumer for payment:events (consumer group 'order-service').
  *
- * Entries are only acked after the handler completes; anything left
- * pending past STALE_MS is reclaimed via XAUTOCLAIM and retried.
+ * Unlike Pub/Sub, a stream persists entries and tracks per-consumer-group
+ * delivery: if this service is down when paymentService appends an event,
+ * the entry is still there — and still undelivered to this group — once it
+ * reconnects. Entries are only removed from the pending list (XACK) after
+ * HandlePaymentEvent successfully processes them; anything left pending
+ * past STALE_MS (e.g. a crash mid-processing) is reclaimed via XAUTOCLAIM
+ * and retried. HandlePaymentEvent is naturally idempotent (it only acts on
+ * orders still AWAITING_PAYMENT), so re-delivery is safe.
  *
  * Takes an already-constructed Redis client (rather than a URL) so it can
- * be unit tested without a real server.
+ * be unit tested without a real server — see the publisher for the same
+ * convention.
  */
 import { randomUUID } from 'crypto';
 import Redis from 'ioredis';
-import { CatalogEvent } from '../../../domain/entities/CatalogEvent';
-import { HandleCatalogEvent } from '../../../useCases/HandleCatalogEvent';
+import { PaymentEvent } from '../../../domain/entities/PaymentEvent';
+import { HandlePaymentEvent } from '../../../useCases/HandlePaymentEvent';
 import { logger } from '../../../infrastructure/logger';
 
-export const CATALOG_EVENTS_STREAM = 'catalog:events';
-const CONSUMER_GROUP = 'notification-service';
+export const PAYMENT_EVENTS_STREAM = 'payment:events';
+const CONSUMER_GROUP = 'order-service';
 const BLOCK_MS = 5_000;
 const READ_COUNT = 10;
 const STALE_MS = 30_000;
@@ -25,20 +29,20 @@ const RETRY_DELAY_MS = 1_000;
 
 type StreamEntry = [id: string, fields: string[]];
 
-export class RedisCatalogEventsSubscriber {
+export class RedisPaymentEventsSubscriber {
   private readonly consumerName = `${CONSUMER_GROUP}-${randomUUID()}`;
   private running = false;
 
   constructor(
     private readonly redis: Redis,
-    private readonly handler: HandleCatalogEvent,
+    private readonly handler: HandlePaymentEvent,
   ) {}
 
   async start(): Promise<void> {
     await this.ensureGroup();
     this.running = true;
     void this.loop();
-    logger.info({ event: 'notification.redis.subscribed' }, 'Subscribed to catalog:events');
+    logger.info({ event: 'order.redis.subscribed', stream: PAYMENT_EVENTS_STREAM }, 'Subscribed to payment:events');
   }
 
   async stop(): Promise<void> {
@@ -48,7 +52,7 @@ export class RedisCatalogEventsSubscriber {
 
   private async ensureGroup(): Promise<void> {
     try {
-      await this.redis.xgroup('CREATE', CATALOG_EVENTS_STREAM, CONSUMER_GROUP, '0', 'MKSTREAM');
+      await this.redis.xgroup('CREATE', PAYMENT_EVENTS_STREAM, CONSUMER_GROUP, '0', 'MKSTREAM');
     } catch (error) {
       if (!(error instanceof Error) || !error.message.includes('BUSYGROUP')) {
         throw error;
@@ -71,7 +75,7 @@ export class RedisCatalogEventsSubscriber {
           'BLOCK',
           BLOCK_MS,
           'STREAMS',
-          CATALOG_EVENTS_STREAM,
+          PAYMENT_EVENTS_STREAM,
           '>',
         )) as [string, StreamEntry[]][] | null;
 
@@ -86,7 +90,7 @@ export class RedisCatalogEventsSubscriber {
         }
       } catch (error) {
         if (this.running) {
-          logger.error({ err: error }, 'catalog:events read loop failed');
+          logger.error({ err: error }, 'payment:events read loop failed');
           await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
         }
       }
@@ -96,7 +100,7 @@ export class RedisCatalogEventsSubscriber {
   private async claimStale(): Promise<void> {
     try {
       const [, entries] = (await this.redis.xautoclaim(
-        CATALOG_EVENTS_STREAM,
+        PAYMENT_EVENTS_STREAM,
         CONSUMER_GROUP,
         this.consumerName,
         STALE_MS,
@@ -107,29 +111,29 @@ export class RedisCatalogEventsSubscriber {
         await this.processEntry(id, fields);
       }
     } catch (error) {
-      logger.error({ err: error }, 'Failed to claim stale catalog events');
+      logger.error({ err: error }, 'Failed to claim stale payment events');
     }
   }
 
   private async processEntry(id: string, fields: string[]): Promise<void> {
-    let event: CatalogEvent;
+    let event: PaymentEvent;
     try {
       const payload = this.extractPayload(fields);
       if (payload === null) {
         throw new Error('entry missing payload field');
       }
-      event = JSON.parse(payload) as CatalogEvent;
+      event = JSON.parse(payload) as PaymentEvent;
     } catch (error) {
-      logger.error({ err: error, id }, 'Invalid catalog event payload; acking to drop poison message');
-      await this.redis.xack(CATALOG_EVENTS_STREAM, CONSUMER_GROUP, id);
+      logger.error({ err: error, id }, 'Invalid payment event payload; acking to drop poison message');
+      await this.redis.xack(PAYMENT_EVENTS_STREAM, CONSUMER_GROUP, id);
       return;
     }
 
     try {
       await this.handler.execute(event);
-      await this.redis.xack(CATALOG_EVENTS_STREAM, CONSUMER_GROUP, id);
+      await this.redis.xack(PAYMENT_EVENTS_STREAM, CONSUMER_GROUP, id);
     } catch (error) {
-      logger.error({ err: error, id, catalogEventId: event.eventId }, 'Failed to process catalog event; leaving pending for retry');
+      logger.error({ err: error, id, paymentEventId: event.eventId }, 'Failed to process payment event; leaving pending for retry');
     }
   }
 

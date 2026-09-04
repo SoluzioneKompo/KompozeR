@@ -1,7 +1,7 @@
 /**
  * Core order domain model.
  */
-export type OrderStatus = 'SUBMITTED' | 'DONE' | 'CANCELLED';
+export type OrderStatus = 'AWAITING_PAYMENT' | 'SUBMITTED' | 'DONE' | 'CANCELLED';
 
 export interface OrderItem {
   sku: string;

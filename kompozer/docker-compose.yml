@@ -94,6 +94,13 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       MONGO_INITDB_DATABASE: catalogdb
 
+  mongo-order:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: orderdb
+
   mongo-payment:
     image: mongo:7
     environment:
@@ -121,7 +128,7 @@ services:
     build: ./backend/apiGateway
     ports: ["${GATEWAY_PORT}:${GATEWAY_PORT}"]
     env_file: .env
-    depends_on: [auth-service, cad-service, cart-service, catalog-service, payment-service, reporting-service, redis]
+    depends_on: [auth-service, cad-service, cart-service, catalog-service, order-service, payment-service, reporting-service, redis]
 
   auth-service:
     build: ./backend/authenticationService
@@ -157,7 +164,7 @@ services:
     environment:
       MONGO_URI: ${CART_MONGO_URI}
       PORT: ${CART_PORT}
-    depends_on: [mongo-cart, redis, catalog-service]
+    depends_on: [mongo-cart, redis, catalog-service, order-service]
 
   catalog-service:
     build: ./backend/catalogService
@@ -167,13 +174,21 @@ services:
       PORT: ${CATALOG_PORT}
     depends_on: [mongo-catalog, redis]
 
+  order-service:
+    build: ./backend/orderService
+    env_file: .env
+    environment:
+      MONGO_URI: ${ORDER_MONGO_URI}
+      PORT: ${ORDER_PORT}
+    depends_on: [mongo-order, redis]
+
   payment-service:
     build: ./backend/paymentService
     env_file: .env
     environment:
       MONGO_URI: ${PAYMENT_MONGO_URI}
       PORT: ${PAYMENT_PORT}
-    depends_on: [mongo-payment]
+    depends_on: [mongo-payment, redis]
 
   notification-service:
     build: ./backend/notificationService

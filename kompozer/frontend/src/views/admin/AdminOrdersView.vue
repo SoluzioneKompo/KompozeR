@@ -26,6 +26,9 @@ const filteredItems = computed(() => {
   return items.value.filter((order) => order.status === statusFilter.value);
 });
 
+const awaitingPaymentCount = computed(
+  () => items.value.filter((order) => order.status === 'AWAITING_PAYMENT').length,
+);
 const submittedCount = computed(() => items.value.filter((order) => order.status === 'SUBMITTED').length);
 const doneCount = computed(() => items.value.filter((order) => order.status === 'DONE').length);
 const cancelledCount = computed(() => items.value.filter((order) => order.status === 'CANCELLED').length);
@@ -175,6 +178,17 @@ function formatExpeditionName(order: Order): string {
       >
         <span class="metric-label">{{ t('admin.orders.metrics.total') }}</span>
         <strong class="metric-value">{{ items.length }}</strong>
+      </article>
+      <article
+        :class="['metric-card', { 'metric-card--active': statusFilter === 'AWAITING_PAYMENT' }]"
+        role="button"
+        tabindex="0"
+        @click="setStatusFilter('AWAITING_PAYMENT')"
+        @keydown.enter.prevent="setStatusFilter('AWAITING_PAYMENT')"
+        @keydown.space.prevent="setStatusFilter('AWAITING_PAYMENT')"
+      >
+        <span class="metric-label">AWAITING_PAYMENT</span>
+        <strong class="metric-value">{{ awaitingPaymentCount }}</strong>
       </article>
       <article
         :class="['metric-card', { 'metric-card--active': statusFilter === 'SUBMITTED' }]"
@@ -338,7 +352,7 @@ function formatExpeditionName(order: Order): string {
 .metrics {
   margin-top: var(--space-5);
   display: grid;
-  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
   gap: var(--space-3);
 }
 
@@ -412,6 +426,11 @@ function formatExpeditionName(order: Order): string {
   font-size: var(--font-size-xs);
   border-radius: var(--radius-full);
   padding: 2px 10px;
+}
+
+.status.awaiting_payment {
+  background: var(--color-warning-subtle);
+  color: var(--color-warning);
 }
 
 .status.submitted {

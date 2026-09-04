@@ -263,8 +263,11 @@ services:
     environment:
       ORDER_PORT: "3008"
       ORDER_MONGO_URI: "mongodb://root:changeme@mongo-order:27017/orderdb?authSource=admin"
+      REDIS_URL: "redis://redis:6379"
     depends_on:
       mongo-order:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
 
@@ -273,8 +276,11 @@ services:
     environment:
       PAYMENT_PORT: "3009"
       PAYMENT_MONGO_URI: "mongodb://root:changeme@mongo-payment:27017/paymentdb?authSource=admin"
+      REDIS_URL: "redis://redis:6379"
     depends_on:
       mongo-payment:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
 

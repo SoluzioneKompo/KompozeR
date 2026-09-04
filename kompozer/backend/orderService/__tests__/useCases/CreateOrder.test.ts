@@ -6,7 +6,7 @@ import { ValidationError } from '../../src/domain/entities/errors';
 import { FakeOrderRepository } from '../helpers/fakes';
 
 describe('CreateOrder', () => {
-  it('creates an order in SUBMITTED status', async () => {
+  it('creates an order in AWAITING_PAYMENT status', async () => {
     const repo = new FakeOrderRepository();
     const createOrder = new CreateOrder(repo);
 
@@ -35,7 +35,7 @@ describe('CreateOrder', () => {
     });
 
     expect(result.id).toEqual(expect.any(String));
-    expect(result.status).toBe('SUBMITTED');
+    expect(result.status).toBe('AWAITING_PAYMENT');
     expect(result.total).toBe(3980);
   });
 
@@ -90,7 +90,7 @@ describe('CreateOrder', () => {
       total: 3980,
     });
 
-    expect(result.status).toBe('SUBMITTED');
+    expect(result.status).toBe('AWAITING_PAYMENT');
     expect(result.expeditionInfo.deliveryNotes).toBeUndefined();
   });
 });

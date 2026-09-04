@@ -23,7 +23,7 @@ const expeditionInfo = {
 };
 
 describe('CancelOrder', () => {
-  it('allows owner to cancel own SUBMITTED order', async () => {
+  it('allows owner to cancel own AWAITING_PAYMENT order', async () => {
     const repo = new FakeOrderRepository();
     const createOrder = new CreateOrder(repo);
     const cancelOrder = new CancelOrder(repo);
