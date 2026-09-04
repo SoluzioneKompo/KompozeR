@@ -38,11 +38,13 @@ export function buildApp(config: CartAppConfig = {}) {
   let eventPublisher: CartEventPublisher = new NoopCartEventPublisher();
 
   if (config.redisUrl) {
-    const redis = new Redis(config.redisUrl);
-    eventPublisher = new RedisCartEventPublisher(redis);
+    // Separate connections: the subscriber holds its connection open on a
+    // blocking XREADGROUP, which would otherwise queue up and delay
+    // publisher commands sharing the same connection.
+    eventPublisher = new RedisCartEventPublisher(new Redis(config.redisUrl));
 
     const restoreUnavailableItems = new RestoreUnavailableItems(repo, catalog, eventPublisher);
-    const catalogSubscriber = new RedisCatalogEventsSubscriber(config.redisUrl, restoreUnavailableItems);
+    const catalogSubscriber = new RedisCatalogEventsSubscriber(new Redis(config.redisUrl), restoreUnavailableItems);
     void catalogSubscriber.start().catch((error) => {
       logger.error({ err: error }, 'Failed to start catalog events subscriber');
     });

@@ -1,13 +1,13 @@
 /**
  * Unit tests for RedisPaymentEventPublisher adapter.
  */
-import { PAYMENT_EVENTS_CHANNEL, RedisPaymentEventPublisher } from '../../../src/adapters/messaging/publishers/RedisPaymentEventPublisher';
+import { PAYMENT_EVENTS_STREAM, RedisPaymentEventPublisher } from '../../../src/adapters/messaging/publishers/RedisPaymentEventPublisher';
 import { PaymentEvent } from '../../../src/domain/entities/PaymentEvent';
 
 describe('RedisPaymentEventPublisher', () => {
-  it('publishes payment events to payment:events channel as JSON payload', async () => {
-    const publish = jest.fn().mockResolvedValue(1);
-    const redis = { publish } as unknown as { publish: (channel: string, payload: string) => Promise<number> };
+  it('appends payment events to the payment:events stream as a JSON payload field, trimmed', async () => {
+    const xadd = jest.fn().mockResolvedValue('1-0');
+    const redis = { xadd };
     const publisher = new RedisPaymentEventPublisher(redis as never);
 
     const event: PaymentEvent = {
@@ -20,7 +20,15 @@ describe('RedisPaymentEventPublisher', () => {
 
     await publisher.publish(event);
 
-    expect(publish).toHaveBeenCalledTimes(1);
-    expect(publish).toHaveBeenCalledWith(PAYMENT_EVENTS_CHANNEL, JSON.stringify(event));
+    expect(xadd).toHaveBeenCalledTimes(1);
+    expect(xadd).toHaveBeenCalledWith(
+      PAYMENT_EVENTS_STREAM,
+      'MAXLEN',
+      '~',
+      10_000,
+      '*',
+      'payload',
+      JSON.stringify(event),
+    );
   });
 });

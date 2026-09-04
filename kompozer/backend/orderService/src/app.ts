@@ -7,6 +7,7 @@ import cors from 'cors';
 import express from 'express';
 import pinoHttp from 'pino-http';
 import { randomUUID } from 'crypto';
+import Redis from 'ioredis';
 import { buildOrderRouter } from './adapters/http/orderRouter';
 import { errorMiddleware } from './adapters/http/errorMiddleware';
 import { MongoOrderRepository } from './adapters/persistence/MongoOrderRepository';
@@ -34,7 +35,8 @@ export function buildApp(config: OrderAppConfig = {}) {
 
   if (config.redisUrl) {
     const paymentEventHandler = new HandlePaymentEvent(repo);
-    const paymentSubscriber = new RedisPaymentEventsSubscriber(config.redisUrl, paymentEventHandler);
+    const redis = new Redis(config.redisUrl);
+    const paymentSubscriber = new RedisPaymentEventsSubscriber(redis, paymentEventHandler);
     void paymentSubscriber.start().catch((error) => {
       logger.error({ err: error }, 'Failed to start payment events subscriber');
     });
