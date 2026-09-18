@@ -1,6 +1,6 @@
 /** WebSocket client for collaborative CAD sessions (join/presence/operations). */
 import { io, type Socket } from 'socket.io-client';
-import type { Category, ColumnDesign, ColumnPlan, ConfigurationDto, Environment } from '@/types/cad';
+import type { Category, ColumnDesign, ColumnPlan, ConfigurationDto } from '@/types/cad';
 import { i18n } from '@/i18n';
 
 interface AckError {
@@ -14,7 +14,7 @@ interface AckResponse<T> {
   error?: AckError;
 }
 
-export type CollabFieldPath = 'name' | 'category' | 'environment' | 'columnPlan' | 'columnDesigns';
+export type CollabFieldPath = 'name' | 'category' | 'columnPlan' | 'columnDesigns';
 
 export interface CollabSessionOutput {
   sessionCode: string;
@@ -259,7 +259,7 @@ class CadCollabSocketService {
     lamport: number;
     baseVersion: number;
     fieldPath: CollabFieldPath;
-    value: string | Category | Environment | ColumnPlan | ColumnDesign[] | null;
+    value: string | Category | ColumnPlan | ColumnDesign[] | null;
   }): Promise<CollabOperationOutput> {
     this.connect();
     if (!this.socket) {

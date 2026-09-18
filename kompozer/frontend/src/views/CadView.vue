@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** CAD configurator view orchestrating environment, design, and BOM workflows. */
+/** CAD configurator view orchestrating category, design, and BOM workflows. */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -7,7 +7,6 @@ import type {
   Category,
   ColumnDesign,
   ColumnPlan,
-  Environment,
   NextOption,
 } from '@/types/cad';
 import { useCad } from '@/composables/useCad';
@@ -19,6 +18,7 @@ import type { CatalogItem } from '@/types/catalog';
 import type { ConfigurationDto } from '@/types/cad';
 import { typeLabel } from '@/utils/catalogGrouping';
 import { getIntlLocale } from '@/i18n/format';
+import { computeAssemblyGeometry } from '@/utils/cadAssembly';
 
 const { t } = useI18n();
 
@@ -28,14 +28,12 @@ const {
   createLoading,
   finalizeLoading,
   categoryLoading,
-  environmentLoading,
   columnPlanLoading,
   designLoading,
   error,
   nextOptionsByColumn,
   loadDetail,
   updateCategory,
-  updateEnvironment,
   updateColumnPlan,
   fetchNextOptions,
   setNextOptions,
@@ -52,14 +50,6 @@ const route = useRoute();
 const notifications = useNotificationStore();
 const authStore = useAuthStore();
 
-const environmentDraft = ref<Environment>({
-  maxWidthMm: 5000,
-  maxHeightMm: 3000,
-  minWidthMm: 600,
-  minHeightMm: 220,
-  unit: 'mm',
-});
-
 const columnCountDraft = ref(2);
 const shelfWidthsDraft = ref<number[]>([800, 800]);
 const SHELF_THICKNESS_MM = 20;
@@ -69,11 +59,10 @@ const selectedGapByColumn = ref<Record<number, number | null>>({});
 const categoryCatalogItems = ref<CatalogItem[]>([]);
 const catalogLoading = ref(false);
 
-const showBomMobile = ref(false);
+const showBomModal = ref(false);
 const showResetConfirm = ref(false);
 const showResetFinalConfirm = ref(false);
 const pendingCategory = ref<Category | null>(null);
-const pendingEnvironment = ref<Environment | null>(null);
 const joinCodeInput = ref('');
 const joinLoading = ref(false);
 
@@ -360,10 +349,6 @@ watch(selected, (value) => {
 
   categoryDraft.value = value.category ?? '';
 
-  if (value.environment) {
-    environmentDraft.value = { ...value.environment };
-  }
-
   if (value.columnPlan) {
     columnCountDraft.value = value.columnPlan.columnCount;
     shelfWidthsDraft.value = value.columnPlan.columns
@@ -386,18 +371,16 @@ const currentStepIndex = computed(() => {
   switch (selected.value.status) {
     case 'DRAFT':
       return 0;
-    case 'ENVIRONMENT_DEFINED':
-      return 1;
     case 'CATEGORY_SELECTED':
-      return 2;
+      return 1;
     case 'COLUMNS_DEFINED':
-      return 3;
+      return 2;
     case 'DESIGN_IN_PROGRESS':
-      return 3;
+      return 2;
     case 'READY_FOR_FINALIZE':
-      return 4;
+      return 3;
     case 'FINALIZED':
-      return 5;
+      return 4;
     default:
       return 0;
   }
@@ -416,7 +399,6 @@ const canSubmitCategory = computed(() => {
 });
 
 const canFinalize = computed(() => selected.value?.status === 'READY_FOR_FINALIZE');
-const canEditEnvironment = computed(() => selected.value && selected.value.status !== 'FINALIZED');
 const canEditCategory = computed(() => selected.value && selected.value.status !== 'FINALIZED');
 const canEditColumns = computed(() => {
   if (!selected.value) return false;
@@ -517,8 +499,6 @@ const designByColumn = computed(() => {
   return map;
 });
 
-const gridMaxHeight = computed(() => Math.max(environmentDraft.value.maxHeightMm || 1, 1));
-
 /** True when the selected configuration uses INTELLIGENTE logic. */
 const isIntelligente = computed(() => selected.value?.category === 'INTELLIGENTE');
 
@@ -549,14 +529,43 @@ const columnsAligned = computed((): boolean => {
 const canvasColumns = computed(() => {
   return orderedColumns.value.map((column) => {
     const design = designByColumn.value.get(column.index);
-    const levels = design?.levelsMm ?? [];
-    return {
-      ...column,
-      levels,
-      levelPercents: levels.map((level) => Math.min(95, Math.max(2, Math.round((level / gridMaxHeight.value) * 100)))),
-    };
+    return { ...column, levels: design?.levelsMm ?? [] };
   });
 });
+
+/** Realistic 2D assembly geometry (feet/uprights/terminals/shelves) for the schema panel. */
+const assembly = computed(() => computeAssemblyGeometry(selected.value?.columnPlan, selected.value?.columnDesigns));
+
+const ASSEMBLY_BASE_SCALE_PX_PER_MM = 0.6;
+const assemblyZoom = ref(1);
+const canvasScrollRef = ref<HTMLElement | null>(null);
+
+/** True-scale width (px) of the assembly drawing at zoom 1. */
+const assemblyBaseWidthPx = computed(() => Math.max(200, assembly.value.totalWidthMm * ASSEMBLY_BASE_SCALE_PX_PER_MM));
+/** Rendered width (px) after applying the current zoom level. */
+const assemblyFrameWidthPx = computed(() => assemblyBaseWidthPx.value * assemblyZoom.value);
+const assemblyZoomPercent = computed(() => Math.round(assemblyZoom.value * 100));
+
+function zoomIn(): void {
+  assemblyZoom.value = Math.min(3, Math.round((assemblyZoom.value + 0.25) * 100) / 100);
+}
+
+function zoomOut(): void {
+  assemblyZoom.value = Math.max(0.1, Math.round((assemblyZoom.value - 0.25) * 100) / 100);
+}
+
+function zoomReset(): void {
+  assemblyZoom.value = 1;
+}
+
+/** Shrinks (or grows) the drawing so the whole width fits the visible panel without horizontal scrolling. */
+function zoomFit(): void {
+  const containerWidth = canvasScrollRef.value?.clientWidth ?? 0;
+  if (containerWidth <= 0) {
+    return;
+  }
+  assemblyZoom.value = Math.max(0.1, Math.round((containerWidth / assemblyBaseWidthPx.value) * 100) / 100);
+}
 
 watch(
   () => [selected.value?.id, selected.value?.status, canvasColumns.value.length] as const,
@@ -586,7 +595,7 @@ async function joinFromCad(): Promise<void> {
 
 async function broadcastCollabOperation(
   fieldPath: CollabFieldPath,
-  value: string | Category | Environment | ColumnPlan | ColumnDesign[] | null,
+  value: string | Category | ColumnPlan | ColumnDesign[] | null,
   baseVersion: number,
 ): Promise<void> {
   if (!selected.value || !collabSessionCode.value || collabMode.value !== 'shared') {
@@ -667,26 +676,6 @@ async function loadCatalogForCategory(category: Category | null): Promise<void> 
   }
 }
 
-/** Saves environment parameters, with reset confirmation when required. */
-async function saveEnvironment(): Promise<void> {
-  if (!selected.value) return;
-
-  if (selected.value.status === 'FINALIZED') {
-    return;
-  }
-
-  const requiresReset = ['COLUMNS_DEFINED', 'DESIGN_IN_PROGRESS', 'READY_FOR_FINALIZE'].includes(selected.value.status);
-  if (requiresReset) {
-    pendingEnvironment.value = { ...environmentDraft.value };
-    showResetConfirm.value = true;
-    return;
-  }
-
-  const baseVersion = selected.value.version;
-  await updateEnvironment(environmentDraft.value);
-  await broadcastCollabOperation('environment', environmentDraft.value, baseVersion);
-}
-
 /** Saves selected category, with reset confirmation when design already progressed. */
 async function saveCategory(value: string): Promise<void> {
   if (!selected.value || !value) {
@@ -714,7 +703,7 @@ async function saveCategory(value: string): Promise<void> {
   await broadcastCollabOperation('category', nextCategory, baseVersion);
 }
 
-/** Saves currently selected category draft through explicit Step 2 action button. */
+/** Saves currently selected category draft through explicit Step 1 action button. */
 async function submitCategory(): Promise<void> {
   if (!categoryDraft.value) {
     return;
@@ -729,16 +718,9 @@ async function confirmResetStepOne(): Promise<void> {
   showResetFinalConfirm.value = true;
 }
 
-/** Applies pending reset changes for environment and category updates. */
+/** Applies pending reset changes for category updates. */
 async function confirmResetStepTwo(): Promise<void> {
   showResetFinalConfirm.value = false;
-
-  if (pendingEnvironment.value) {
-    const baseVersion = selected.value?.version ?? 1;
-    await updateEnvironment(pendingEnvironment.value);
-    await broadcastCollabOperation('environment', pendingEnvironment.value, baseVersion);
-    pendingEnvironment.value = null;
-  }
 
   if (pendingCategory.value) {
     const baseVersion = selected.value?.version ?? 1;
@@ -753,11 +735,6 @@ function cancelReset(): void {
   showResetConfirm.value = false;
   showResetFinalConfirm.value = false;
   pendingCategory.value = null;
-  pendingEnvironment.value = null;
-
-  if (selected.value?.environment) {
-    environmentDraft.value = { ...selected.value.environment };
-  }
 }
 
 /** Persists current column count and shelf width draft as column plan. */
@@ -982,7 +959,15 @@ function stepActive(index: number): boolean {
       </div>
       <div class="header-actions">
         <button class="btn btn--light" :disabled="detailLoading || !selected" @click="reloadSelected">{{ t('cad.header.refreshDetail') }}</button>
-        <button class="btn btn--light bom-mobile-btn" @click="showBomMobile = true">{{ t('cad.bom.title') }}</button>
+        <button
+          v-if="selected"
+          class="btn btn--light bom-trigger-btn"
+          :aria-label="t('cad.bom.title')"
+          @click="showBomModal = true"
+        >
+          <span class="bom-trigger-icon" aria-hidden="true">🧾</span>
+          <span class="bom-trigger-total">{{ formatPrice(totalPrice) }}</span>
+        </button>
       </div>
     </header>
 
@@ -1063,22 +1048,18 @@ function stepActive(index: number): boolean {
           <section class="stepper">
             <article class="step" :class="{ 'step--done': stepDone(0), 'step--active': stepActive(0) }">
               <span class="step__index">1</span>
-              <span class="step__label">{{ t('cad.steps.environment') }}</span>
+              <span class="step__label">{{ t('cad.steps.category') }}</span>
             </article>
             <article class="step" :class="{ 'step--done': stepDone(1), 'step--active': stepActive(1) }">
               <span class="step__index">2</span>
-              <span class="step__label">{{ t('cad.steps.category') }}</span>
+              <span class="step__label">{{ t('cad.steps.columns') }}</span>
             </article>
             <article class="step" :class="{ 'step--done': stepDone(2), 'step--active': stepActive(2) }">
               <span class="step__index">3</span>
-              <span class="step__label">{{ t('cad.steps.columns') }}</span>
+              <span class="step__label">{{ t('cad.steps.design') }}</span>
             </article>
             <article class="step" :class="{ 'step--done': stepDone(3), 'step--active': stepActive(3) }">
               <span class="step__index">4</span>
-              <span class="step__label">{{ t('cad.steps.design') }}</span>
-            </article>
-            <article class="step" :class="{ 'step--done': stepDone(4), 'step--active': stepActive(4) }">
-              <span class="step__index">5</span>
               <span class="step__label">{{ t('cad.steps.finalize') }}</span>
             </article>
           </section>
@@ -1090,31 +1071,6 @@ function stepActive(index: number): boolean {
           </section>
 
           <section class="controls-section">
-            <article class="control-card">
-              <h3>{{ t('cad.environmentStep.title') }}</h3>
-              <div class="two-cols">
-                <label class="field">
-                  <span class="field__label">{{ t('cad.environmentStep.maxWidth') }}</span>
-                  <input v-model.number="environmentDraft.maxWidthMm" class="field__input" type="number" min="1" />
-                </label>
-                <label class="field">
-                  <span class="field__label">{{ t('cad.environmentStep.maxHeight') }}</span>
-                  <input v-model.number="environmentDraft.maxHeightMm" class="field__input" type="number" min="1" />
-                </label>
-                <label class="field">
-                  <span class="field__label">{{ t('cad.environmentStep.minWidth') }}</span>
-                  <input v-model.number="environmentDraft.minWidthMm" class="field__input" type="number" min="1" />
-                </label>
-                <label class="field">
-                  <span class="field__label">{{ t('cad.environmentStep.minHeight') }}</span>
-                  <input v-model.number="environmentDraft.minHeightMm" class="field__input" type="number" min="1" />
-                </label>
-              </div>
-              <button class="btn btn--light" :disabled="!canEditEnvironment || environmentLoading" @click="saveEnvironment">
-                {{ environmentLoading ? t('cad.environmentStep.saving') : t('cad.environmentStep.save') }}
-              </button>
-            </article>
-
             <article class="control-card">
               <h3>{{ t('cad.categoryStep.title') }}</h3>
               <label class="field">
@@ -1279,48 +1235,86 @@ function stepActive(index: number): boolean {
               <h3>{{ t('cad.schema.title') }}</h3>
               <p class="mini muted">{{ t('cad.schema.subtitle') }}</p>
             </div>
-            <span class="canvas-size">{{ environmentDraft.maxWidthMm }} x {{ environmentDraft.maxHeightMm }} mm</span>
+            <div class="assembly-zoom-controls">
+              <button
+                type="button"
+                class="btn btn--light btn--small"
+                :aria-label="t('cad.schema.zoomOut')"
+                @click="zoomOut"
+              >&minus;</button>
+              <button
+                type="button"
+                class="btn btn--light btn--small assembly-zoom-percent"
+                :aria-label="t('cad.schema.zoomReset')"
+                @click="zoomReset"
+              >{{ assemblyZoomPercent }}%</button>
+              <button
+                type="button"
+                class="btn btn--light btn--small"
+                :aria-label="t('cad.schema.zoomIn')"
+                @click="zoomIn"
+              >+</button>
+              <button
+                type="button"
+                class="btn btn--light btn--small"
+                @click="zoomFit"
+              >{{ t('cad.schema.zoomFit') }}</button>
+            </div>
           </header>
 
-          <div class="canvas-scroll">
-            <div class="canvas-grid">
-              <article
-                v-for="column in canvasColumns"
-                :key="column.index"
-                class="canvas-column"
-                :style="{
-                  '--column-grow': String(
-                    Number.isFinite(column.shelfWidthMm) && column.shelfWidthMm > 0
-                      ? column.shelfWidthMm
-                      : 1,
-                  ),
-                }"
+          <div class="canvas-scroll" ref="canvasScrollRef">
+            <div class="assembly-frame" :style="{ width: `${assemblyFrameWidthPx}px` }">
+              <svg
+                class="assembly-svg"
+                :viewBox="`0 0 ${assembly.totalWidthMm} ${assembly.totalHeightMm}`"
+                preserveAspectRatio="xMinYMax meet"
+                role="img"
+                :aria-label="t('cad.schema.title')"
               >
-              <div class="canvas-column__body">
-                <span class="baseline-label">0</span>
+                <rect
+                  v-for="(piece, idx) in assembly.pieces"
+                  :key="`piece-${idx}`"
+                  :class="`assembly-piece assembly-piece--${piece.kind}`"
+                  :x="piece.xMm"
+                  :y="assembly.totalHeightMm - piece.topMm"
+                  :width="piece.widthMm"
+                  :height="piece.topMm - piece.bottomMm"
+                />
+                <text
+                  v-for="piece in assembly.pieces.filter((p) => p.kind === 'shelf')"
+                  :key="`label-${piece.xMm}-${piece.bottomMm}`"
+                  class="assembly-label"
+                  :x="piece.xMm + piece.widthMm / 2"
+                  :y="assembly.totalHeightMm - piece.topMm - 4"
+                  text-anchor="middle"
+                >{{ piece.bottomMm }}mm</text>
+              </svg>
 
-                <div
-                  v-for="(level, idx) in column.levelPercents"
-                  :key="`level-${column.index}-${idx}`"
-                  class="shelf-line"
-                  :style="{ bottom: `${level}%` }"
+              <div class="assembly-column-labels">
+                <span
+                  v-for="label in assembly.columnLabels"
+                  :key="`col-label-${label.index}`"
+                  class="assembly-column-label"
+                  :style="{ left: `${(label.centerXMm / assembly.totalWidthMm) * 100}%` }"
                 >
-                  <span>{{ column.levels[idx] }}mm</span>
-                </div>
+                  {{ t('cad.designStep.columnLabel', { n: label.index + 1 }) }} - {{ label.shelfWidthMm }}mm<template v-if="isIntelligente"> ({{ columnRoles.get(label.index) ?? '' }})</template>
+                </span>
               </div>
-              <div class="canvas-column__x">C{{ column.index + 1 }} · {{ column.shelfWidthMm }}mm<span v-if="isIntelligente" class="canvas-role-label"> ({{ columnRoles.get(column.index) ?? '' }})</span></div>
-              </article>
             </div>
           </div>
         </section>
       </aside>
+    </div>
 
-      <aside class="right-panel" v-if="selected">
-        <h2>{{ t('cad.bom.title') }}</h2>
+    <div v-if="showBomModal" class="modal-overlay" @click.self="showBomModal = false">
+      <article class="modal-card">
+        <header class="modal-header">
+          <h3>{{ t('cad.bom.title') }}</h3>
+          <button class="btn btn--light btn--small" @click="showBomModal = false">{{ t('cad.collab.modal.close') }}</button>
+        </header>
         <p class="muted">{{ t('cad.bom.subtitle') }}</p>
-
-        <div class="bom-list" v-if="(selected.bom?.length ?? 0) > 0">
-          <article class="bom-row" v-for="item in selected.bom" :key="`${item.sku}-${item.componentType || 'GEN'}`">
+        <div class="bom-list" v-if="(selected?.bom?.length ?? 0) > 0">
+          <article class="bom-row" v-for="item in selected?.bom" :key="`${item.sku}-${item.componentType || 'GEN'}`">
             <div>
               <strong>{{ item.name }}</strong>
               <p class="mini">{{ t('cad.bom.skuLine', { sku: item.sku, type: item.componentType ? typeLabel(item.componentType) : t('cad.bom.componentFallback') }) }}</p>
@@ -1334,35 +1328,6 @@ function stepActive(index: number): boolean {
           </article>
         </div>
         <p v-else class="placeholder">{{ t('cad.bom.empty') }}</p>
-
-        <footer class="total-box">
-          <span>{{ t('cad.bom.totalPreview') }}</span>
-          <strong>{{ formatPrice(totalPrice) }}</strong>
-        </footer>
-      </aside>
-    </div>
-
-    <div v-if="showBomMobile" class="modal-overlay" @click.self="showBomMobile = false">
-      <article class="modal-card">
-        <header class="modal-header">
-          <h3>{{ t('cad.bom.title') }}</h3>
-          <button class="btn btn--light btn--small" @click="showBomMobile = false">{{ t('cad.collab.modal.close') }}</button>
-        </header>
-        <div class="bom-list" v-if="(selected?.bom?.length ?? 0) > 0">
-          <article class="bom-row" v-for="item in selected?.bom" :key="`mob-${item.sku}-${item.componentType || 'GEN'}`">
-            <div>
-              <strong>{{ item.name }}</strong>
-              <p class="mini">{{ t('cad.bom.skuLine', { sku: item.sku, type: item.componentType ? typeLabel(item.componentType) : t('cad.bom.componentFallback') }) }}</p>
-            </div>
-            <div class="bom-row__right">
-              <span>x{{ item.quantity }}</span>
-              <strong>
-                {{ formatPrice((item.unitPrice ?? ((item.unitPriceCents || 0) / 100)) * item.quantity) }}
-              </strong>
-            </div>
-          </article>
-        </div>
-        <p v-else class="placeholder">{{ t('cad.bom.emptyMobile') }}</p>
         <footer class="total-box">
           <span>{{ t('cad.bom.totalPreview') }}</span>
           <strong>{{ formatPrice(totalPrice) }}</strong>
@@ -1452,8 +1417,18 @@ function stepActive(index: number): boolean {
   gap: var(--space-2);
 }
 
-.bom-mobile-btn {
-  display: none;
+.bom-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bom-trigger-icon {
+  font-size: var(--font-size-lg);
+}
+
+.bom-trigger-total {
+  font-weight: var(--font-weight-semibold);
 }
 
 .toolbar {
@@ -1519,14 +1494,13 @@ function stepActive(index: number): boolean {
 .cad-layout {
   margin-top: var(--space-5);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px) minmax(280px, 340px);
+  grid-template-columns: minmax(360px, 1fr) minmax(420px, 1.3fr);
   gap: var(--space-4);
   align-items: stretch;
 }
 
 .schema-panel,
-.center-panel,
-.right-panel {
+.center-panel {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   border-radius: var(--radius-lg);
@@ -1534,15 +1508,14 @@ function stepActive(index: number): boolean {
 }
 
 .center-panel,
-.schema-panel,
-.right-panel {
+.schema-panel {
   max-height: calc(100vh - 130px);
   overflow: auto;
 }
 
 .stepper {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-2);
 }
 
@@ -1611,23 +1584,19 @@ function stepActive(index: number): boolean {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: var(--space-3);
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
-.canvas-size {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-.canvas-grid {
+.assembly-zoom-controls {
   display: flex;
-  align-items: stretch;
-  min-height: 260px;
-  min-width: 100%;
-  width: max-content;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: linear-gradient(to top, #f2f6f8 0%, #ffffff 100%);
-  overflow: hidden;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.assembly-zoom-percent {
+  min-width: 52px;
 }
 
 .canvas-scroll {
@@ -1636,51 +1605,56 @@ function stepActive(index: number): boolean {
   padding-bottom: var(--space-1);
 }
 
-.canvas-column {
-  flex: var(--column-grow, 1) 0 0;
-  min-width: 140px;
-  padding: var(--space-2);
-  display: grid;
-  grid-template-rows: 1fr auto;
-  gap: var(--space-2);
+.assembly-frame {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-3);
 }
 
-.canvas-column:not(:first-child) {
-  border-left: 1px dotted var(--color-border);
+.assembly-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 55vh;
 }
 
-.canvas-column__x {
+.assembly-piece {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.assembly-piece--foot,
+.assembly-piece--upright {
+  fill: var(--color-admin-accent);
+}
+
+.assembly-piece--terminal {
+  fill: var(--color-text-secondary);
+}
+
+.assembly-piece--shelf {
+  fill: var(--color-accent-subtle);
+  stroke: var(--color-text-secondary);
+}
+
+.assembly-label {
+  font-size: 9px;
+  fill: var(--color-text-muted);
+}
+
+.assembly-column-labels {
+  position: relative;
+  height: 1.6em;
+  margin-top: var(--space-2);
+}
+
+.assembly-column-label {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-}
-
-.canvas-column__body {
-  position: relative;
-}
-
-.baseline-label {
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  font-size: 9px;
-  color: var(--color-text-muted);
-}
-
-.shelf-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  border-top: 2px solid var(--color-accent);
-}
-
-.shelf-line span {
-  position: absolute;
-  right: 4px;
-  top: -14px;
-  background: #fff;
-  font-size: 10px;
-  color: var(--color-text-secondary);
-  padding: 0 4px;
   white-space: nowrap;
 }
 
@@ -1902,14 +1876,8 @@ function stepActive(index: number): boolean {
 
 @media (max-width: 1360px) {
   .cad-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
     align-items: start;
-  }
-
-  .right-panel {
-    grid-column: 1 / -1;
-    max-height: none;
-    overflow: visible;
   }
 
   .schema-panel {
@@ -1938,8 +1906,7 @@ function stepActive(index: number): boolean {
   }
 
   .center-panel,
-  .schema-panel,
-  .right-panel {
+  .schema-panel {
     max-height: none;
     overflow: visible;
   }
@@ -1950,14 +1917,6 @@ function stepActive(index: number): boolean {
 
   .schema-panel {
     order: 2;
-  }
-
-  .right-panel {
-    display: none;
-  }
-
-  .bom-mobile-btn {
-    display: inline-flex;
   }
 
   .stepper {

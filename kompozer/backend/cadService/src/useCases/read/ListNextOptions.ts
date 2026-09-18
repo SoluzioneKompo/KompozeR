@@ -65,12 +65,11 @@ export class ListNextOptions {
     }
 
     const configuration = await this.loadOwnedConfiguration(input.id, input.ownerId);
-    if (!configuration.environment || !configuration.category || !configuration.columnPlan) {
-      throw new ValidationError('Environment, category and column plan must be defined before listing options');
+    if (!configuration.category || !configuration.columnPlan) {
+      throw new ValidationError('Category and column plan must be defined before listing options');
     }
     assertStep4LogicImplemented(configuration.category);
 
-    const environment = configuration.environment;
     const columnPlan = configuration.columnPlan;
 
     const planColumn = columnPlan.columns.find((column) => column.index === input.columnIndex);
@@ -150,7 +149,7 @@ export class ListNextOptions {
       footHeightsMm: firstLevelHeightsMm,
       uprightHeightsMm: rules.uprightHeightsMm,
       terminalHeightsMm: rules.terminalHeightsMm,
-      maxHeightMm: environment.maxHeightMm,
+      maxHeightMm: Number.MAX_SAFE_INTEGER,
     };
 
     const options: NextOptionDto[] = candidates.map(({ heightMm, kind }) => {

@@ -3,7 +3,6 @@ import {
   ColumnDesign,
   ColumnPlan,
   Configuration,
-  Environment,
 } from '../domain/entities/Configuration';
 import { ConfigurationStatus } from '../domain/entities/ConfigurationStatus';
 import { BomItem } from '../domain/entities/Bom';
@@ -23,7 +22,6 @@ export interface ConfigurationDto {
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
-  environment: Environment | null;
   columnPlan: ColumnPlan | null;
   columnDesigns: ColumnDesign[];
   version: number;
@@ -52,13 +50,6 @@ export interface ListConfigurationsOutput {
   page: number;
   limit: number;
   totalPages: number;
-}
-
-/** Input payload for environment update step. */
-export interface SetEnvironmentInput {
-  id: string;
-  ownerId: string;
-  environment: Environment;
 }
 
 /** Input payload for category selection step. */
@@ -124,7 +115,6 @@ export function toConfigurationDto(configuration: Configuration): ConfigurationD
     name: configuration.name,
     status: configuration.status,
     category: configuration.category,
-    environment: configuration.environment,
     columnPlan: configuration.columnPlan,
     columnDesigns: configuration.columnDesigns,
     version: configuration.version,

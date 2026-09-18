@@ -5,7 +5,6 @@ import type {
   ConfigurationsListDto,
   NextOptionsDto,
   Category,
-  Environment,
   ColumnPlan,
   ColumnDesign,
 } from '@/types/cad';
@@ -28,10 +27,6 @@ export const cadService = {
 
   get(id: string): Promise<ConfigurationDto> {
     return http.get<ConfigurationDto>(`/cad/configurations/${id}`);
-  },
-
-  setEnvironment(id: string, env: Environment): Promise<ConfigurationDto> {
-    return http.patch<ConfigurationDto>(`/cad/configurations/${id}/environment`, env);
   },
 
   setCategory(id: string, category: Category): Promise<ConfigurationDto> {

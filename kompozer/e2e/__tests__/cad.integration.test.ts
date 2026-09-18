@@ -7,7 +7,7 @@
  * Flusso testato:
  *   1. Seed componenti catalogo (RIPIANO, PIEDINO, TERMINALE, MONTANTE) per categoria TONDO
  *   2. Crea configurazione CAD
- *   3. Setup ambiente → categoria → piano colonne → design
+ *   3. Setup categoria → piano colonne → design
  *   4. Finalizza → verifica BOM nel response + carrello aggiornato
  *
  * Dati persistiti (visibili in Compass):
@@ -153,17 +153,6 @@ describe('[INT] CAD — flusso configurazione completo', () => {
     expect(body['status']).toBe('DRAFT');
     configurationId = body['id'] as string;
     expect(configurationId).toBeTruthy();
-  });
-
-  it('PATCH /cad/configurations/:id/environment → 200, definisce ambiente', async () => {
-    const res = await fetch(`${BASE}/cad/configurations/${configurationId}/environment`, {
-      method:  'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
-      body:    JSON.stringify({ maxWidthMm: 5000, maxHeightMm: 3000, minWidthMm: 600, minHeightMm: 220, unit: 'mm' }),
-    });
-
-    expect(res.status).toBe(200);
-    expect((await json(res))['status']).toBe('ENVIRONMENT_DEFINED');
   });
 
   it('PATCH /cad/configurations/:id/category → 200, seleziona categoria TONDO', async () => {
@@ -342,13 +331,6 @@ describe('[INT] CAD — categoria INTELLIGENTE flusso completo', () => {
     });
     expect(created.status).toBe(201);
     smartConfigId = ((await json(created))['id'] as string);
-
-    const env = await fetch(`${BASE}/cad/configurations/${smartConfigId}/environment`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
-      body: JSON.stringify({ maxWidthMm: 5000, maxHeightMm: 3000, minWidthMm: 600, minHeightMm: 220, unit: 'mm' }),
-    });
-    expect(env.status).toBe(200);
 
     const category = await fetch(`${BASE}/cad/configurations/${smartConfigId}/category`, {
       method: 'PATCH',

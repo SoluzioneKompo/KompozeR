@@ -62,8 +62,8 @@ export class UpdateDesign {
       throw new ResourceConflictError('Cannot change design for a finalized configuration');
     }
 
-    if (!configuration.environment || !configuration.category || !configuration.columnPlan) {
-      throw new ResourceConflictError('Environment, category and column plan must be defined before design');
+    if (!configuration.category || !configuration.columnPlan) {
+      throw new ResourceConflictError('Category and column plan must be defined before design');
     }
 
     assertStep4LogicImplemented(configuration.category);
@@ -160,7 +160,7 @@ export class UpdateDesign {
         }),
         uprightHeightsMm: rules.uprightHeightsMm,
         terminalHeightsMm: rules.terminalHeightsMm,
-        maxHeightMm: configuration.environment.maxHeightMm,
+        maxHeightMm: Number.MAX_SAFE_INTEGER,
       };
       for (const col of sortedColumns) {
         const levelsMm = byIndex.get(col.index)?.levelsMm ?? [];
@@ -186,7 +186,7 @@ export class UpdateDesign {
           }),
           uprightHeightsMm: rules.uprightHeightsMm,
           terminalHeightsMm: rules.terminalHeightsMm,
-          maxHeightMm: configuration.environment.maxHeightMm,
+          maxHeightMm: Number.MAX_SAFE_INTEGER,
         },
       );
       if (!validation.valid) {

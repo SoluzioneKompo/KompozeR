@@ -78,20 +78,6 @@ describe('cadRouter', () => {
     expect(created.status).toBe(201);
     const configurationId = created.body.id as string;
 
-    const environment = await request(app)
-      .patch(`/cad/configurations/${configurationId}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
-
-    expect(environment.status).toBe(200);
-    expect(environment.body.status).toBe('ENVIRONMENT_DEFINED');
-
     const category = await request(app)
       .patch(`/cad/configurations/${configurationId}/category`)
       .set('x-user-id', 'usr_1')
@@ -143,32 +129,10 @@ describe('cadRouter', () => {
       .set('x-user-id', 'usr_1');
 
     expect(fetched.status).toBe(200);
-    expect(fetched.body.environment.maxWidthMm).toBe(5000);
     expect(fetched.body.category).toBe('TONDO');
     expect(fetched.body.columnPlan.columns).toHaveLength(2);
     expect(fetched.body.columnDesigns).toHaveLength(2);
     expect(fetched.body.status).toBe('FINALIZED');
-  });
-
-  it('PATCH /cad/configurations/:id/category -> 409 when environment is missing', async () => {
-    const app = buildApp({
-      configurationRepository: new FakeConfigurationRepository(),
-      catalogRulesProvider: new FakeCatalogRulesProvider(),
-      cartServiceClient: new FakeCartServiceClient(),
-    });
-
-    const created = await request(app)
-      .post('/cad/configurations')
-      .set('x-user-id', 'usr_1')
-      .send({ name: 'Bozza senza setup' });
-
-    const res = await request(app)
-      .patch(`/cad/configurations/${created.body.id}/category`)
-      .set('x-user-id', 'usr_1')
-      .send({ category: 'TONDO' });
-
-    expect(res.status).toBe(409);
-    expect(res.body.error.code).toBe('RESOURCE_CONFLICT');
   });
 
   it('PATCH /cad/configurations/:id/category -> 200 for INTELLIGENTE', async () => {
@@ -183,17 +147,6 @@ describe('cadRouter', () => {
       .set('x-user-id', 'usr_1')
       .send({ name: 'Bozza intelligente' });
 
-    await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
-
     const res = await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
       .set('x-user-id', 'usr_1')
@@ -201,60 +154,6 @@ describe('cadRouter', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.category).toBe('INTELLIGENTE');
-  });
-
-  it('PATCH /cad/configurations/:id/environment -> 422 when a dimension is boolean instead of being coerced to 0/1', async () => {
-    const app = buildApp({
-      configurationRepository: new FakeConfigurationRepository(),
-      catalogRulesProvider: new FakeCatalogRulesProvider(),
-      cartServiceClient: new FakeCartServiceClient(),
-    });
-
-    const created = await request(app)
-      .post('/cad/configurations')
-      .set('x-user-id', 'usr_1')
-      .send({ name: 'Bozza' });
-
-    const res = await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: true,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
-
-    expect(res.status).toBe(422);
-    expect(res.body.error.code).toBe('VALIDATION_ERROR');
-  });
-
-  it('PATCH /cad/configurations/:id/environment -> 422 when a dimension is null instead of being coerced to 0', async () => {
-    const app = buildApp({
-      configurationRepository: new FakeConfigurationRepository(),
-      catalogRulesProvider: new FakeCatalogRulesProvider(),
-      cartServiceClient: new FakeCartServiceClient(),
-    });
-
-    const created = await request(app)
-      .post('/cad/configurations')
-      .set('x-user-id', 'usr_1')
-      .send({ name: 'Bozza' });
-
-    const res = await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: null,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
-
-    expect(res.status).toBe(422);
-    expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
   it('PATCH /cad/configurations/:id/design -> 422 on invalid payload', async () => {
@@ -268,17 +167,6 @@ describe('cadRouter', () => {
       .post('/cad/configurations')
       .set('x-user-id', 'usr_1')
       .send({ name: 'Bozza' });
-
-    await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
 
     await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
@@ -315,17 +203,6 @@ describe('cadRouter', () => {
       .send({ name: 'Bozza' });
 
     await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
-
-    await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
       .set('x-user-id', 'usr_1')
       .send({ category: 'TONDO' });
@@ -350,17 +227,6 @@ describe('cadRouter', () => {
       .post('/cad/configurations')
       .set('x-user-id', 'usr_1')
       .send({ name: 'Bozza' });
-
-    await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
 
     await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
@@ -405,17 +271,6 @@ describe('cadRouter', () => {
       .send({ name: 'Bozza' });
 
     await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
-
-    await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
       .set('x-user-id', 'usr_1')
       .send({ category: 'TONDO' });
@@ -456,17 +311,6 @@ describe('cadRouter', () => {
       .send({ name: 'Bozza kube' });
 
     await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
-
-    await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
       .set('x-user-id', 'usr_1')
       .send({ category: 'KUBE' });
@@ -498,17 +342,6 @@ describe('cadRouter', () => {
       .post('/cad/configurations')
       .set('x-user-id', 'usr_1')
       .send({ name: 'Bozza intelligente' });
-
-    await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
 
     await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
@@ -647,17 +480,6 @@ describe('cadRouter', () => {
       .post('/cad/configurations')
       .set('x-user-id', 'owner_1')
       .send({ name: 'Shared config' });
-
-    await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'owner_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
 
     const opened = await request(app)
       .post(`/cad/configurations/${created.body.id}/collab/sessions`)

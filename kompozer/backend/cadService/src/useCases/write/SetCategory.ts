@@ -12,7 +12,7 @@ import {
 } from '../types';
 import { canAccessConfiguration } from '../access';
 
-/** Write use case that sets system category after environment selection. */
+/** Write use case that sets the system category (first CAD workflow step). */
 export class SetCategory {
   constructor(private readonly configurationRepository: ConfigurationRepository) {}
 
@@ -28,10 +28,6 @@ export class SetCategory {
     const configuration = await this.loadOwnedConfiguration(input.id, input.ownerId);
     if (configuration.status === 'FINALIZED') {
       throw new ResourceConflictError('Cannot change category for a finalized configuration');
-    }
-
-    if (!configuration.environment) {
-      throw new ResourceConflictError('Environment must be defined before category');
     }
 
     const updated: Configuration = {

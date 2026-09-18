@@ -61,7 +61,6 @@ export class FakeConfigurationRepository implements ConfigurationRepository {
     return {
       ...configuration,
       collaborators: [...configuration.collaborators],
-      environment: configuration.environment ? { ...configuration.environment } : null,
       columnPlan: configuration.columnPlan
         ? {
             ...configuration.columnPlan,
@@ -89,7 +88,6 @@ export function buildConfiguration(overrides: Partial<Configuration> = {}): Conf
     name: 'Configurazione test',
     status: 'DRAFT',
     category: null,
-    environment: null,
     columnPlan: null,
     columnDesigns: [],
     components: [],

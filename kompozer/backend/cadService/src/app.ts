@@ -23,7 +23,6 @@ import { FinalizeConfiguration } from './useCases/write/FinalizeConfiguration';
 import { ReorderConfiguration } from './useCases/write/ReorderConfiguration';
 import { SetCategory } from './useCases/write/SetCategory';
 import { SetColumnPlan } from './useCases/write/SetColumnPlan';
-import { SetEnvironment } from './useCases/write/SetEnvironment';
 import { UpdateDesign } from './useCases/write/UpdateDesign';
 
 /**
@@ -61,7 +60,6 @@ export function buildApp(deps: BuildAppDeps = {}) {
   const listConfigurations = new ListConfigurations(configurationRepository);
   const getConfiguration = new GetConfiguration(configurationRepository, catalogRulesProvider);
   const listNextOptions = new ListNextOptions(configurationRepository, catalogRulesProvider);
-  const setEnvironment = new SetEnvironment(configurationRepository);
   const setCategory = new SetCategory(configurationRepository);
   const setColumnPlan = new SetColumnPlan(configurationRepository, catalogRulesProvider);
   const updateDesign = new UpdateDesign(configurationRepository, catalogRulesProvider);
@@ -110,7 +108,6 @@ export function buildApp(deps: BuildAppDeps = {}) {
       listConfigurations,
       getConfiguration,
       listNextOptions,
-      setEnvironment,
       setCategory,
       setColumnPlan,
       updateDesign,
