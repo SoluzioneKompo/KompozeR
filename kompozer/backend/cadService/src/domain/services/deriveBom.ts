@@ -106,7 +106,7 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
       }),
       uprightHeightsMm: rules.uprightHeightsMm,
       terminalHeightsMm: rules.terminalHeightsMm,
-      maxHeightMm: configuration.environment?.maxHeightMm ?? Number.MAX_SAFE_INTEGER,
+      maxHeightMm: Number.MAX_SAFE_INTEGER,
     });
 
     if (!spineBom) {

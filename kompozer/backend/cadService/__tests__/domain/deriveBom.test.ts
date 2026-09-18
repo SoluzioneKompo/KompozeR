@@ -2,14 +2,6 @@ import { deriveBom } from '../../src/domain/services/deriveBom';
 import { BomItem } from '../../src/domain/entities/Bom';
 import { buildCatalogRules, buildConfiguration } from '../helpers/fakes';
 
-const env = {
-  maxWidthMm: 5000,
-  maxHeightMm: 3000,
-  minWidthMm: 600,
-  minHeightMm: 220,
-  unit: 'mm' as const,
-};
-
 function sumByType(bom: BomItem[]): Record<string, number> {
   const result: Record<string, number> = {};
   for (const item of bom) {
@@ -24,7 +16,6 @@ describe('deriveBom', () => {
     const cfg = buildConfiguration({
       status: 'DESIGN_IN_PROGRESS',
       category: 'TONDO',
-      environment: env,
       columnPlan: { columnCount: 1, columns: [{ index: 0, shelfWidthMm: 800 }] },
       // Two exterior spines share the same column levels.
       columnDesigns: [{ columnIndex: 0, levelsMm: [120, 440], shelfThicknessMm: 20 }],
@@ -48,7 +39,6 @@ describe('deriveBom', () => {
     const cfg = buildConfiguration({
       status: 'DESIGN_IN_PROGRESS',
       category: 'TONDO',
-      environment: env,
       columnPlan: {
         columnCount: 2,
         columns: [
@@ -84,7 +74,6 @@ describe('deriveBom', () => {
     const cfg = buildConfiguration({
       status: 'DESIGN_IN_PROGRESS',
       category: 'KUBE',
-      environment: env,
       columnPlan: { columnCount: 1, columns: [{ index: 0, shelfWidthMm: 800 }] },
       columnDesigns: [{ columnIndex: 0, levelsMm: [120, 440], shelfThicknessMm: 20 }],
     });
@@ -103,7 +92,6 @@ describe('deriveBom', () => {
     const cfg = buildConfiguration({
       status: 'DESIGN_IN_PROGRESS',
       category: 'TONDO',
-      environment: env,
       columnPlan: {
         columnCount: 2,
         columns: [
@@ -147,7 +135,6 @@ describe('deriveBom', () => {
     const cfg = buildConfiguration({
       status: 'DESIGN_IN_PROGRESS',
       category: 'TONDO',
-      environment: env,
       columnPlan: { columnCount: 1, columns: [{ index: 0, shelfWidthMm: 800 }] },
       columnDesigns: [{ columnIndex: 0, levelsMm: [80], shelfThicknessMm: 20 }],
     });

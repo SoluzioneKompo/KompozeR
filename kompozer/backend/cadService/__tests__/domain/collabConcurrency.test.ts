@@ -22,14 +22,6 @@ import { FakeConfigurationRepository, buildConfiguration } from '../helpers/fake
  * J) Three-way concurrent write on same field — highest Lamport wins.
  */
 describe('InMemoryCollabSessionService — concurrency & LWW convergence', () => {
-  const BASE_ENV = {
-    maxWidthMm: 5000,
-    maxHeightMm: 3000,
-    minWidthMm: 600,
-    minHeightMm: 220,
-    unit: 'mm',
-  };
-
   function makeService(nowMs = 1_000_000) {
     const repo = new FakeConfigurationRepository();
     repo.seed(buildConfiguration({ id: 'cfg_1', ownerId: 'alice' }));
@@ -173,21 +165,21 @@ describe('InMemoryCollabSessionService — concurrency & LWW convergence', () =>
       baseVersion: 1,
     });
 
-    // Bob writes environment (different field)
+    // Bob writes category (different field)
     const r2 = await service.applyOperation({
       sessionCode: code,
       configurationId: 'cfg_1',
       userId: 'bob',
       opId: 'op-b1',
       lamport: 4,
-      fieldPath: 'environment',
-      value: BASE_ENV,
+      fieldPath: 'category',
+      value: 'TONDO',
       baseVersion: r1.snapshot.version,
     });
 
     expect(r2.applied).toBe(true);
     expect(r2.snapshot.name).toBe('Alice scaffold');
-    expect(r2.snapshot.environment?.maxWidthMm).toBe(5000);
+    expect(r2.snapshot.category).toBe('TONDO');
   });
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -265,7 +257,7 @@ describe('InMemoryCollabSessionService — concurrency & LWW convergence', () =>
   // G) Order independence on different fields (commutativity)
   // ──────────────────────────────────────────────────────────────────────────
   it('G) Order independence — applying ops in different order on different fields yields same state', async () => {
-    // Session 1: Alice name first, then Bob environment
+    // Session 1: Alice name first, then Bob category
     const { service: svc1 } = makeService();
     const code1 = await openSessionWith2Participants(svc1);
 
@@ -275,17 +267,17 @@ describe('InMemoryCollabSessionService — concurrency & LWW convergence', () =>
     });
     const r1b = await svc1.applyOperation({
       sessionCode: code1, configurationId: 'cfg_1', userId: 'bob',
-      opId: 'op-b', lamport: 6, fieldPath: 'environment', value: BASE_ENV, baseVersion: r1a.snapshot.version,
+      opId: 'op-b', lamport: 6, fieldPath: 'category', value: 'TONDO', baseVersion: r1a.snapshot.version,
     });
 
-    // Session 2: Bob environment first, then Alice name
+    // Session 2: Bob category first, then Alice name
     const { service: svc2, repo: repo2 } = makeService();
     repo2.seed(buildConfiguration({ id: 'cfg_1', ownerId: 'alice' }));
     const code2 = await openSessionWith2Participants(svc2);
 
     const r2a = await svc2.applyOperation({
       sessionCode: code2, configurationId: 'cfg_1', userId: 'bob',
-      opId: 'op-b', lamport: 6, fieldPath: 'environment', value: BASE_ENV, baseVersion: 1,
+      opId: 'op-b', lamport: 6, fieldPath: 'category', value: 'TONDO', baseVersion: 1,
     });
     const r2b = await svc2.applyOperation({
       sessionCode: code2, configurationId: 'cfg_1', userId: 'alice',
@@ -293,7 +285,7 @@ describe('InMemoryCollabSessionService — concurrency & LWW convergence', () =>
     });
 
     expect(r1b.snapshot.name).toBe(r2b.snapshot.name);
-    expect(r1b.snapshot.environment?.maxWidthMm).toBe(r2b.snapshot.environment?.maxWidthMm);
+    expect(r1b.snapshot.category).toBe(r2b.snapshot.category);
     expect(r1b.snapshot.version).toBe(r2b.snapshot.version);
   });
 
@@ -310,7 +302,7 @@ describe('InMemoryCollabSessionService — concurrency & LWW convergence', () =>
     });
     const r2 = await service.applyOperation({
       sessionCode: code, configurationId: 'cfg_1', userId: 'alice',
-      opId: 'op-2', lamport: 2, fieldPath: 'environment', value: BASE_ENV, baseVersion: r1.snapshot.version,
+      opId: 'op-2', lamport: 2, fieldPath: 'category', value: 'TONDO', baseVersion: r1.snapshot.version,
     });
     const r3 = await service.applyOperation({
       sessionCode: code, configurationId: 'cfg_1', userId: 'alice',
@@ -319,7 +311,7 @@ describe('InMemoryCollabSessionService — concurrency & LWW convergence', () =>
 
     expect(r3.applied).toBe(true);
     expect(r3.snapshot.name).toBe('Step 3 Final');
-    expect(r3.snapshot.environment?.maxWidthMm).toBe(5000);
+    expect(r3.snapshot.category).toBe('TONDO');
     expect(r3.snapshot.version).toBe(4);
   });
 

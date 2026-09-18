@@ -3,14 +3,6 @@ import { CATEGORIES, Category } from '../../../domain/entities/Category';
 import { ConfigurationStatus } from '../../../domain/entities/ConfigurationStatus';
 import { CatalogComponentType } from '../../../domain/ports/CatalogRulesProvider';
 
-type EnvironmentDoc = {
-  maxWidthMm: number;
-  maxHeightMm: number;
-  minWidthMm: number;
-  minHeightMm: number;
-  unit: 'mm';
-};
-
 type ColumnPlanItemDoc = {
   index: number;
   shelfWidthMm: number;
@@ -42,7 +34,6 @@ export type ConfigurationDoc = {
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
-  environment: EnvironmentDoc | null;
   columnPlan: ColumnPlanDoc | null;
   columnDesigns: ColumnDesignDoc[];
   components: BomItemDoc[];
@@ -50,18 +41,6 @@ export type ConfigurationDoc = {
   createdAt: Date;
   updatedAt: Date;
 };
-
-/** Embedded schema for environment constraints. */
-const environmentSchema = new Schema<EnvironmentDoc>(
-  {
-    maxWidthMm: { type: Number, required: true },
-    maxHeightMm: { type: Number, required: true },
-    minWidthMm: { type: Number, required: true },
-    minHeightMm: { type: Number, required: true },
-    unit: { type: String, enum: ['mm'], required: true },
-  },
-  { _id: false },
-);
 
 /** Embedded schema for a single planned column. */
 const columnPlanItemSchema = new Schema<ColumnPlanItemDoc>(
@@ -115,7 +94,6 @@ const configurationSchema = new Schema<ConfigurationDoc>(
       required: true,
       enum: [
         'DRAFT',
-        'ENVIRONMENT_DEFINED',
         'CATEGORY_SELECTED',
         'COLUMNS_DEFINED',
         'DESIGN_IN_PROGRESS',
@@ -126,11 +104,6 @@ const configurationSchema = new Schema<ConfigurationDoc>(
     category: {
       type: String,
       enum: CATEGORIES,
-      required: false,
-      default: null,
-    },
-    environment: {
-      type: environmentSchema,
       required: false,
       default: null,
     },

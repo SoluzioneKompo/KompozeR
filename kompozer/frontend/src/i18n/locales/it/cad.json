@@ -39,7 +39,6 @@
     "joinButton": "Entra con codice"
   },
   "steps": {
-    "environment": "Ambiente",
     "category": "Categoria",
     "columns": "Colonne",
     "design": "Design",
@@ -50,24 +49,15 @@
     "status": "Stato",
     "lastUpdate": "Ultimo update"
   },
-  "environmentStep": {
-    "title": "Step 1 - Ambiente",
-    "maxWidth": "Larghezza max (mm)",
-    "maxHeight": "Altezza max (mm)",
-    "minWidth": "Larghezza min (mm)",
-    "minHeight": "Altezza min (mm)",
-    "saving": "Salvataggio...",
-    "save": "Salva ambiente"
-  },
   "categoryStep": {
-    "title": "Step 2 - Categoria",
+    "title": "Step 1 - Categoria",
     "label": "Categoria",
     "placeholder": "Seleziona categoria",
     "saving": "Salvataggio...",
     "save": "Salva categoria"
   },
   "columnsStep": {
-    "title": "Step 3 - Piano colonne",
+    "title": "Step 2 - Piano colonne",
     "countLabel": "Numero colonne (1-8)",
     "loadingWidths": "Caricamento larghezze da catalogo...",
     "noShelvesAvailable": "Nessun ripiano disponibile per la categoria selezionata.",
@@ -76,7 +66,7 @@
     "save": "Salva piano colonne"
   },
   "designStep": {
-    "title": "Step 4 - Costruzione livelli (+ / -)",
+    "title": "Step 3 - Costruzione livelli (+ / -)",
     "fixedThickness": "Spessore ripiano fisso: {mm} mm",
     "intelligenteBanner": "<strong>Modalità INTELLIGENTE</strong> — “+ Livello” aggiunge lo stesso ripiano a <em>tutte</em> le colonne simultaneamente. Le colonne esterne usano ripiani <strong>BORDO</strong>, quelle interne <strong>INTERMEZZO</strong>.",
     "alignmentWarning": "Livelli non allineati tra colonne. Completa il design su tutte le colonne prima di finalizzare.",
@@ -99,27 +89,30 @@
     "removeLastAriaLabel": "Rimuovi ultimo livello dalla colonna {n}"
   },
   "finalizeStep": {
-    "title": "Step 5 - Finalizzazione",
+    "title": "Step 4 - Finalizzazione",
     "finalizing": "Finalizzazione...",
     "finalizeButton": "Finalizza e invia al carrello",
     "hint": "Finalizzazione disponibile solo in READY_FOR_FINALIZE."
   },
   "schema": {
     "title": "Schema grafico",
-    "subtitle": "Profilo laterale schematico della struttura corrente"
+    "subtitle": "Vista laterale in scala reale della struttura corrente",
+    "zoomOut": "Riduci zoom",
+    "zoomIn": "Aumenta zoom",
+    "zoomReset": "Ripristina zoom 100%",
+    "zoomFit": "Adatta"
   },
   "bom": {
     "title": "Distinta componenti",
     "subtitle": "Anteprima aggiornata in tempo reale dal backend",
     "empty": "Nessun componente disponibile: completa i passaggi di design.",
-    "emptyMobile": "Nessun componente disponibile.",
     "totalPreview": "Totale preview",
     "skuLine": "SKU: {sku} · {type}",
     "componentFallback": "Componente"
   },
   "resetConfirm": {
     "title": "Conferma reset progetto",
-    "message": "Cambiare ambiente o categoria dopo la definizione colonne resetta design e componenti. Vuoi continuare?",
+    "message": "Cambiare categoria dopo la definizione colonne resetta design e componenti. Vuoi continuare?",
     "cancel": "Annulla",
     "continue": "Continua"
   },
@@ -158,8 +151,6 @@
     "createError": "Errore creazione configurazione",
     "categoryUpdated": "Categoria aggiornata",
     "categoryUpdateError": "Errore aggiornamento categoria",
-    "environmentUpdated": "Ambiente aggiornato",
-    "environmentUpdateError": "Errore aggiornamento ambiente",
     "columnPlanUpdated": "Piano colonne aggiornato",
     "columnPlanUpdateError": "Errore aggiornamento piano colonne",
     "designUpdated": "Design colonne aggiornato",

@@ -19,14 +19,6 @@ import { CatalogRules } from '../../src/domain/ports/CatalogRulesProvider';
  * - PIEDINO / MONTANTE / TERMINALE: same shared-spine model as STANDARD.
  */
 describe('INTELLIGENTE construction logic', () => {
-  const ENV = {
-    maxWidthMm: 5000,
-    maxHeightMm: 3000,
-    minWidthMm: 600,
-    minHeightMm: 220,
-    unit: 'mm' as const,
-  };
-
   /** Builds catalog rules with INTELLIGENTE bordo/intermezzo maps populated. */
   function buildIntelligenteCatalogRules(overrides: Partial<CatalogRules> = {}): CatalogRules {
     const bordoMap = new Map([
@@ -53,7 +45,6 @@ describe('INTELLIGENTE construction logic', () => {
       const cfg = buildConfiguration({
         category: 'INTELLIGENTE',
         status: 'READY_FOR_FINALIZE',
-        environment: ENV,
         columnPlan: {
           columnCount: 2,
           columns: [
@@ -83,7 +74,6 @@ describe('INTELLIGENTE construction logic', () => {
       const cfg = buildConfiguration({
         category: 'INTELLIGENTE',
         status: 'READY_FOR_FINALIZE',
-        environment: ENV,
         columnPlan: {
           columnCount: 3,
           columns: [
@@ -115,7 +105,6 @@ describe('INTELLIGENTE construction logic', () => {
       const cfg = buildConfiguration({
         category: 'INTELLIGENTE',
         status: 'READY_FOR_FINALIZE',
-        environment: ENV,
         columnPlan: {
           columnCount: 4,
           columns: [
@@ -147,7 +136,6 @@ describe('INTELLIGENTE construction logic', () => {
       const cfg = buildConfiguration({
         category: 'INTELLIGENTE',
         status: 'READY_FOR_FINALIZE',
-        environment: ENV,
         columnPlan: {
           columnCount: 2,
           columns: [
@@ -169,7 +157,6 @@ describe('INTELLIGENTE construction logic', () => {
       const cfg = buildConfiguration({
         category: 'INTELLIGENTE',
         status: 'READY_FOR_FINALIZE',
-        environment: ENV,
         columnPlan: {
           columnCount: 3,
           columns: [
@@ -193,7 +180,6 @@ describe('INTELLIGENTE construction logic', () => {
       const cfg = buildConfiguration({
         category: 'TONDO',
         status: 'READY_FOR_FINALIZE',
-        environment: ENV,
         columnPlan: {
           columnCount: 2,
           columns: [
@@ -228,7 +214,6 @@ describe('INTELLIGENTE construction logic', () => {
           ownerId: 'usr_1',
           category: 'INTELLIGENTE',
           status: 'COLUMNS_DEFINED',
-          environment: ENV,
           columnPlan: {
             columnCount: 3,
             columns: [
@@ -305,7 +290,6 @@ describe('INTELLIGENTE construction logic', () => {
           ownerId: 'usr_1',
           category: 'INTELLIGENTE',
           status: 'COLUMNS_DEFINED',
-          environment: ENV,
           columnPlan: {
             columnCount: 2,
             columns: [
@@ -346,7 +330,6 @@ describe('INTELLIGENTE construction logic', () => {
           ownerId: 'usr_1',
           category: 'INTELLIGENTE',
           status: 'COLUMNS_DEFINED',
-          environment: ENV,
           columnPlan: { columnCount: columns.length, columns },
           columnDesigns: [],
         }),

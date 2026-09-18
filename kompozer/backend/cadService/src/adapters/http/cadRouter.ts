@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { logger } from '../../infrastructure/logger';
 import { CATEGORIES, Category, isCategory } from '../../domain/entities/Category';
 import { ConfigurationStatus } from '../../domain/entities/ConfigurationStatus';
-import { ColumnDesign, ColumnPlan, Environment } from '../../domain/entities/Configuration';
+import { ColumnDesign, ColumnPlan } from '../../domain/entities/Configuration';
 import { ValidationError } from '../../domain/entities/errors';
 import {
   CollabFieldPath,
@@ -17,7 +17,6 @@ import { FinalizeConfiguration } from '../../useCases/write/FinalizeConfiguratio
 import { ReorderConfiguration } from '../../useCases/write/ReorderConfiguration';
 import { SetCategory } from '../../useCases/write/SetCategory';
 import { SetColumnPlan } from '../../useCases/write/SetColumnPlan';
-import { SetEnvironment } from '../../useCases/write/SetEnvironment';
 import { UpdateDesign } from '../../useCases/write/UpdateDesign';
 
 export interface CadRouterDeps {
@@ -25,7 +24,6 @@ export interface CadRouterDeps {
   listConfigurations: ListConfigurations;
   getConfiguration: GetConfiguration;
   listNextOptions: ListNextOptions;
-  setEnvironment: SetEnvironment;
   setCategory: SetCategory;
   setColumnPlan: SetColumnPlan;
   updateDesign: UpdateDesign;
@@ -37,7 +35,6 @@ export interface CadRouterDeps {
 const COLLAB_FIELD_PATHS: CollabFieldPath[] = [
   'name',
   'category',
-  'environment',
   'columnPlan',
   'columnDesigns',
 ];
@@ -116,32 +113,6 @@ function parseCategory(body: unknown): Category | null | undefined {
   }
 
   return undefined;
-}
-
-/** Parses and validates environment payload. */
-function parseEnvironment(body: unknown): Environment {
-  if (!body || typeof body !== 'object') {
-    throw new ValidationError('environment payload is required');
-  }
-
-  const typedBody = body as Record<string, unknown>;
-  const maxWidthMm = requireNumber(typedBody['maxWidthMm'], 'maxWidthMm');
-  const maxHeightMm = requireNumber(typedBody['maxHeightMm'], 'maxHeightMm');
-  const minWidthMm = requireNumber(typedBody['minWidthMm'], 'minWidthMm');
-  const minHeightMm = requireNumber(typedBody['minHeightMm'], 'minHeightMm');
-  const unit = typedBody['unit'] ?? 'mm';
-
-  if (unit !== 'mm') {
-    throw new ValidationError('environment unit must be mm');
-  }
-
-  return {
-    maxWidthMm,
-    maxHeightMm,
-    minWidthMm,
-    minHeightMm,
-    unit: 'mm',
-  };
 }
 
 /** Parses and validates column plan payload. */
@@ -373,21 +344,6 @@ export function buildCadRouter(deps: CadRouterDeps) {
       });
 
       res.json(output);
-    }),
-  );
-
-  router.patch(
-    '/configurations/:id/environment',
-    requireUserId,
-    wrap(async (req, res) => {
-      const userId = req.headers['x-user-id'] as string;
-      const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
-      const configuration = await deps.setEnvironment.execute({
-        id: req.params['id'],
-        ownerId,
-        environment: parseEnvironment(req.body),
-      });
-      res.json(configuration);
     }),
   );
 

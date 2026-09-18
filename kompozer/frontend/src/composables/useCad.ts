@@ -7,7 +7,6 @@ import type {
   ColumnDesign,
   ColumnPlan,
   ConfigurationDto,
-  Environment,
   NextOptionsDto,
 } from '@/types/cad';
 import { ApiError } from '@/types/api';
@@ -28,7 +27,6 @@ export function useCad() {
   const createLoading = ref(false);
   const finalizeLoading = ref(false);
   const categoryLoading = ref(false);
-  const environmentLoading = ref(false);
   const columnPlanLoading = ref(false);
   const designLoading = ref(false);
   const nextOptionsLoading = ref(false);
@@ -120,24 +118,6 @@ export function useCad() {
       notifications.addToast('error', msg);
     } finally {
       categoryLoading.value = false;
-    }
-  }
-
-  /** Saves environment dimensions on the selected configuration. */
-  async function updateEnvironment(environment: Environment): Promise<void> {
-    if (!selected.value) {
-      return;
-    }
-    environmentLoading.value = true;
-    try {
-      selected.value = await cadService.setEnvironment(selected.value.id, environment);
-      notifications.addToast('success', t('cad.toasts.environmentUpdated'));
-      await loadList();
-    } catch (e) {
-      const msg = e instanceof ApiError ? e.message : t('cad.toasts.environmentUpdateError');
-      notifications.addToast('error', msg);
-    } finally {
-      environmentLoading.value = false;
     }
   }
 
@@ -329,7 +309,6 @@ export function useCad() {
     createLoading,
     finalizeLoading,
     categoryLoading,
-    environmentLoading,
     columnPlanLoading,
     designLoading,
     nextOptionsLoading,
@@ -346,7 +325,6 @@ export function useCad() {
     loadDetail,
     createConfiguration,
     updateCategory,
-    updateEnvironment,
     updateColumnPlan,
     updateDesign,
     fetchNextOptions,

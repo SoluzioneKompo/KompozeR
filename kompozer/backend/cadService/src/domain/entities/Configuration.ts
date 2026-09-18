@@ -3,16 +3,6 @@ import { ConfigurationStatus } from './ConfigurationStatus';
 import { ValidationError } from './errors';
 import { BomItem } from './Bom';
 
-export type Unit = 'mm';
-
-export interface Environment {
-  maxWidthMm: number;
-  maxHeightMm: number;
-  minWidthMm: number;
-  minHeightMm: number;
-  unit: Unit;
-}
-
 export interface ColumnPlanItem {
   index: number;
   shelfWidthMm: number;
@@ -36,7 +26,6 @@ export interface Configuration {
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
-  environment: Environment | null;
   columnPlan: ColumnPlan | null;
   columnDesigns: ColumnDesign[];
   components: BomItem[];

@@ -21,14 +21,6 @@ import {
  * validateColumnCandidate still enforces adjacency and shared-spine validity.
  */
 describe('ListNextOptions — STANDARD tall-gap bridge', () => {
-  const ENV = {
-    maxWidthMm: 5000,
-    maxHeightMm: 3000,
-    minWidthMm: 600,
-    minHeightMm: 220,
-    unit: 'mm' as const,
-  };
-
   // Default catalog fakes: uprights [120,300,400,500], feet [120,160], terminal [40].
   // Outer columns designed at [120, 440, 760] (foot 120, then +300, +300).
   const OUTER_LEVELS = [120, 440, 760];
@@ -41,7 +33,6 @@ describe('ListNextOptions — STANDARD tall-gap bridge', () => {
         ownerId: 'usr_1',
         category: 'TONDO',
         status: 'DESIGN_IN_PROGRESS',
-        environment: ENV,
         columnPlan: {
           columnCount: 3,
           columns: [

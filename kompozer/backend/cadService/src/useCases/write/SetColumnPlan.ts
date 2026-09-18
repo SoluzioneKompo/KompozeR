@@ -42,8 +42,8 @@ export class SetColumnPlan {
       throw new ResourceConflictError('Cannot change column plan for a finalized configuration');
     }
 
-    if (!configuration.environment || !configuration.category) {
-      throw new ResourceConflictError('Environment and category must be defined before column plan');
+    if (!configuration.category) {
+      throw new ResourceConflictError('Category must be defined before column plan');
     }
 
     if (configuration.columnDesigns.length > 0) {
@@ -52,7 +52,6 @@ export class SetColumnPlan {
 
     const rules = await this.catalogRulesProvider.getRules(configuration.category);
     const seen = new Set<number>();
-    let widthTotal = 0;
 
     // INTELLIGENTE columns use BORDO shelves on the outer columns (first and last)
     // and INTERMEZZO shelves on the inner ones, so their widths live in dedicated
@@ -90,12 +89,6 @@ export class SetColumnPlan {
           `column shelfWidthMm ${column.shelfWidthMm} is not available for category ${configuration.category}`,
         );
       }
-
-      widthTotal += column.shelfWidthMm;
-    }
-
-    if (widthTotal > configuration.environment.maxWidthMm) {
-      throw new ValidationError('Total columns width exceeds environment maxWidthMm');
     }
 
     const updated: Configuration = {

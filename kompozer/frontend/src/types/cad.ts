@@ -1,7 +1,6 @@
 /** CAD domain contracts for configurations, components, and lifecycle statuses. */
 export type ConfigurationStatus =
   | 'DRAFT'
-  | 'ENVIRONMENT_DEFINED'
   | 'CATEGORY_SELECTED'
   | 'COLUMNS_DEFINED'
   | 'DESIGN_IN_PROGRESS'
@@ -9,14 +8,6 @@ export type ConfigurationStatus =
   | 'FINALIZED';
 
 export type Category = 'TONDO' | 'QUADRO' | 'KUBE' | 'INTELLIGENTE';
-
-export interface Environment {
-  maxWidthMm: number;
-  maxHeightMm: number;
-  minWidthMm: number;
-  minHeightMm: number;
-  unit: 'mm';
-}
 
 export interface ColumnPlanItem {
   index: number;
@@ -57,7 +48,6 @@ export interface ConfigurationDto {
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
-  environment: Environment | null;
   columnPlan: ColumnPlan | null;
   columnDesigns: ColumnDesign[];
   version: number;

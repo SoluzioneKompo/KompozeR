@@ -28,7 +28,6 @@ export class CreateConfiguration {
       name: input.name?.trim() || 'Nuova configurazione',
       status: 'DRAFT',
       category: input.category ?? null,
-      environment: null,
       columnPlan: null,
       columnDesigns: [],
       components: [],

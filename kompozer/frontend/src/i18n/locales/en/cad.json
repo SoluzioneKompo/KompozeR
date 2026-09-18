@@ -39,7 +39,6 @@
     "joinButton": "Join with code"
   },
   "steps": {
-    "environment": "Environment",
     "category": "Category",
     "columns": "Columns",
     "design": "Design",
@@ -50,24 +49,15 @@
     "status": "Status",
     "lastUpdate": "Last update"
   },
-  "environmentStep": {
-    "title": "Step 1 - Environment",
-    "maxWidth": "Max width (mm)",
-    "maxHeight": "Max height (mm)",
-    "minWidth": "Min width (mm)",
-    "minHeight": "Min height (mm)",
-    "saving": "Saving...",
-    "save": "Save environment"
-  },
   "categoryStep": {
-    "title": "Step 2 - Category",
+    "title": "Step 1 - Category",
     "label": "Category",
     "placeholder": "Select category",
     "saving": "Saving...",
     "save": "Save category"
   },
   "columnsStep": {
-    "title": "Step 3 - Column plan",
+    "title": "Step 2 - Column plan",
     "countLabel": "Number of columns (1-8)",
     "loadingWidths": "Loading widths from catalog...",
     "noShelvesAvailable": "No shelf available for the selected category.",
@@ -76,7 +66,7 @@
     "save": "Save column plan"
   },
   "designStep": {
-    "title": "Step 4 - Level construction (+ / -)",
+    "title": "Step 3 - Level construction (+ / -)",
     "fixedThickness": "Fixed shelf thickness: {mm} mm",
     "intelligenteBanner": "<strong>INTELLIGENTE mode</strong> — “+ Level” adds the same shelf to <em>all</em> columns simultaneously. Outer columns use <strong>BORDO</strong> shelves, inner ones <strong>INTERMEZZO</strong>.",
     "alignmentWarning": "Levels not aligned across columns. Complete the design on all columns before finalizing.",
@@ -99,27 +89,30 @@
     "removeLastAriaLabel": "Remove last level from column {n}"
   },
   "finalizeStep": {
-    "title": "Step 5 - Finalization",
+    "title": "Step 4 - Finalization",
     "finalizing": "Finalizing...",
     "finalizeButton": "Finalize and send to cart",
     "hint": "Finalization is only available in READY_FOR_FINALIZE."
   },
   "schema": {
     "title": "Graphic schematic",
-    "subtitle": "Schematic side profile of the current structure"
+    "subtitle": "Real-scale side view of the current structure",
+    "zoomOut": "Zoom out",
+    "zoomIn": "Zoom in",
+    "zoomReset": "Reset zoom to 100%",
+    "zoomFit": "Fit"
   },
   "bom": {
     "title": "Bill of materials",
     "subtitle": "Preview updated in real time from the backend",
     "empty": "No component available: complete the design steps.",
-    "emptyMobile": "No component available.",
     "totalPreview": "Preview total",
     "skuLine": "SKU: {sku} · {type}",
     "componentFallback": "Component"
   },
   "resetConfirm": {
     "title": "Confirm project reset",
-    "message": "Changing environment or category after columns have been defined resets design and components. Do you want to continue?",
+    "message": "Changing category after columns have been defined resets design and components. Do you want to continue?",
     "cancel": "Cancel",
     "continue": "Continue"
   },
@@ -158,8 +151,6 @@
     "createError": "Error creating configuration",
     "categoryUpdated": "Category updated",
     "categoryUpdateError": "Error updating category",
-    "environmentUpdated": "Environment updated",
-    "environmentUpdateError": "Error updating environment",
     "columnPlanUpdated": "Column plan updated",
     "columnPlanUpdateError": "Error updating column plan",
     "designUpdated": "Column design updated",

@@ -38,7 +38,7 @@ export class FinalizeConfiguration {
       throw new ResourceConflictError('Configuration is already finalized');
     }
 
-    if (!configuration.environment || !configuration.category || !configuration.columnPlan) {
+    if (!configuration.category || !configuration.columnPlan) {
       throw new ResourceConflictError('Configuration setup is incomplete');
     }
 
