@@ -49,7 +49,7 @@ describe('HandlePaymentEvent', () => {
     expect(order?.status).toBe('SUBMITTED');
   });
 
-  it('cancels an AWAITING_PAYMENT order on PAYMENT_FAILED', async () => {
+  it('leaves an AWAITING_PAYMENT order untouched on PAYMENT_FAILED, so the customer can retry', async () => {
     const repo = new FakeOrderRepository();
     const createOrder = new CreateOrder(repo);
     const handlePaymentEvent = new HandlePaymentEvent(repo);
@@ -64,8 +64,8 @@ describe('HandlePaymentEvent', () => {
     await handlePaymentEvent.execute(buildEvent(created.id, { type: 'PAYMENT_FAILED', failureReason: 'card declined' }));
 
     const order = await repo.findById(created.id);
-    expect(order?.status).toBe('CANCELLED');
-    expect(order?.cancelledAt).toBeInstanceOf(Date);
+    expect(order?.status).toBe('AWAITING_PAYMENT');
+    expect(order?.cancelledAt).toBeUndefined();
   });
 
   it('is a no-op when the order is not AWAITING_PAYMENT (idempotent against redelivery)', async () => {

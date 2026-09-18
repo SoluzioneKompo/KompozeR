@@ -56,7 +56,9 @@ export class MongoPaymentRepository implements PaymentRepository {
   }
 
   async findByOrderId(orderId: string): Promise<Payment | null> {
-    const doc = await PaymentModel.findOne({ orderId }).lean();
+    // Retries create a new Payment doc per attempt (see CreatePayment) —
+    // take the most recent one, not just any match.
+    const doc = await PaymentModel.findOne({ orderId }).sort({ createdAt: -1 }).lean();
     return doc ? toEntity(doc) : null;
   }
 

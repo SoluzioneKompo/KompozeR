@@ -25,14 +25,25 @@
     "simulateSuccess": "Simula pagamento riuscito",
     "simulateFailure": "Simula pagamento fallito"
   },
+  "actions": {
+    "retry": "Riprova pagamento",
+    "cancelOrder": "Annulla ordine",
+    "cancelling": "Annullamento in corso..."
+  },
+  "cancelled": {
+    "title": "Ordine annullato",
+    "message": "Questo ordine non è più disponibile. Per rieffettuare lo stesso ordine vai in Configurazioni e clicca Riordina."
+  },
   "backToCatalog": "Torna al catalogo",
   "errors": {
     "loadOrder": "Errore caricamento ordine",
     "startPayment": "Errore durante avvio pagamento",
-    "confirmPayment": "Errore durante conferma pagamento"
+    "confirmPayment": "Errore durante conferma pagamento",
+    "cancelOrder": "Errore durante annullamento ordine"
   },
   "toasts": {
     "completed": "Pagamento completato",
-    "failed": "Pagamento fallito"
+    "failed": "Pagamento fallito",
+    "orderCancelled": "Ordine annullato. Per rieffettuare lo stesso ordine vai in Configurazioni e clicca Riordina."
   }
 }

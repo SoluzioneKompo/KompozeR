@@ -14,6 +14,7 @@ export function usePayment() {
   const loading = ref(false);
   const payLoading = ref(false);
   const confirmLoading = ref(false);
+  const cancelLoading = ref(false);
   const error = ref('');
 
   const notifications = useNotificationStore();
@@ -55,6 +56,27 @@ export function usePayment() {
     }
   }
 
+  /** Discards the failed payment attempt so the method picker shows again for a retry. */
+  function retryPayment(): void {
+    payment.value = null;
+  }
+
+  /** Cancels the order outright (owner action) — ends the checkout, no retry possible after. */
+  async function cancelOrder(orderId: string): Promise<boolean> {
+    cancelLoading.value = true;
+    try {
+      order.value = await orderService.markCancelled(orderId);
+      notifications.addToast('info', i18n.global.t('payment.toasts.orderCancelled'));
+      return true;
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('payment.errors.cancelOrder');
+      notifications.addToast('error', msg);
+      return false;
+    } finally {
+      cancelLoading.value = false;
+    }
+  }
+
   /** Dev-only: simulates the provider callback that finalizes the payment. */
   async function simulateOutcome(status: 'COMPLETED' | 'FAILED'): Promise<void> {
     if (!payment.value) {
@@ -83,9 +105,12 @@ export function usePayment() {
     loading,
     payLoading,
     confirmLoading,
+    cancelLoading,
     error,
     load,
     pay,
+    retryPayment,
+    cancelOrder,
     simulateOutcome,
   };
 }

@@ -28,7 +28,7 @@ export interface ExpeditionInfo {
 
 export interface CheckoutResult {
   orderId: string;
-  status: 'SUBMITTED';
+  status: 'AWAITING_PAYMENT';
   userId: string;
   items: CartItem[];
   total: number;

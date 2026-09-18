@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import { RouterLink, useRouter } from 'vue-router';
 import { useCart } from '@/composables/useCart';
 import { getIntlLocale } from '@/i18n/format';
+import PaymentPanel from '@/components/PaymentPanel.vue';
 import type { CartItem, ExpeditionInfo } from '@/types/cart';
 
 const { t } = useI18n();
@@ -19,6 +20,7 @@ const items = computed(() => cart.value?.items ?? []);
 const total = computed(() => cart.value?.total ?? 0);
 const showCheckoutModal = ref(false);
 const checkoutError = ref('');
+const paymentOrderId = ref('');
 const checkoutForm = reactive<ExpeditionInfo>({
   name: '',
   surname: '',
@@ -81,10 +83,19 @@ async function submitCheckout(): Promise<void> {
   try {
     const orderId = await checkout(payload);
     closeCheckoutModal();
-    await router.push({ name: 'payment', params: { orderId } });
+    paymentOrderId.value = orderId;
   } catch {
     checkoutError.value = t('cart.checkout.genericError');
   }
+}
+
+function closePaymentModal(): void {
+  paymentOrderId.value = '';
+}
+
+async function onPaymentDone(): Promise<void> {
+  closePaymentModal();
+  await router.push({ name: 'catalog' });
 }
 </script>
 
@@ -199,6 +210,15 @@ async function submitCheckout(): Promise<void> {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <div v-if="paymentOrderId" class="checkout-modal-backdrop" role="presentation">
+      <div class="payment-modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
+        <button class="payment-modal__close" type="button" :aria-label="t('cart.checkout.cancel')" @click="closePaymentModal">
+          &times;
+        </button>
+        <PaymentPanel :order-id="paymentOrderId" @done="onPaymentDone" />
       </div>
     </div>
   </div>
@@ -378,6 +398,33 @@ async function submitCheckout(): Promise<void> {
 
 .checkout-modal__title {
   margin: 0 0 var(--space-4);
+}
+
+.payment-modal {
+  position: relative;
+  width: min(900px, 100%);
+  max-height: calc(100dvh - var(--space-8));
+  overflow: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-md);
+}
+
+.payment-modal__close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  cursor: pointer;
 }
 
 .checkout-form {

@@ -18,7 +18,9 @@ export class FakePaymentRepository implements PaymentRepository {
   }
 
   async findByOrderId(orderId: string): Promise<Payment | null> {
-    const payment = [...this.payments.values()].find((p) => p.orderId === orderId);
+    const payment = [...this.payments.values()]
+      .filter((p) => p.orderId === orderId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
     return payment ? { ...payment } : null;
   }
 

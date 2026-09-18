@@ -25,14 +25,25 @@
     "simulateSuccess": "Simulate successful payment",
     "simulateFailure": "Simulate failed payment"
   },
+  "actions": {
+    "retry": "Retry payment",
+    "cancelOrder": "Cancel order",
+    "cancelling": "Cancelling..."
+  },
+  "cancelled": {
+    "title": "Order cancelled",
+    "message": "This order is no longer available. To place the same order again, go to Configurations and click Reorder."
+  },
   "backToCatalog": "Back to catalog",
   "errors": {
     "loadOrder": "Failed to load order",
     "startPayment": "Failed to start payment",
-    "confirmPayment": "Failed to confirm payment"
+    "confirmPayment": "Failed to confirm payment",
+    "cancelOrder": "Failed to cancel order"
   },
   "toasts": {
     "completed": "Payment completed",
-    "failed": "Payment failed"
+    "failed": "Payment failed",
+    "orderCancelled": "Order cancelled. To place the same order again, go to Configurations and click Reorder."
   }
 }

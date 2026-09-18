@@ -3,6 +3,7 @@
  */
 import { ForbiddenError, OrderNotFoundError, ValidationError } from '../domain/entities/errors';
 import { OrderRepository } from '../domain/ports/OrderRepository';
+import { expireIfAbandoned } from './expireAbandonedOrder';
 import { GetOrderInput, OrderDto, toOrderDto } from './types';
 
 export class GetOrder {
@@ -24,6 +25,7 @@ export class GetOrder {
       throw new ForbiddenError('Cannot access another user order');
     }
 
-    return toOrderDto(order);
+    const current = await expireIfAbandoned(order, this.repo);
+    return toOrderDto(current);
   }
 }

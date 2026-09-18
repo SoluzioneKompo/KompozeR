@@ -39,7 +39,7 @@ export class HttpOrderServiceClient implements OrderServiceClient {
 
     if (
       typeof response.id !== 'string' ||
-      response.status !== 'SUBMITTED' ||
+      response.status !== 'AWAITING_PAYMENT' ||
       typeof response.submittedAt !== 'string'
     ) {
       throw new OrderSubmissionError('Order service returned an invalid payload');
@@ -47,7 +47,7 @@ export class HttpOrderServiceClient implements OrderServiceClient {
 
     return {
       orderId: response.id,
-      status: 'SUBMITTED',
+      status: 'AWAITING_PAYMENT',
       submittedAt: new Date(response.submittedAt),
     };
   }

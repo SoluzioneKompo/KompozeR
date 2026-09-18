@@ -46,7 +46,7 @@ describe('CheckoutCart', () => {
     catalog.set({ sku: 'SKU-001', unitPrice: 1990, isAvailable: true });
 
     const result = await checkout.execute({ userId: 'usr_1', expeditionInfo });
-    expect(result.status).toBe('SUBMITTED');
+    expect(result.status).toBe('AWAITING_PAYMENT');
     expect(result.orderId).toBe('ord_1');
     expect(result.total).toBe(3980);
     expect(orderClient.calls).toHaveLength(1);
@@ -110,7 +110,7 @@ describe('CheckoutCart', () => {
     catalog.set({ sku: 'SKU-001', unitPrice: 2090, isAvailable: true });
 
     const result = await checkout.execute({ userId: 'usr_1', expeditionInfo });
-    expect(result.status).toBe('SUBMITTED');
+    expect(result.status).toBe('AWAITING_PAYMENT');
     expect(result.total).toBe(2090);
     expect(orderClient.calls[0].items[0].unitPrice).toBe(2090);
   });
@@ -135,6 +135,6 @@ describe('CheckoutCart', () => {
     const { deliveryNotes: _deliveryNotes, ...withoutNotes } = expeditionInfo;
     const result = await checkout.execute({ userId: 'usr_1', expeditionInfo: withoutNotes });
 
-    expect(result.status).toBe('SUBMITTED');
+    expect(result.status).toBe('AWAITING_PAYMENT');
   });
 });

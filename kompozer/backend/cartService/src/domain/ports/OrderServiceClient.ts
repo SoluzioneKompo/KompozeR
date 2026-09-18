@@ -24,7 +24,7 @@ export interface SubmitOrderInput {
 
 export interface SubmitOrderOutput {
   orderId: string;
-  status: 'SUBMITTED';
+  status: 'AWAITING_PAYMENT';
   submittedAt: Date;
 }
 

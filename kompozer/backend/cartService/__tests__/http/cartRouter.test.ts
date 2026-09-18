@@ -247,7 +247,7 @@ describe('cartRouter', () => {
       .send({ expeditionInfo });
 
     expect(res.status).toBe(200);
-    expect(res.body.status).toBe('SUBMITTED');
+    expect(res.body.status).toBe('AWAITING_PAYMENT');
     expect(res.body.orderId).toBe('ord_1');
 
     const cartAfterCheckout = await request(app).get('/cart').set('x-user-id', 'usr_1');
@@ -291,7 +291,7 @@ describe('cartRouter', () => {
       .send({ expeditionInfo });
 
     expect(res.status).toBe(200);
-    expect(res.body.status).toBe('SUBMITTED');
+    expect(res.body.status).toBe('AWAITING_PAYMENT');
     expect(res.body.total).toBe(2090);
   });
 });

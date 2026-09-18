@@ -61,7 +61,7 @@ describe('HttpOrderServiceClient — retry policy', () => {
   it('still succeeds on the first attempt when the server responds 200', async () => {
     const { baseUrl, close } = await startServer((_req, res) => {
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ id: 'ord_1', status: 'SUBMITTED', submittedAt: new Date().toISOString() }));
+      res.end(JSON.stringify({ id: 'ord_1', status: 'AWAITING_PAYMENT', submittedAt: new Date().toISOString() }));
     });
 
     try {

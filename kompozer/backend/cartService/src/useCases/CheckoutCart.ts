@@ -84,7 +84,7 @@ export class CheckoutCart {
 
     return {
       orderId: order.orderId,
-      status: 'SUBMITTED',
+      status: 'AWAITING_PAYMENT',
       userId: cart.userId,
       items: cart.items,
       total: cart.total,
