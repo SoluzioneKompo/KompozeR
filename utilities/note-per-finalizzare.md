@@ -1,0 +1,12 @@
+
+# Aggiunte e richieste dei bosses
+
+1. Pulsante di reset della configurazione
+2. Aggiunta del Kube
+3. Modifica della logica di kompo quadro: INTELLIGENTE non è una famiglia, diventa una tipologia di ripiano che si integra al kompo quadro.
+4. Aggiunta della profondità
+5. Possibilità di stampa del manuale delle istruzioni
+6. Rivedere il frontend: togliere il bottone di salva e procedi allo step successivo, possibilità di modificare il numero di colonne (comporta il reset)
+7. Modifica i dati in CM nel frontend
+8. Possibilità di selezionare la misura di ogni terminale.
+9. Nella lista dei componenti compatibili (nel cad) far vedere solo quelli compatibili!
