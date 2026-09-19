@@ -2,11 +2,10 @@ import { CreateComponent }      from '../../src/useCases/CreateComponent';
 import { FakeComponentRepository, FakeClock, FakeIdGenerator } from '../helpers/fakes';
 import { ComponentCategory }   from '../../src/domain/entities/ComponentCategory';
 import { ComponentType }       from '../../src/domain/entities/ComponentType';
-import { DuplicateSkuError, ValidationError } from '../../src/domain/entities/errors';
+import { ValidationError } from '../../src/domain/entities/errors';
 import { CreateComponentInput } from '../../src/useCases/types';
 
 const BASE_INPUT: CreateComponentInput = {
-  sku:             'KMP-SHELF-001',
   name:            'Ripiano 80cm',
   description:     'Ripiano in legno 80x30',
   category:        ComponentCategory.TONDO,
@@ -28,11 +27,11 @@ function makeUseCase() {
 }
 
 describe('CreateComponent', () => {
-  it('crea un componente con i dati corretti', async () => {
+  it('crea un componente con i dati corretti e genera lo SKU da category/Type/dimensions', async () => {
     const { repo, uc } = makeUseCase();
     const dto = await uc.execute(BASE_INPUT);
 
-    expect(dto.sku).toBe('KMP-SHELF-001');
+    expect(dto.sku).toBe('TONDO-SKU-RIPIANO-800x300');
     expect(dto.name).toBe('Ripiano 80cm');
     expect(dto.price).toBe(1990);
     expect(dto.version).toBe(1);
@@ -45,17 +44,36 @@ describe('CreateComponent', () => {
     expect(dto.id).toBe('comp-001');
   });
 
-  it('lancia DuplicateSkuError se lo SKU è già registrato', async () => {
+  it('aggiunge un suffisso numerico se lo SKU generato esiste già', async () => {
     const { repo, uc } = makeUseCase();
-    await repo.save({ ...BASE_INPUT, id: 'existing', version: 1, createdAt: new Date(), updatedAt: new Date() });
+    await repo.save({
+      ...BASE_INPUT,
+      sku: 'TONDO-SKU-RIPIANO-800x300',
+      id: 'existing',
+      version: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
-    await expect(uc.execute(BASE_INPUT)).rejects.toBeInstanceOf(DuplicateSkuError);
+    const dto = await uc.execute(BASE_INPUT);
+    expect(dto.sku).toBe('TONDO-SKU-RIPIANO-800x300-2');
   });
 
-  it('lancia ValidationError se SKU è vuoto', async () => {
-    const { uc } = makeUseCase();
-    await expect(uc.execute({ ...BASE_INPUT, sku: '' }))
-      .rejects.toBeInstanceOf(ValidationError);
+  it('incrementa il suffisso finché non trova uno SKU libero', async () => {
+    const { repo, uc } = makeUseCase();
+    for (const sku of ['TONDO-SKU-RIPIANO-800x300', 'TONDO-SKU-RIPIANO-800x300-2']) {
+      await repo.save({
+        ...BASE_INPUT,
+        sku,
+        id: `existing-${sku}`,
+        version: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+
+    const dto = await uc.execute(BASE_INPUT);
+    expect(dto.sku).toBe('TONDO-SKU-RIPIANO-800x300-3');
   });
 
   it('lancia ValidationError se name è vuoto', async () => {

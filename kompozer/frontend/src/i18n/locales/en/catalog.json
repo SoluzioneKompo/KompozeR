@@ -2,8 +2,7 @@
   "category": {
     "TONDO": "Round",
     "QUADRO": "Square",
-    "KUBE": "Kube",
-    "INTELLIGENTE": "Smart"
+    "KUBE": "Kube"
   },
   "componentType": {
     "PIEDINO": "Foot",

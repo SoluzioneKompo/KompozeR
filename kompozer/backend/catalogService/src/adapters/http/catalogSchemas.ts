@@ -6,6 +6,9 @@
  * string (bypassing the enum), `isAvailable` accepted any type, and
  * `dimensions` accepted any shape — corrupting data CAD compatibility logic
  * relies on downstream. These schemas close that gap at the HTTP boundary.
+ *
+ * `sku` is intentionally not accepted on create: CreateComponent derives it
+ * from category/Type/dimensions (see domain/services/generateSku).
  */
 import { z } from 'zod';
 import { ComponentCategory } from '../../domain/entities/ComponentCategory';
@@ -24,7 +27,6 @@ const dimensionsSchema = z
 
 export const createComponentSchema = z
   .object({
-    sku: z.string().trim().min(1, 'required'),
     name: z.string().trim().min(1, 'required'),
     description: z.string().optional(),
     category: z.enum(CATEGORY_VALUES),

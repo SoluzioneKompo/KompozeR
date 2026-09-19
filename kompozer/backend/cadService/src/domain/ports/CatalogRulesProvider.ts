@@ -14,9 +14,9 @@ export interface CatalogComponentRule {
 
 export interface CatalogRules {
   shelfByWidthMm: Map<number, CatalogComponentRule>;
-  /** Outer-column shelf keyed by widthMm (INTELLIGENTE) */
+  /** BORDO shelf (2+ adjacent columns sharing a level, outer position) keyed by widthMm (QUADRO) */
   bordoByWidthMm: Map<number, CatalogComponentRule>;
-  /** Inner-column shelf keyed by widthMm (INTELLIGENTE) */
+  /** INTERMEDIO shelf (3+ adjacent columns sharing a level, inner position) keyed by widthMm (QUADRO) */
   intermezzoByWidthMm: Map<number, CatalogComponentRule>;
   /** Smallest upright whose heightMm >= requested gap; keyed by exact heightMm */
   uprightByHeightMm: Map<number, CatalogComponentRule>;

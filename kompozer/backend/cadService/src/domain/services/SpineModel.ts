@@ -54,6 +54,18 @@ export interface ColumnSpineValidationResult {
   reason?: string;
 }
 
+export interface AdjacencyPolicy {
+  /**
+   * Default true = current behavior: reject a candidate/design whose level is
+   * shared with an index-adjacent column (ADJACENCY_CONFLICT). false = allow
+   * the shared level; buildSpines already merges it correctly into the shared
+   * spine. Callers that pass false (e.g. QUADRO) are responsible for having
+   * already verified catalog availability of BORDO/INTERMEDIO shelves for the
+   * widths involved — this module stays catalog-agnostic.
+   */
+  blockSharedLevel?: boolean;
+}
+
 export function computeNextLevelMm(input: NextLevelInput): number {
   const sortedLevels = sortLevels(input.existingLevelsMm);
   if (sortedLevels.length === 0) {
@@ -230,6 +242,7 @@ export function validateColumnCandidate(
   columnIndex: number,
   candidateHeightMm: number,
   rules: SpineRules,
+  policy: AdjacencyPolicy = {},
 ): SpineValidationResult {
   const targetColumn = columnLevels[columnIndex];
   if (!targetColumn) {
@@ -245,22 +258,24 @@ export function validateColumnCandidate(
     candidateHeightMm,
   });
 
-  const leftNeighbor = columnLevels[columnIndex - 1];
-  if (leftNeighbor?.levelsMm.includes(nextLevelMm)) {
-    return {
-      valid: false,
-      reasonCode: "ADJACENCY_CONFLICT",
-      reason: `Adjacent column level conflict at ${nextLevelMm}mm`,
-    };
-  }
+  if (policy.blockSharedLevel ?? true) {
+    const leftNeighbor = columnLevels[columnIndex - 1];
+    if (leftNeighbor?.levelsMm.includes(nextLevelMm)) {
+      return {
+        valid: false,
+        reasonCode: "ADJACENCY_CONFLICT",
+        reason: `Adjacent column level conflict at ${nextLevelMm}mm`,
+      };
+    }
 
-  const rightNeighbor = columnLevels[columnIndex + 1];
-  if (rightNeighbor?.levelsMm.includes(nextLevelMm)) {
-    return {
-      valid: false,
-      reasonCode: "ADJACENCY_CONFLICT",
-      reason: `Adjacent column level conflict at ${nextLevelMm}mm`,
-    };
+    const rightNeighbor = columnLevels[columnIndex + 1];
+    if (rightNeighbor?.levelsMm.includes(nextLevelMm)) {
+      return {
+        valid: false,
+        reasonCode: "ADJACENCY_CONFLICT",
+        reason: `Adjacent column level conflict at ${nextLevelMm}mm`,
+      };
+    }
   }
 
   const nextColumns = columnLevels.map((column, currentIndex) => {
@@ -293,19 +308,22 @@ export function validateColumnCandidate(
 export function validateColumnDesigns(
   columnLevels: readonly ColumnLevels[],
   rules: SpineRules,
+  policy: AdjacencyPolicy = {},
 ): ColumnSpineValidationResult {
-  for (let index = 0; index < columnLevels.length - 1; index += 1) {
-    const leftLevels = new Set(columnLevels[index]?.levelsMm ?? []);
-    const rightLevels = columnLevels[index + 1]?.levelsMm ?? [];
+  if (policy.blockSharedLevel ?? true) {
+    for (let index = 0; index < columnLevels.length - 1; index += 1) {
+      const leftLevels = new Set(columnLevels[index]?.levelsMm ?? []);
+      const rightLevels = columnLevels[index + 1]?.levelsMm ?? [];
 
-    for (const levelMm of rightLevels) {
-      if (leftLevels.has(levelMm)) {
-        return {
-          valid: false,
-          spineIndex: index + 1,
-          reasonCode: "ADJACENCY_CONFLICT",
-          reason: `Adjacent columns cannot share the same level ${levelMm}mm`,
-        };
+      for (const levelMm of rightLevels) {
+        if (leftLevels.has(levelMm)) {
+          return {
+            valid: false,
+            spineIndex: index + 1,
+            reasonCode: "ADJACENCY_CONFLICT",
+            reason: `Adjacent columns cannot share the same level ${levelMm}mm`,
+          };
+        }
       }
     }
   }

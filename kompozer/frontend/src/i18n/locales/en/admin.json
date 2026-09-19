@@ -12,7 +12,7 @@
       "creating": "Creating..."
     },
     "fields": {
-      "sku": "SKU",
+      "sku": "SKU (auto-generated)",
       "name": "Name",
       "category": "Category",
       "type": "Type",
@@ -26,7 +26,6 @@
       "compatibleCategory": "Compatible category"
     },
     "placeholders": {
-      "sku": "E.g. TONDO-SKU-NEW-001",
       "name": "Component name",
       "price": "0.00",
       "description": "Component description",

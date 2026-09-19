@@ -1,19 +1,19 @@
 import { Category } from '../entities/Category';
 import { CategoryLogicNotImplementedError } from '../entities/errors';
 
-export type Step4LogicFamily = 'STANDARD' | 'KUBE' | 'INTELLIGENTE';
+export type Step4LogicFamily = 'STANDARD' | 'QUADRO' | 'KUBE';
 
 /**
  * Resolves which Step4 logic family must be used for a selected category.
  */
 export function resolveStep4LogicFamily(category: Category): Step4LogicFamily {
-  if (category === 'TONDO' || category === 'QUADRO') {
+  if (category === 'TONDO') {
     return 'STANDARD';
   }
-  if (category === 'KUBE') {
-    return 'KUBE';
+  if (category === 'QUADRO') {
+    return 'QUADRO';
   }
-  return 'INTELLIGENTE';
+  return 'KUBE';
 }
 
 /**
@@ -21,7 +21,7 @@ export function resolveStep4LogicFamily(category: Category): Step4LogicFamily {
  */
 export function assertStep4LogicImplemented(category: Category): void {
   const logicFamily = resolveStep4LogicFamily(category);
-  if (logicFamily !== 'STANDARD' && logicFamily !== 'INTELLIGENTE') {
+  if (logicFamily === 'KUBE') {
     throw new CategoryLogicNotImplementedError(category);
   }
 }

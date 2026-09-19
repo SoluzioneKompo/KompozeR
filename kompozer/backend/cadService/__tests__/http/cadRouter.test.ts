@@ -174,7 +174,7 @@ describe('cadRouter', () => {
     expect(res.body.name).toBe('Scaffale ospite');
   });
 
-  it('PATCH /cad/configurations/:id/category -> 200 for INTELLIGENTE', async () => {
+  it('PATCH /cad/configurations/:id/category -> 200 for QUADRO', async () => {
     const app = buildApp({
       configurationRepository: new FakeConfigurationRepository(),
       catalogRulesProvider: new FakeCatalogRulesProvider(),
@@ -184,15 +184,15 @@ describe('cadRouter', () => {
     const created = await request(app)
       .post('/cad/configurations')
       .set('x-user-id', 'usr_1')
-      .send({ name: 'Bozza intelligente' });
+      .send({ name: 'Bozza quadro' });
 
     const res = await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
       .set('x-user-id', 'usr_1')
-      .send({ category: 'INTELLIGENTE' });
+      .send({ category: 'QUADRO' });
 
     expect(res.status).toBe(200);
-    expect(res.body.category).toBe('INTELLIGENTE');
+    expect(res.body.category).toBe('QUADRO');
   });
 
   it('PATCH /cad/configurations/:id/design -> 422 on invalid payload', async () => {
@@ -370,7 +370,7 @@ describe('cadRouter', () => {
     expect(res.body.error.code).toBe('CATEGORY_LOGIC_NOT_IMPLEMENTED');
   });
 
-  it('GET /cad/configurations/:id/next-options -> 422 for INTELLIGENTE (BORDO shelf not in fake catalog)', async () => {
+  it('GET /cad/configurations/:id/next-options -> 200 for QUADRO, candidate colliding with a neighbor is disallowed when BORDO is not in the fake catalog', async () => {
     const app = buildApp({
       configurationRepository: new FakeConfigurationRepository(),
       catalogRulesProvider: new FakeCatalogRulesProvider(),
@@ -380,27 +380,44 @@ describe('cadRouter', () => {
     const created = await request(app)
       .post('/cad/configurations')
       .set('x-user-id', 'usr_1')
-      .send({ name: 'Bozza intelligente' });
+      .send({ name: 'Bozza quadro' });
 
     await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
       .set('x-user-id', 'usr_1')
-      .send({ category: 'INTELLIGENTE' });
+      .send({ category: 'QUADRO' });
 
     await request(app)
       .patch(`/cad/configurations/${created.body.id}/column-plan`)
       .set('x-user-id', 'usr_1')
       .send({
-        columnCount: 1,
-        columns: [{ index: 0, shelfWidthMm: 800 }],
+        columnCount: 2,
+        columns: [
+          { index: 0, shelfWidthMm: 800 },
+          { index: 1, shelfWidthMm: 800 },
+        ],
+      });
+
+    // Column 1 already has a shelf at 120mm; a candidate that would land
+    // column 0's shelf on the same level forms a BORDO/BORDO cluster, but the
+    // fake catalog has no bordoByWidthMm entry for width 800.
+    await request(app)
+      .patch(`/cad/configurations/${created.body.id}/design`)
+      .set('x-user-id', 'usr_1')
+      .send({
+        columnDesigns: [
+          { columnIndex: 1, levelsMm: [120], shelfThicknessMm: 20 },
+        ],
       });
 
     const res = await request(app)
       .get(`/cad/configurations/${created.body.id}/next-options?columnIndex=0`)
       .set('x-user-id', 'usr_1');
 
-    expect(res.status).toBe(422);
-    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(res.status).toBe(200);
+    const collidingOption = res.body.options.find((option: { heightMm: number }) => option.heightMm === 120);
+    expect(collidingOption.allowed).toBe(false);
+    expect(collidingOption.reasonCode).toBe('INTELLIGENTE_CATALOG_MISSING');
   });
 
   it('POST /cad/configurations/:id/collab/sessions -> 201 and join by code from another user', async () => {

@@ -11,7 +11,6 @@ export interface CatalogListParams {
 }
 
 export interface CreateCatalogComponentInput {
-  sku: string;
   name: string;
   description: string;
   category: string;

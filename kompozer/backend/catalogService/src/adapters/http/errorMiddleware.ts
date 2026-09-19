@@ -9,7 +9,6 @@ import { logger }                          from '../../infrastructure/logger';
 
 const CODE_TO_STATUS: Record<string, number> = {
   COMPONENT_NOT_FOUND:  404,
-  DUPLICATE_SKU:        409,
   VERSION_CONFLICT:     409,
   VALIDATION_ERROR:     422,
   INSUFFICIENT_STOCK:   409,

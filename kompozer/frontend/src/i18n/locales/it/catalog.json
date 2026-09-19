@@ -2,8 +2,7 @@
   "category": {
     "TONDO": "Tondo",
     "QUADRO": "Quadro",
-    "KUBE": "Kube",
-    "INTELLIGENTE": "Intelligente"
+    "KUBE": "Kube"
   },
   "componentType": {
     "PIEDINO": "Piedino",

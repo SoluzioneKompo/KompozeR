@@ -5,6 +5,7 @@ import {
   deriveSpineBom,
   resolveFirstLevelHeightsMm,
   validateColumnCandidate,
+  validateColumnDesigns,
   validateSpine,
 } from "../../src/domain/services/SpineModel";
 
@@ -71,6 +72,66 @@ describe("SpineModel", () => {
       uprightHeightsMm: [80],
       terminalHeightMm: 40,
     });
+  });
+
+  it("blocks a candidate that shares a level with an adjacent column by default", () => {
+    expect(
+      validateColumnCandidate(
+        [{ levelsMm: [] }, { levelsMm: [80] }],
+        0,
+        80,
+        rules,
+      ),
+    ).toMatchObject({
+      valid: false,
+      reasonCode: "ADJACENCY_CONFLICT",
+    });
+  });
+
+  it("allows a candidate sharing a level with an adjacent column when blockSharedLevel is false", () => {
+    expect(
+      validateColumnCandidate(
+        [{ levelsMm: [] }, { levelsMm: [80] }],
+        0,
+        80,
+        rules,
+        { blockSharedLevel: false },
+      ),
+    ).toEqual({ valid: true });
+  });
+
+  it("still enforces other spine validations when blockSharedLevel is false", () => {
+    expect(
+      validateColumnCandidate(
+        [{ levelsMm: [80] }, { levelsMm: [160] }],
+        0,
+        60,
+        rules,
+        { blockSharedLevel: false },
+      ),
+    ).toMatchObject({
+      valid: false,
+      reasonCode: "INVALID_SEGMENT",
+    });
+  });
+
+  it("blocks a full design snapshot sharing a level between adjacent columns by default", () => {
+    expect(
+      validateColumnDesigns([{ levelsMm: [80] }, { levelsMm: [80] }], rules),
+    ).toMatchObject({
+      valid: false,
+      reasonCode: "ADJACENCY_CONFLICT",
+    });
+  });
+
+  it("allows a full design snapshot sharing a level when blockSharedLevel is false", () => {
+    expect(
+      validateColumnDesigns(
+        [{ levelsMm: [80] }, { levelsMm: [80] }],
+        rules,
+        { blockSharedLevel: false },
+      ),
+    ).toEqual({ valid: true });
   });
 
   it("falls back to upright heights when the catalog has no feet", () => {

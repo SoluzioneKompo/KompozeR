@@ -66,8 +66,6 @@
   "designStep": {
     "title": "Step 3 - Costruzione livelli (+ / -)",
     "fixedThickness": "Spessore ripiano fisso: {cm}",
-    "intelligenteBanner": "<strong>Modalità INTELLIGENTE</strong> — “+ Livello” aggiunge lo stesso ripiano a <em>tutte</em> le colonne simultaneamente. Le colonne esterne usano ripiani <strong>BORDO</strong>, quelle interne <strong>INTERMEZZO</strong>.",
-    "alignmentWarning": "Livelli non allineati tra colonne. Completa il design su tutte le colonne prima di finalizzare.",
     "columnLabel": "Colonna {n}",
     "currentLevels": "Livelli correnti: {levels}",
     "none": "nessuno",

@@ -97,7 +97,7 @@ export interface ListNextOptionsInput {
   columnIndex: number;
 }
 
-export type NextOptionReasonCode = SpineReasonCode | 'INVALID_GAP' | 'SPINE_CONFLICT';
+export type NextOptionReasonCode = SpineReasonCode | 'INVALID_GAP' | 'SPINE_CONFLICT' | 'INTELLIGENTE_CATALOG_MISSING';
 
 /** Candidate gap option returned for one design column. */
 export interface NextOptionDto {

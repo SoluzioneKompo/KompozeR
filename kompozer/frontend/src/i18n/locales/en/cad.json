@@ -66,8 +66,6 @@
   "designStep": {
     "title": "Step 3 - Level construction (+ / -)",
     "fixedThickness": "Fixed shelf thickness: {cm}",
-    "intelligenteBanner": "<strong>INTELLIGENTE mode</strong> — “+ Level” adds the same shelf to <em>all</em> columns simultaneously. Outer columns use <strong>BORDO</strong> shelves, inner ones <strong>INTERMEZZO</strong>.",
-    "alignmentWarning": "Levels not aligned across columns. Complete the design on all columns before finalizing.",
     "columnLabel": "Column {n}",
     "currentLevels": "Current levels: {levels}",
     "none": "none",
