@@ -168,7 +168,11 @@ export function buildSpines(columnLevels: readonly ColumnLevels[]): SpineModel[]
   return spines;
 }
 
-export function validateSpine(levelsMm: readonly number[], rules: SpineRules): SpineValidationResult {
+export function validateSpine(
+  levelsMm: readonly number[],
+  rules: SpineRules,
+  preferredTerminalHeightMm?: number,
+): SpineValidationResult {
   const sortedLevels = sortLevels(levelsMm);
   if (sortedLevels.length === 0) {
     return { valid: true };
@@ -198,7 +202,7 @@ export function validateSpine(levelsMm: readonly number[], rules: SpineRules): S
     }
   }
 
-  const terminalHeightMm = pickTerminalHeight(sortedLevels[sortedLevels.length - 1], rules);
+  const terminalHeightMm = pickTerminalHeight(sortedLevels[sortedLevels.length - 1], rules, preferredTerminalHeightMm);
   if (terminalHeightMm == null) {
     return {
       valid: false,
@@ -323,8 +327,12 @@ export function validateColumnDesigns(
   return { valid: true };
 }
 
-export function deriveSpineBom(levelsMm: readonly number[], rules: SpineRules): SpineBom | null {
-  const validation = validateSpine(levelsMm, rules);
+export function deriveSpineBom(
+  levelsMm: readonly number[],
+  rules: SpineRules,
+  preferredTerminalHeightMm?: number,
+): SpineBom | null {
+  const validation = validateSpine(levelsMm, rules, preferredTerminalHeightMm);
   if (!validation.valid || validation.terminalHeightMm == null) {
     return null;
   }
@@ -343,7 +351,13 @@ export function deriveSpineBom(levelsMm: readonly number[], rules: SpineRules): 
   };
 }
 
-function pickTerminalHeight(topLevelMm: number, rules: SpineRules): number | null {
+function pickTerminalHeight(topLevelMm: number, rules: SpineRules, preferredHeightMm?: number): number | null {
+  if (preferredHeightMm != null) {
+    const fits = rules.terminalHeightsMm.includes(preferredHeightMm)
+      && topLevelMm + SHELF_THICKNESS_MM + preferredHeightMm <= rules.maxHeightMm;
+    return fits ? preferredHeightMm : null;
+  }
+
   const sortedTerminalHeights = [...rules.terminalHeightsMm].sort((left, right) => left - right);
 
   for (const terminalHeightMm of sortedTerminalHeights) {

@@ -7,6 +7,7 @@ import type {
   Category,
   ColumnPlan,
   ColumnDesign,
+  TerminalSelection,
 } from '@/types/cad';
 
 export type ConfigurationStatus = ConfigurationDto['status'];
@@ -37,8 +38,12 @@ export const cadService = {
     return http.patch<ConfigurationDto>(`/cad/configurations/${id}/column-plan`, plan);
   },
 
-  updateDesign(id: string, columnDesigns: ColumnDesign[]): Promise<ConfigurationDto> {
-    return http.patch<ConfigurationDto>(`/cad/configurations/${id}/design`, { columnDesigns });
+  updateDesign(id: string, columnDesigns: ColumnDesign[], terminalSelections?: TerminalSelection[]): Promise<ConfigurationDto> {
+    return http.patch<ConfigurationDto>(`/cad/configurations/${id}/design`, { columnDesigns, terminalSelections });
+  },
+
+  reset(id: string): Promise<ConfigurationDto> {
+    return http.post<ConfigurationDto>(`/cad/configurations/${id}/reset`);
   },
 
   finalize(id: string): Promise<ConfigurationDto> {

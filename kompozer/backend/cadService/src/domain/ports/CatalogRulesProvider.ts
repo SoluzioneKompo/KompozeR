@@ -22,6 +22,8 @@ export interface CatalogRules {
   uprightByHeightMm: Map<number, CatalogComponentRule>;
   /** Foot rule keyed by exact heightMm */
   footByHeightMm: Map<number, CatalogComponentRule>;
+  /** Terminal rule keyed by exact heightMm */
+  terminalByHeightMm: Map<number, CatalogComponentRule>;
   terminalHeightsMm: number[];
   footHeightsMm: number[];
   uprightHeightsMm: number[];

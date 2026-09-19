@@ -1,4 +1,4 @@
-import { ColumnDesign, ColumnPlan, Configuration } from '../../domain/entities/Configuration';
+import { ColumnDesign, ColumnPlan, Configuration, TerminalSelection } from '../../domain/entities/Configuration';
 import {
   ResourceConflictError,
   ResourceNotFoundError,
@@ -198,9 +198,14 @@ export class UpdateDesign {
       }
     }
 
+    const terminalSelections = input.terminalSelections != null
+      ? this.validateTerminalSelections(input.terminalSelections, configuration.columnPlan.columnCount, rules)
+      : configuration.terminalSelections;
+
     const updated: Configuration = {
       ...configuration,
       columnDesigns: normalizedDesigns,
+      terminalSelections,
       status: normalizedDesigns.length > 0 ? 'DESIGN_IN_PROGRESS' : 'COLUMNS_DEFINED',
       version: configuration.version + 1,
       updatedAt: new Date(),
@@ -242,6 +247,36 @@ export class UpdateDesign {
       }
       previous = level;
     }
+  }
+
+  /**
+   * Validates the full terminal-selection snapshot: spine indexes must reference
+   * an existing spine (0..columnCount, inclusive of both outer spines) and heights
+   * must be a catalog-available terminal height.
+   */
+  private validateTerminalSelections(
+    selections: TerminalSelection[],
+    columnCount: number,
+    rules: CatalogRules,
+  ): TerminalSelection[] {
+    const seen = new Set<number>();
+    for (const selection of selections) {
+      if (!Number.isInteger(selection.spineIndex) || selection.spineIndex < 0 || selection.spineIndex > columnCount) {
+        throw new ValidationError(`terminalSelection spineIndex ${selection.spineIndex} is out of range`);
+      }
+      if (seen.has(selection.spineIndex)) {
+        throw new ValidationError('terminalSelections must have unique spineIndex values');
+      }
+      seen.add(selection.spineIndex);
+
+      if (!rules.terminalHeightsMm.includes(selection.heightMm)) {
+        throw new ValidationError(
+          `terminalSelection heightMm ${selection.heightMm} is not an available TERMINALE height`,
+        );
+      }
+    }
+
+    return selections;
   }
 
   private async loadOwnedConfiguration(id: string, ownerId: string): Promise<Configuration> {

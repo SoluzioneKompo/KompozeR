@@ -89,6 +89,10 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
     throw new ValidationError('No TERMINALE available in catalog rules for selected category');
   }
 
+  const terminalHeightBySpineIndex = new Map(
+    configuration.terminalSelections.map((selection) => [selection.spineIndex, selection.heightMm]),
+  );
+
   const spines = buildSpines(
     sortedColumns.map((column) => {
       const design = columnDesigns.find((item) => item.columnIndex === column.index);
@@ -99,15 +103,19 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
   );
 
   for (const spine of spines) {
-    const spineBom = deriveSpineBom(spine.levelsMm, {
-      footHeightsMm: resolveFirstLevelHeightsMm({
-        footHeightsMm: rules.footHeightsMm,
+    const spineBom = deriveSpineBom(
+      spine.levelsMm,
+      {
+        footHeightsMm: resolveFirstLevelHeightsMm({
+          footHeightsMm: rules.footHeightsMm,
+          uprightHeightsMm: rules.uprightHeightsMm,
+        }),
         uprightHeightsMm: rules.uprightHeightsMm,
-      }),
-      uprightHeightsMm: rules.uprightHeightsMm,
-      terminalHeightsMm: rules.terminalHeightsMm,
-      maxHeightMm: Number.MAX_SAFE_INTEGER,
-    });
+        terminalHeightsMm: rules.terminalHeightsMm,
+        maxHeightMm: Number.MAX_SAFE_INTEGER,
+      },
+      terminalHeightBySpineIndex.get(spine.index),
+    );
 
     if (!spineBom) {
       if (spine.levelsMm.length === 0) {
@@ -122,6 +130,8 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
       throw new ValidationError(`No PIEDINO found for exact height ${spineBom.footHeightMm}mm`);
     }
 
+    const terminalRule = rules.terminalByHeightMm.get(spineBom.terminalHeightMm) ?? rules.defaultTerminal;
+
     add(
       footRule.sku,
       footRule.name,
@@ -130,10 +140,10 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
       'PIEDINO',
     );
     add(
-      rules.defaultTerminal.sku,
-      rules.defaultTerminal.name,
+      terminalRule.sku,
+      terminalRule.name,
       SPINE_COMPONENT_MULTIPLIER,
-      rules.defaultTerminal.priceCents,
+      terminalRule.priceCents,
       'TERMINALE',
     );
 

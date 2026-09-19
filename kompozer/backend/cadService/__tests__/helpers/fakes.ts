@@ -71,6 +71,7 @@ export class FakeConfigurationRepository implements ConfigurationRepository {
         ...design,
         levelsMm: [...design.levelsMm],
       })),
+      terminalSelections: configuration.terminalSelections.map((selection) => ({ ...selection })),
       components: configuration.components.map((comp) => ({ ...comp })),
       createdAt: new Date(configuration.createdAt),
       updatedAt: new Date(configuration.updatedAt),
@@ -90,6 +91,7 @@ export function buildConfiguration(overrides: Partial<Configuration> = {}): Conf
     category: null,
     columnPlan: null,
     columnDesigns: [],
+    terminalSelections: [],
     components: [],
     version: 1,
     createdAt: now,
@@ -109,6 +111,7 @@ export class FakeCatalogRulesProvider implements CatalogRulesProvider {
       intermezzoByWidthMm: new Map(this.rules.intermezzoByWidthMm),
       uprightByHeightMm: new Map(this.rules.uprightByHeightMm),
       footByHeightMm: new Map(this.rules.footByHeightMm),
+      terminalByHeightMm: new Map(this.rules.terminalByHeightMm),
       terminalHeightsMm: [...this.rules.terminalHeightsMm],
       footHeightsMm: [...this.rules.footHeightsMm],
       uprightHeightsMm: [...this.rules.uprightHeightsMm],
@@ -158,6 +161,9 @@ export function buildCatalogRules(overrides: Partial<CatalogRules> = {}): Catalo
     [120, defaultFoot],
     [160, altFoot],
   ]);
+  const terminalMap = new Map([
+    [40, defaultTerminal],
+  ]);
 
   const base: CatalogRules = {
     shelfByWidthMm: shelfMap,
@@ -165,6 +171,7 @@ export function buildCatalogRules(overrides: Partial<CatalogRules> = {}): Catalo
     intermezzoByWidthMm: new Map(),
     uprightByHeightMm: uprightMap,
     footByHeightMm: footMap,
+    terminalByHeightMm: terminalMap,
     terminalHeightsMm: [40],
     footHeightsMm: [120, 160],
     uprightHeightsMm: [120, 300, 400, 500],
@@ -178,6 +185,7 @@ export function buildCatalogRules(overrides: Partial<CatalogRules> = {}): Catalo
     intermezzoByWidthMm: overrides.intermezzoByWidthMm ? new Map(overrides.intermezzoByWidthMm) : base.intermezzoByWidthMm,
     uprightByHeightMm:   overrides.uprightByHeightMm   ? new Map(overrides.uprightByHeightMm)   : base.uprightByHeightMm,
     footByHeightMm:      overrides.footByHeightMm      ? new Map(overrides.footByHeightMm)      : base.footByHeightMm,
+    terminalByHeightMm:  overrides.terminalByHeightMm  ? new Map(overrides.terminalByHeightMm)  : base.terminalByHeightMm,
     terminalHeightsMm:   overrides.terminalHeightsMm   ?? base.terminalHeightsMm,
     footHeightsMm:       overrides.footHeightsMm       ?? base.footHeightsMm,
     uprightHeightsMm:    overrides.uprightHeightsMm    ?? base.uprightHeightsMm,

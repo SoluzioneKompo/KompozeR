@@ -25,6 +25,12 @@ export interface ColumnDesign {
   shelfThicknessMm: number;
 }
 
+/** User-chosen terminal (cap) height for one spine (0..columnCount, inclusive). */
+export interface TerminalSelection {
+  spineIndex: number;
+  heightMm: number;
+}
+
 export interface BomItem {
   sku: string;
   name: string;
@@ -50,6 +56,7 @@ export interface ConfigurationDto {
   category: Category | null;
   columnPlan: ColumnPlan | null;
   columnDesigns: ColumnDesign[];
+  terminalSelections: TerminalSelection[];
   version: number;
   bom?: BomItem[];
   createdAt: string;

@@ -53,8 +53,7 @@
     "title": "Step 1 - Categoria",
     "label": "Categoria",
     "placeholder": "Seleziona categoria",
-    "saving": "Salvataggio...",
-    "save": "Salva categoria"
+    "saving": "Salvataggio..."
   },
   "columnsStep": {
     "title": "Step 2 - Piano colonne",
@@ -62,12 +61,11 @@
     "loadingWidths": "Caricamento larghezze da catalogo...",
     "noShelvesAvailable": "Nessun ripiano disponibile per la categoria selezionata.",
     "columnLabel": "Colonna {n}",
-    "saving": "Salvataggio...",
-    "save": "Salva piano colonne"
+    "saving": "Salvataggio..."
   },
   "designStep": {
     "title": "Step 3 - Costruzione livelli (+ / -)",
-    "fixedThickness": "Spessore ripiano fisso: {mm} mm",
+    "fixedThickness": "Spessore ripiano fisso: {cm}",
     "intelligenteBanner": "<strong>Modalità INTELLIGENTE</strong> — “+ Livello” aggiunge lo stesso ripiano a <em>tutte</em> le colonne simultaneamente. Le colonne esterne usano ripiani <strong>BORDO</strong>, quelle interne <strong>INTERMEZZO</strong>.",
     "alignmentWarning": "Livelli non allineati tra colonne. Completa il design su tutte le colonne prima di finalizzare.",
     "columnLabel": "Colonna {n}",
@@ -79,14 +77,19 @@
     "pieceHeightLabel": "Altezza pezzo da aggiungere",
     "selectHeightAriaLabel": "Seleziona altezza da aggiungere per colonna {n}",
     "bridgeSuffix": " · ponte",
-    "notAllowedFallback": "NON_CONSENTITA",
-    "noOptionsAvailable": "Nessuna opzione disponibile dal backend per questa colonna.",
-    "noValidChoiceShort": "Nessuna scelta valida",
-    "noValidChoiceWithReasons": "Nessuna scelta valida: {reasons}",
+    "noOptionsAvailable": "Nessuna opzione disponibile per questa colonna con i vincoli attuali.",
     "addLevel": "+ Livello",
     "addLevelAriaLabel": "Aggiungi livello alla colonna {n}",
     "removeLast": "- Ultimo",
     "removeLastAriaLabel": "Rimuovi ultimo livello dalla colonna {n}"
+  },
+  "terminalStep": {
+    "title": "Terminali",
+    "hint": "Scegli l'altezza del terminale per ogni spina (colonna esterna o giunzione tra colonne adiacenti). Salvataggio automatico.",
+    "noHeightsAvailable": "Nessun terminale disponibile a catalogo per questa categoria.",
+    "outerLabel": "Terminale colonna {n}",
+    "innerLabel": "Terminale tra colonna {left} e {right}",
+    "selectAriaLabel": "Seleziona altezza terminale per la spina {spine}"
   },
   "finalizeStep": {
     "title": "Step 4 - Finalizzazione",
@@ -110,9 +113,17 @@
     "skuLine": "SKU: {sku} · {type}",
     "componentFallback": "Componente"
   },
+  "resetConfig": {
+    "button": "Reset configurazione",
+    "resetting": "Reset in corso...",
+    "confirmTitle": "Confermi il reset della configurazione?",
+    "confirmMessage": "Il piano colonne, il design e i componenti verranno azzerati. La categoria selezionata resta invariata. L'azione non è reversibile.",
+    "cancel": "Annulla",
+    "confirm": "Reset configurazione"
+  },
   "resetConfirm": {
     "title": "Conferma reset progetto",
-    "message": "Cambiare categoria dopo la definizione colonne resetta design e componenti. Vuoi continuare?",
+    "message": "Cambiare categoria o piano colonne dopo che il design è già stato avviato resetta design e componenti. Vuoi continuare?",
     "cancel": "Annulla",
     "continue": "Continua"
   },
@@ -122,19 +133,6 @@
     "cancel": "Annulla",
     "confirm": "Conferma reset"
   },
-  "optionReason": {
-    "INVALID_GAP": "Altezza pezzo non valida",
-    "NON_INCREASING_LEVEL": "Il nuovo livello deve essere maggiore del precedente",
-    "MAX_HEIGHT_EXCEEDED": "Supera l'altezza massima configurata",
-    "ADJACENCY_CONFLICT": "Conflitto con la colonna adiacente (stessa quota)",
-    "LOOK_AHEAD_BLOCKED": "Questa scelta blocca i passi successivi",
-    "INVALID_FIRST_LEVEL": "Il primo livello deve corrispondere a un piedino di catalogo",
-    "INVALID_SEGMENT": "La spina condivisa richiede un montante non disponibile a catalogo",
-    "NO_TERMINAL_FIT": "Non esiste un terminale compatibile con l'altezza residua",
-    "SPINE_CONFLICT": "Questa scelta viola i vincoli della spina condivisa",
-    "default": "Opzione non consentita"
-  },
-  "moreReasonsCount": "+{count} altre",
   "toasts": {
     "httpError": "Errore HTTP {status}",
     "startSessionFailed": "Avvio sessione collaborativa fallito",
@@ -159,6 +157,8 @@
     "columnNotFound": "Colonna {n} non trovata",
     "finalizeSuccess": "Configurazione finalizzata e inviata al carrello",
     "finalizeError": "Errore finalizzazione configurazione",
+    "resetSuccess": "Configurazione resettata",
+    "resetError": "Errore reset configurazione",
     "realtimeUnavailable": "Connessione realtime non disponibile",
     "joinTimeout": "Timeout join sessione collaborativa",
     "leaveTimeout": "Timeout leave sessione collaborativa",

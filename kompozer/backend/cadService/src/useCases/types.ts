@@ -3,6 +3,7 @@ import {
   ColumnDesign,
   ColumnPlan,
   Configuration,
+  TerminalSelection,
 } from '../domain/entities/Configuration';
 import { ConfigurationStatus } from '../domain/entities/ConfigurationStatus';
 import { BomItem } from '../domain/entities/Bom';
@@ -24,6 +25,7 @@ export interface ConfigurationDto {
   category: Category | null;
   columnPlan: ColumnPlan | null;
   columnDesigns: ColumnDesign[];
+  terminalSelections: TerminalSelection[];
   version: number;
   createdAt: Date;
   updatedAt: Date;
@@ -71,10 +73,18 @@ export interface UpdateDesignInput {
   id: string;
   ownerId: string;
   columnDesigns: ColumnDesign[];
+  /** Full snapshot of per-spine terminal choices; omitted keeps existing selections. */
+  terminalSelections?: TerminalSelection[];
 }
 
 /** Input payload for finalize step. */
 export interface FinalizeConfigurationInput {
+  id: string;
+  ownerId: string;
+}
+
+/** Input payload for the configuration reset step (keeps category, clears columns/design). */
+export interface ResetConfigurationInput {
   id: string;
   ownerId: string;
 }
@@ -117,6 +127,7 @@ export function toConfigurationDto(configuration: Configuration): ConfigurationD
     category: configuration.category,
     columnPlan: configuration.columnPlan,
     columnDesigns: configuration.columnDesigns,
+    terminalSelections: configuration.terminalSelections,
     version: configuration.version,
     createdAt: configuration.createdAt,
     updatedAt: configuration.updatedAt,

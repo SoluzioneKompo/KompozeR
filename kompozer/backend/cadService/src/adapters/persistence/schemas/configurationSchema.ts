@@ -19,6 +19,11 @@ type ColumnDesignDoc = {
   shelfThicknessMm: number;
 };
 
+type TerminalSelectionDoc = {
+  spineIndex: number;
+  heightMm: number;
+};
+
 type BomItemDoc = {
   sku: string;
   name: string;
@@ -36,6 +41,7 @@ export type ConfigurationDoc = {
   category: Category | null;
   columnPlan: ColumnPlanDoc | null;
   columnDesigns: ColumnDesignDoc[];
+  terminalSelections: TerminalSelectionDoc[];
   components: BomItemDoc[];
   version: number;
   createdAt: Date;
@@ -66,6 +72,15 @@ const columnDesignSchema = new Schema<ColumnDesignDoc>(
     columnIndex: { type: Number, required: true },
     levelsMm: { type: [Number], default: [] },
     shelfThicknessMm: { type: Number, required: true },
+  },
+  { _id: false },
+);
+
+/** Embedded schema for a per-spine terminal (cap) height choice. */
+const terminalSelectionSchema = new Schema<TerminalSelectionDoc>(
+  {
+    spineIndex: { type: Number, required: true },
+    heightMm: { type: Number, required: true },
   },
   { _id: false },
 );
@@ -114,6 +129,10 @@ const configurationSchema = new Schema<ConfigurationDoc>(
     },
     columnDesigns: {
       type: [columnDesignSchema],
+      default: [],
+    },
+    terminalSelections: {
+      type: [terminalSelectionSchema],
       default: [],
     },
     components: {

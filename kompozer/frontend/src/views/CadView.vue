@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** CAD configurator view orchestrating category, design, and BOM workflows. */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import type {
@@ -8,6 +8,7 @@ import type {
   ColumnDesign,
   ColumnPlan,
   NextOption,
+  TerminalSelection,
 } from '@/types/cad';
 import { useCad } from '@/composables/useCad';
 import { useAuthStore } from '@/store/authStore';
@@ -30,6 +31,7 @@ const {
   categoryLoading,
   columnPlanLoading,
   designLoading,
+  resetLoading,
   error,
   nextOptionsByColumn,
   loadDetail,
@@ -40,6 +42,7 @@ const {
   addTopShelf,
   removeTopShelf,
   updateDesign,
+  resetConfiguration,
   createConfiguration,
   createName,
   finalizeSelected,
@@ -62,7 +65,10 @@ const catalogLoading = ref(false);
 const showBomModal = ref(false);
 const showResetConfirm = ref(false);
 const showResetFinalConfirm = ref(false);
+const showResetConfigConfirm = ref(false);
 const pendingCategory = ref<Category | null>(null);
+const pendingColumnPlan = ref<ColumnPlan | null>(null);
+const terminalHeightBySpine = ref<Record<number, number | null>>({});
 const joinCodeInput = ref('');
 const joinLoading = ref(false);
 
@@ -386,18 +392,6 @@ const currentStepIndex = computed(() => {
   }
 });
 
-const canSubmitCategory = computed(() => {
-  if (!selected.value) {
-    return false;
-  }
-
-  if (!categoryDraft.value) {
-    return false;
-  }
-
-  return categoryDraft.value !== selected.value.category;
-});
-
 const canFinalize = computed(() => selected.value?.status === 'READY_FOR_FINALIZE');
 const canEditCategory = computed(() => selected.value && selected.value.status !== 'FINALIZED');
 const canEditColumns = computed(() => {
@@ -465,6 +459,34 @@ const availableShelfWidths = computed(() =>
   ),
 );
 
+/** Catalog-available TERMINALE heights for the selected category. */
+const availableTerminalHeights = computed(() =>
+  uniqueSortedNumeric(
+    categoryCatalogItems.value
+      .filter((item) => normalizedType(item) === 'TERMINALE')
+      .map((item) => Number(item.dimensions?.heightMm))
+      .filter((value) => Number.isFinite(value) && value > 0),
+  ),
+);
+
+/**
+ * One entry per spine (columnCount + 1): the outer two are owned by a single
+ * outer column, inner ones sit between two adjacent columns and are shared —
+ * mirrors backend `SpineModel.buildSpines` indexing.
+ */
+const spines = computed(() => {
+  const cols = orderedColumns.value;
+  if (cols.length === 0) {
+    return [];
+  }
+
+  return Array.from({ length: cols.length + 1 }, (_, spineIndex) => ({
+    spineIndex,
+    leftColumnNumber: spineIndex > 0 ? spineIndex : null,
+    rightColumnNumber: spineIndex < cols.length ? spineIndex + 1 : null,
+  }));
+});
+
 watch(columnCountDraft, (count) => {
   const safeCount = Math.max(1, Math.min(8, count));
   if (safeCount !== count) {
@@ -487,6 +509,30 @@ watch(() => availableShelfWidths.value, (widths) => {
     widths.includes(width) ? width : widths[0],
   );
 });
+
+/** Rebuilds the per-spine terminal-height draft from persisted selections + catalog defaults. */
+watch(
+  [() => selected.value?.terminalSelections, () => selected.value?.columnPlan?.columnCount, availableTerminalHeights],
+  () => {
+    const columnCount = selected.value?.columnPlan?.columnCount;
+    if (!columnCount) {
+      terminalHeightBySpine.value = {};
+      return;
+    }
+
+    const selectionsByIndex = new Map(
+      (selected.value?.terminalSelections ?? []).map((selection) => [selection.spineIndex, selection.heightMm]),
+    );
+    const defaultHeight = availableTerminalHeights.value[0] ?? null;
+
+    const next: Record<number, number | null> = {};
+    for (let spineIndex = 0; spineIndex <= columnCount; spineIndex += 1) {
+      next[spineIndex] = selectionsByIndex.get(spineIndex) ?? defaultHeight;
+    }
+    terminalHeightBySpine.value = next;
+  },
+  { immediate: true },
+);
 
 const designByColumn = computed(() => {
   const map = new Map<number, { levelsMm: number[]; shelfThicknessMm: number }>();
@@ -627,6 +673,12 @@ function formatPrice(value: number): string {
   }).format(value);
 }
 
+/** Formats a millimeter measurement as centimeters for display (storage stays in mm). */
+function formatCm(valueMm: number): string {
+  const cm = Math.round((valueMm / 10) * 10) / 10;
+  return `${Number.isInteger(cm) ? cm : cm.toFixed(1)} cm`;
+}
+
 /** Clamps and synchronizes the draft number of columns for plan editing. */
 function syncDraftLengths(nextCount: number): void {
   const safeCount = Math.max(1, Math.min(8, nextCount));
@@ -703,7 +755,7 @@ async function saveCategory(value: string): Promise<void> {
   await broadcastCollabOperation('category', nextCategory, baseVersion);
 }
 
-/** Saves currently selected category draft through explicit Step 1 action button. */
+/** Saves currently selected category draft; triggered automatically on select change. */
 async function submitCategory(): Promise<void> {
   if (!categoryDraft.value) {
     return;
@@ -718,7 +770,7 @@ async function confirmResetStepOne(): Promise<void> {
   showResetFinalConfirm.value = true;
 }
 
-/** Applies pending reset changes for category updates. */
+/** Applies pending reset changes for category or column-plan updates. */
 async function confirmResetStepTwo(): Promise<void> {
   showResetFinalConfirm.value = false;
 
@@ -727,6 +779,13 @@ async function confirmResetStepTwo(): Promise<void> {
     await updateCategory(pendingCategory.value);
     await broadcastCollabOperation('category', pendingCategory.value, baseVersion);
     pendingCategory.value = null;
+    return;
+  }
+
+  if (pendingColumnPlan.value) {
+    const plan = pendingColumnPlan.value;
+    pendingColumnPlan.value = null;
+    await applyColumnPlan(plan);
   }
 }
 
@@ -735,21 +794,67 @@ function cancelReset(): void {
   showResetConfirm.value = false;
   showResetFinalConfirm.value = false;
   pendingCategory.value = null;
+  pendingColumnPlan.value = null;
 }
 
-/** Persists current column count and shelf width draft as column plan. */
-async function saveColumnPlan(): Promise<void> {
+/** Persists a column plan and broadcasts the change to any active collab session. */
+async function applyColumnPlan(columnPlan: ColumnPlan): Promise<void> {
   if (!selected.value) {
     return;
   }
 
   const baseVersion = selected.value.version;
+  await updateColumnPlan(columnPlan);
+  await broadcastCollabOperation('columnPlan', columnPlan, baseVersion);
+}
+
+/**
+ * Saves current column count and shelf width draft as column plan; triggered
+ * automatically on change. Redoing the plan after a design already exists
+ * discards that design, so it goes through the same two-step reset confirm
+ * used for category changes.
+ */
+async function saveColumnPlan(): Promise<void> {
+  if (!selected.value) {
+    return;
+  }
+
   const columnPlan: ColumnPlan = {
     columnCount: columnCountDraft.value,
     columns: shelfWidthsDraft.value.map((shelfWidthMm, index) => ({ index, shelfWidthMm })),
   };
-  await updateColumnPlan(columnPlan);
-  await broadcastCollabOperation('columnPlan', columnPlan, baseVersion);
+
+  if (selected.value.columnDesigns.length > 0) {
+    pendingColumnPlan.value = columnPlan;
+    showResetConfirm.value = true;
+    return;
+  }
+
+  await applyColumnPlan(columnPlan);
+}
+
+/** Adjusts the column-count draft, waits for the width-array resize, then auto-saves. */
+async function onColumnCountChange(value: number): Promise<void> {
+  syncDraftLengths(value);
+  await nextTick();
+  await saveColumnPlan();
+}
+
+/** Explicit "reset configuration" button: clears columns/design, keeps the category. */
+function requestConfigReset(): void {
+  if (!selected.value) {
+    return;
+  }
+  showResetConfigConfirm.value = true;
+}
+
+async function confirmConfigReset(): Promise<void> {
+  showResetConfigConfirm.value = false;
+  await resetConfiguration();
+}
+
+function cancelConfigReset(): void {
+  showResetConfigConfirm.value = false;
 }
 
 /** Returns raw next-step options for a given column index. */
@@ -757,72 +862,14 @@ function getOptions(columnIndex: number): NextOption[] {
   return nextOptionsByColumn.value[columnIndex] ?? [];
 }
 
-/** Returns effective options currently shown to user for a column. */
+/** Returns only the currently usable (allowed) options for a column — blocked choices are hidden, not shown disabled. */
 function effectiveOptions(columnIndex: number): NextOption[] {
-  return getOptions(columnIndex);
+  return getOptions(columnIndex).filter((option) => option.allowed);
 }
 
-/** Maps option reason codes to localized explanatory messages. */
-function optionReason(option: NextOption): string {
-  switch (option.reasonCode) {
-    case 'INVALID_GAP':
-      return t('cad.optionReason.INVALID_GAP');
-    case 'NON_INCREASING_LEVEL':
-      return t('cad.optionReason.NON_INCREASING_LEVEL');
-    case 'MAX_HEIGHT_EXCEEDED':
-      return t('cad.optionReason.MAX_HEIGHT_EXCEEDED');
-    case 'ADJACENCY_CONFLICT':
-      return t('cad.optionReason.ADJACENCY_CONFLICT');
-    case 'LOOK_AHEAD_BLOCKED':
-      return t('cad.optionReason.LOOK_AHEAD_BLOCKED');
-    case 'INVALID_FIRST_LEVEL':
-      return t('cad.optionReason.INVALID_FIRST_LEVEL');
-    case 'INVALID_SEGMENT':
-      return t('cad.optionReason.INVALID_SEGMENT');
-    case 'NO_TERMINAL_FIT':
-      return t('cad.optionReason.NO_TERMINAL_FIT');
-    case 'SPINE_CONFLICT':
-      return t('cad.optionReason.SPINE_CONFLICT');
-    default:
-      if (option.reason && option.reason.trim().length > 0) {
-        return option.reason;
-      }
-      return t('cad.optionReason.default');
-  }
-}
-
-/** Checks whether at least one currently available option is selectable. */
-function hasAllowedOption(columnIndex: number): boolean {
-  return effectiveOptions(columnIndex).some((option) => option.allowed);
-}
-
-/** True when the column offers at least one allowed neighbor-anchored bridge option. */
+/** True when the column offers at least one neighbor-anchored bridge option. */
 function hasBridgeOption(columnIndex: number): boolean {
-  return effectiveOptions(columnIndex).some((option) => option.allowed && option.kind === 'bridge');
-}
-
-/** Collects distinct blocking reasons for disabled options in a column. */
-function blockedReasons(columnIndex: number): string[] {
-  const reasons = effectiveOptions(columnIndex)
-    .filter((option) => !option.allowed)
-    .map((option) => optionReason(option));
-
-  return Array.from(new Set(reasons));
-}
-
-/** Builds compact UI summary for blocked reasons, truncating long lists. */
-function blockedReasonsSummary(columnIndex: number): string {
-  const reasons = blockedReasons(columnIndex);
-  if (reasons.length === 0) {
-    return t('cad.designStep.noValidChoiceShort');
-  }
-
-  const MAX_REASONS = 3;
-  const visible = reasons.slice(0, MAX_REASONS);
-  const hiddenCount = reasons.length - visible.length;
-  return hiddenCount > 0
-    ? `${visible.join(' · ')} · ${t('cad.moreReasonsCount', { count: hiddenCount })}`
-    : visible.join(' · ');
+  return effectiveOptions(columnIndex).some((option) => option.kind === 'bridge');
 }
 
   /** Fetches and stores next options for a column, selecting default allowed gap. */
@@ -925,6 +972,25 @@ async function removeShelf(columnIndex: number): Promise<void> {
   }
 }
 
+/** Persists the chosen terminal height for one spine; auto-saves on selection. */
+async function saveTerminalSelection(spineIndex: number, heightMm: number): Promise<void> {
+  if (!selected.value?.columnPlan) {
+    return;
+  }
+
+  terminalHeightBySpine.value = { ...terminalHeightBySpine.value, [spineIndex]: heightMm };
+
+  const baseVersion = selected.value.version;
+  const terminalSelections: TerminalSelection[] = Object.entries(terminalHeightBySpine.value)
+    .filter((entry): entry is [string, number] => entry[1] != null)
+    .map(([index, height]) => ({ spineIndex: Number(index), heightMm: height }));
+
+  await updateDesign(selected.value.columnDesigns, terminalSelections);
+  if (selected.value) {
+    await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
+  }
+}
+
 /** Reloads currently selected configuration detail from backend source. */
 async function reloadSelected(): Promise<void> {
   if (!selected.value) {
@@ -959,6 +1025,14 @@ function stepActive(index: number): boolean {
       </div>
       <div class="header-actions">
         <button class="btn btn--light" :disabled="detailLoading || !selected" @click="reloadSelected">{{ t('cad.header.refreshDetail') }}</button>
+        <button
+          v-if="selected && selected.category && selected.status !== 'FINALIZED'"
+          class="btn btn--light"
+          :disabled="resetLoading"
+          @click="requestConfigReset"
+        >
+          {{ resetLoading ? t('cad.resetConfig.resetting') : t('cad.resetConfig.button') }}
+        </button>
         <button
           v-if="selected"
           class="btn btn--light bom-trigger-btn"
@@ -1079,18 +1153,13 @@ function stepActive(index: number): boolean {
                   class="field__input"
                   v-model="categoryDraft"
                   :disabled="!canEditCategory || categoryLoading"
+                  @change="submitCategory"
                 >
                   <option disabled value="">{{ t('cad.categoryStep.placeholder') }}</option>
                   <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
                 </select>
               </label>
-              <button
-                class="btn btn--light"
-                :disabled="!canEditCategory || categoryLoading || !canSubmitCategory"
-                @click="submitCategory"
-              >
-                {{ categoryLoading ? t('cad.categoryStep.saving') : t('cad.categoryStep.save') }}
-              </button>
+              <p class="mini muted" v-if="categoryLoading">{{ t('cad.categoryStep.saving') }}</p>
             </article>
 
             <article class="control-card">
@@ -1104,7 +1173,7 @@ function stepActive(index: number): boolean {
                   min="1"
                   max="8"
                   :disabled="!canEditColumns"
-                  @change="syncDraftLengths(Number(($event.target as HTMLInputElement).value))"
+                  @change="onColumnCountChange(Number(($event.target as HTMLInputElement).value))"
                 />
               </label>
               <p class="mini muted" v-if="catalogLoading">{{ t('cad.columnsStep.loadingWidths') }}</p>
@@ -1118,25 +1187,20 @@ function stepActive(index: number): boolean {
                     v-model.number="shelfWidthsDraft[i]"
                     class="field__input"
                     :disabled="!canEditColumns || availableShelfWidths.length === 0"
+                    @change="saveColumnPlan"
                   >
                     <option v-for="width in availableShelfWidths" :key="`width-${i}-${width}`" :value="width">
-                      {{ width }} mm
+                      {{ formatCm(width) }}
                     </option>
                   </select>
                 </label>
               </div>
-              <button
-                class="btn btn--light"
-                :disabled="!canEditColumns || columnPlanLoading || availableShelfWidths.length === 0"
-                @click="saveColumnPlan"
-              >
-                {{ columnPlanLoading ? t('cad.columnsStep.saving') : t('cad.columnsStep.save') }}
-              </button>
+              <p class="mini muted" v-if="columnPlanLoading">{{ t('cad.columnsStep.saving') }}</p>
             </article>
 
             <article class="control-card">
               <h3>{{ t('cad.designStep.title') }}</h3>
-              <p class="mini muted">{{ t('cad.designStep.fixedThickness', { mm: shelfThicknessDraft }) }}</p>
+              <p class="mini muted">{{ t('cad.designStep.fixedThickness', { cm: formatCm(shelfThicknessDraft) }) }}</p>
 
               <div v-if="isIntelligente" class="intelligente-banner" role="note">
                 <span v-html="t('cad.designStep.intelligenteBanner')"></span>
@@ -1149,7 +1213,7 @@ function stepActive(index: number): boolean {
                 <article v-for="column in canvasColumns" :key="`design-col-${column.index}`" class="design-column">
                   <header>
                     <strong>{{ t('cad.designStep.columnLabel', { n: column.index + 1 }) }}</strong>
-                    <span>{{ column.shelfWidthMm }}mm</span>
+                    <span>{{ formatCm(column.shelfWidthMm) }}</span>
                     <span
                       v-if="isIntelligente"
                       class="role-badge"
@@ -1157,7 +1221,7 @@ function stepActive(index: number): boolean {
                     >{{ columnRoles.get(column.index) ?? '' }}</span>
                   </header>
 
-                  <p class="mini muted">{{ t('cad.designStep.currentLevels', { levels: column.levels.length > 0 ? column.levels.join(', ') : t('cad.designStep.none') }) }}</p>
+                  <p class="mini muted">{{ t('cad.designStep.currentLevels', { levels: column.levels.length > 0 ? column.levels.map(formatCm).join(', ') : t('cad.designStep.none') }) }}</p>
                   <p class="mini muted">
                     {{
                       column.levels.length === 0
@@ -1180,19 +1244,15 @@ function stepActive(index: number): boolean {
                       <option
                         v-for="option in effectiveOptions(column.index)"
                         :key="`opt-${column.index}-${option.heightMm}`"
-                        :value="option.allowed ? option.heightMm : null"
-                        :disabled="!option.allowed"
+                        :value="option.heightMm"
                       >
-                          {{ option.heightMm }}mm{{ option.kind === 'bridge' ? t('cad.designStep.bridgeSuffix') : '' }}{{ option.allowed ? '' : ` - ${option.reasonCode || t('cad.designStep.notAllowedFallback')}` }}
+                          {{ formatCm(option.heightMm) }}{{ option.kind === 'bridge' ? t('cad.designStep.bridgeSuffix') : '' }}
                       </option>
                     </select>
                   </label>
 
                   <p class="mini muted" v-if="effectiveOptions(column.index).length === 0">
                     {{ t('cad.designStep.noOptionsAvailable') }}
-                  </p>
-                  <p class="mini blocked-reasons" v-else-if="!hasAllowedOption(column.index)">
-                    {{ t('cad.designStep.noValidChoiceWithReasons', { reasons: blockedReasonsSummary(column.index) }) }}
                   </p>
 
                   <div class="actions-row">
@@ -1214,6 +1274,36 @@ function stepActive(index: number): boolean {
                     </button>
                   </div>
                 </article>
+              </div>
+            </article>
+
+            <article class="control-card" v-if="spines.length > 0">
+              <h3>{{ t('cad.terminalStep.title') }}</h3>
+              <p class="mini muted">{{ t('cad.terminalStep.hint') }}</p>
+              <p class="mini muted" v-if="availableTerminalHeights.length === 0">
+                {{ t('cad.terminalStep.noHeightsAvailable') }}
+              </p>
+              <div class="column-widths" v-else>
+                <label v-for="spine in spines" :key="`spine-${spine.spineIndex}`" class="field">
+                  <span class="field__label">
+                    {{
+                      spine.leftColumnNumber && spine.rightColumnNumber
+                        ? t('cad.terminalStep.innerLabel', { left: spine.leftColumnNumber, right: spine.rightColumnNumber })
+                        : t('cad.terminalStep.outerLabel', { n: spine.leftColumnNumber ?? spine.rightColumnNumber })
+                    }}
+                  </span>
+                  <select
+                    class="field__input"
+                    :aria-label="t('cad.terminalStep.selectAriaLabel', { spine: spine.spineIndex })"
+                    :disabled="!canEditDesign || designLoading"
+                    :value="terminalHeightBySpine[spine.spineIndex] ?? undefined"
+                    @change="saveTerminalSelection(spine.spineIndex, Number(($event.target as HTMLSelectElement).value))"
+                  >
+                    <option v-for="height in availableTerminalHeights" :key="`term-${spine.spineIndex}-${height}`" :value="height">
+                      {{ formatCm(height) }}
+                    </option>
+                  </select>
+                </label>
               </div>
             </article>
 
@@ -1287,7 +1377,7 @@ function stepActive(index: number): boolean {
                   :x="piece.xMm + piece.widthMm / 2"
                   :y="assembly.totalHeightMm - piece.topMm - 4"
                   text-anchor="middle"
-                >{{ piece.bottomMm }}mm</text>
+                >{{ formatCm(piece.bottomMm) }}</text>
               </svg>
 
               <div class="assembly-column-labels">
@@ -1297,7 +1387,7 @@ function stepActive(index: number): boolean {
                   class="assembly-column-label"
                   :style="{ left: `${(label.centerXMm / assembly.totalWidthMm) * 100}%` }"
                 >
-                  {{ t('cad.designStep.columnLabel', { n: label.index + 1 }) }} - {{ label.shelfWidthMm }}mm<template v-if="isIntelligente"> ({{ columnRoles.get(label.index) ?? '' }})</template>
+                  {{ t('cad.designStep.columnLabel', { n: label.index + 1 }) }} - {{ formatCm(label.shelfWidthMm) }}<template v-if="isIntelligente"> ({{ columnRoles.get(label.index) ?? '' }})</template>
                 </span>
               </div>
             </div>
@@ -1370,6 +1460,17 @@ function stepActive(index: number): boolean {
         <div class="actions-row">
           <button class="btn btn--light" @click="cancelReset">{{ t('cad.resetFinalConfirm.cancel') }}</button>
           <button class="btn btn--primary" @click="confirmResetStepTwo">{{ t('cad.resetFinalConfirm.confirm') }}</button>
+        </div>
+      </article>
+    </div>
+
+    <div v-if="showResetConfigConfirm" class="modal-overlay" @click.self="cancelConfigReset">
+      <article class="modal-card modal-card--narrow">
+        <h3>{{ t('cad.resetConfig.confirmTitle') }}</h3>
+        <p>{{ t('cad.resetConfig.confirmMessage') }}</p>
+        <div class="actions-row">
+          <button class="btn btn--light" @click="cancelConfigReset">{{ t('cad.resetConfig.cancel') }}</button>
+          <button class="btn btn--primary" @click="confirmConfigReset">{{ t('cad.resetConfig.confirm') }}</button>
         </div>
       </article>
     </div>

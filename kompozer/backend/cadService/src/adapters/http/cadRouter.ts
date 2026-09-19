@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { logger } from '../../infrastructure/logger';
 import { CATEGORIES, Category, isCategory } from '../../domain/entities/Category';
 import { ConfigurationStatus } from '../../domain/entities/ConfigurationStatus';
-import { ColumnDesign, ColumnPlan } from '../../domain/entities/Configuration';
+import { ColumnDesign, ColumnPlan, TerminalSelection } from '../../domain/entities/Configuration';
 import { ValidationError } from '../../domain/entities/errors';
 import {
   CollabFieldPath,
@@ -15,6 +15,7 @@ import { ListNextOptions } from '../../useCases/read/ListNextOptions';
 import { CreateConfiguration } from '../../useCases/write/CreateConfiguration';
 import { FinalizeConfiguration } from '../../useCases/write/FinalizeConfiguration';
 import { ReorderConfiguration } from '../../useCases/write/ReorderConfiguration';
+import { ResetConfiguration } from '../../useCases/write/ResetConfiguration';
 import { SetCategory } from '../../useCases/write/SetCategory';
 import { SetColumnPlan } from '../../useCases/write/SetColumnPlan';
 import { UpdateDesign } from '../../useCases/write/UpdateDesign';
@@ -29,6 +30,7 @@ export interface CadRouterDeps {
   updateDesign: UpdateDesign;
   finalizeConfiguration: FinalizeConfiguration;
   reorderConfiguration: ReorderConfiguration;
+  resetConfiguration: ResetConfiguration;
   collabSessionService: InMemoryCollabSessionService;
 }
 
@@ -178,6 +180,34 @@ function parseColumnDesigns(body: unknown): ColumnDesign[] {
       columnIndex,
       shelfThicknessMm,
       levelsMm,
+    };
+  });
+}
+
+/** Parses optional per-spine terminal selection snapshot from the design payload. */
+function parseTerminalSelections(body: unknown): TerminalSelection[] | undefined {
+  if (!body || typeof body !== 'object') {
+    return undefined;
+  }
+
+  const typedBody = body as { terminalSelections?: unknown };
+  if (typedBody.terminalSelections === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(typedBody.terminalSelections)) {
+    throw new ValidationError('terminalSelections must be an array');
+  }
+
+  return typedBody.terminalSelections.map((selection): TerminalSelection => {
+    if (!selection || typeof selection !== 'object') {
+      throw new ValidationError('Each terminalSelection must be an object');
+    }
+
+    const typedSelection = selection as Record<string, unknown>;
+    return {
+      spineIndex: requireNumber(typedSelection['spineIndex'], 'terminalSelection.spineIndex'),
+      heightMm: requireNumber(typedSelection['heightMm'], 'terminalSelection.heightMm'),
     };
   });
 }
@@ -392,7 +422,26 @@ export function buildCadRouter(deps: CadRouterDeps) {
         id: req.params['id'],
         ownerId,
         columnDesigns: parseColumnDesigns(req.body),
+        terminalSelections: parseTerminalSelections(req.body),
       });
+      res.json(configuration);
+    }),
+  );
+
+  router.post(
+    '/configurations/:id/reset',
+    requireUserId,
+    wrap(async (req, res) => {
+      const userId = req.headers['x-user-id'] as string;
+      const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
+      const configuration = await deps.resetConfiguration.execute({
+        id: req.params['id'],
+        ownerId,
+      });
+      logFor(req).info(
+        { event: 'cad.configuration.reset', configurationId: configuration.id, ownerId },
+        'CAD configuration reset',
+      );
       res.json(configuration);
     }),
   );
