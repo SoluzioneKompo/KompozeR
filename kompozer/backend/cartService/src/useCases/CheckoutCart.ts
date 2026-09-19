@@ -64,6 +64,7 @@ export class CheckoutCart {
       expeditionInfo,
       items: cart.items,
       total: cart.total,
+      ...(cart.configId ? { configId: cart.configId, configName: cart.configName } : {}),
     });
 
     await this.cartRepo.clear(cart.userId);
@@ -89,6 +90,7 @@ export class CheckoutCart {
       items: cart.items,
       total: cart.total,
       submittedAt: order.submittedAt,
+      ...(cart.configId ? { configId: cart.configId, configName: cart.configName } : {}),
     };
   }
 

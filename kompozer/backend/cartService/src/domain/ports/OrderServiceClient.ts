@@ -20,6 +20,8 @@ export interface SubmitOrderInput {
   expeditionInfo: ExpeditionInfo;
   items: CartItem[];
   total: number;
+  configId?: string;
+  configName?: string;
 }
 
 export interface SubmitOrderOutput {

@@ -10,6 +10,8 @@
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
     "pinia": "^2.1.7",
     "socket.io-client": "^4.8.1",
     "vue": "^3.4.29",

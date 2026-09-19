@@ -28,6 +28,8 @@ export type OrderDoc = {
   submittedAt: Date;
   doneAt?: Date;
   cancelledAt?: Date;
+  configId?: string;
+  configName?: string;
 };
 
 const orderItemSchema = new Schema(
@@ -66,6 +68,8 @@ const orderSchema = new Schema<OrderDoc>(
     submittedAt: { type: Date, required: true, index: true },
     doneAt: { type: Date, required: false },
     cancelledAt: { type: Date, required: false },
+    configId: { type: String, required: false },
+    configName: { type: String, required: false },
   },
   { _id: false },
 );

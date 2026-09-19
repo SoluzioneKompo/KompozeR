@@ -13,6 +13,8 @@ export class MongoCartRepository implements CartRepository {
       | Record<string, { sku: string; name: string; quantity: number; removedAt: Date }>;
     total: number;
     updatedAt: Date;
+    configId?: string;
+    configName?: string;
   }): Cart {
     const removedRaw = doc.removedUnavailableItems;
     const removedAsRecord = removedRaw instanceof Map
@@ -25,6 +27,8 @@ export class MongoCartRepository implements CartRepository {
       removedUnavailableItems: removedAsRecord,
       total: doc.total,
       updatedAt: doc.updatedAt,
+      ...(doc.configId ? { configId: doc.configId } : {}),
+      ...(doc.configName ? { configName: doc.configName } : {}),
     };
   }
 
@@ -48,6 +52,8 @@ export class MongoCartRepository implements CartRepository {
         removedUnavailableItems: cart.removedUnavailableItems ?? {},
         total: cart.total,
         updatedAt: cart.updatedAt,
+        ...(cart.configId ? { configId: cart.configId } : {}),
+        ...(cart.configName ? { configName: cart.configName } : {}),
       },
       { upsert: true },
     );

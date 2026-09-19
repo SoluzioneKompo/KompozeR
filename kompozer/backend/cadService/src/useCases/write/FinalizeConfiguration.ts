@@ -51,7 +51,12 @@ export class FinalizeConfiguration {
       throw new ResourceConflictError('Configuration has no components to finalize');
     }
 
-    await this.cartServiceClient.pushBomToCart(configuration.ownerId, configuration.components);
+    await this.cartServiceClient.pushBomToCart(
+      configuration.ownerId,
+      configuration.components,
+      configuration.id,
+      configuration.name,
+    );
 
     const subscriptionClient = this.notificationSubscriptionClient;
     if (subscriptionClient) {

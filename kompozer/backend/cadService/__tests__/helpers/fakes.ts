@@ -123,10 +123,10 @@ export class FakeCatalogRulesProvider implements CatalogRulesProvider {
 
 /** Cart client fake collecting push calls for assertions. */
 export class FakeCartServiceClient implements CartServiceClient {
-  readonly calls: Array<{ ownerId: string; items: BomItem[] }> = [];
+  readonly calls: Array<{ ownerId: string; items: BomItem[]; configId: string; configName: string }> = [];
 
-  async pushBomToCart(ownerId: string, items: BomItem[]): Promise<void> {
-    this.calls.push({ ownerId, items: [...items] });
+  async pushBomToCart(ownerId: string, items: BomItem[], configId: string, configName: string): Promise<void> {
+    this.calls.push({ ownerId, items: [...items], configId, configName });
   }
 }
 

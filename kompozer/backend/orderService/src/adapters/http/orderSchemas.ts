@@ -36,6 +36,8 @@ export const createOrderSchema = z
     expeditionInfo: expeditionInfoSchema,
     items: z.array(orderItemSchema).min(1, 'items must contain at least one element'),
     total: z.number(),
+    configId: z.string().trim().min(1).optional(),
+    configName: z.string().trim().min(1).optional(),
   })
   .strict();
 

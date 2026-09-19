@@ -25,6 +25,8 @@ type CartDoc = {
   removedUnavailableItems?: Record<string, RemovedUnavailableItemSnapshotDoc>;
   total: number;
   updatedAt: Date;
+  configId?: string;
+  configName?: string;
 };
 
 const cartItemSchema = new Schema<CartItemDoc>(
@@ -58,6 +60,8 @@ const cartSchema = new Schema<CartDoc>(
     },
     total: { type: Number, required: true, default: 0 },
     updatedAt: { type: Date, required: true },
+    configId: { type: String, required: false },
+    configName: { type: String, required: false },
   },
   { _id: false },
 );

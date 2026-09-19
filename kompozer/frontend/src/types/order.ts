@@ -30,6 +30,8 @@ export interface Order {
   submittedAt: string;
   doneAt?: string;
   cancelledAt?: string;
+  configId?: string;
+  configName?: string;
 }
 
 export interface OrdersListDto {

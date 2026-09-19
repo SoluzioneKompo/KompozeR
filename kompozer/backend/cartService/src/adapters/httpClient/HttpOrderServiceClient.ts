@@ -33,6 +33,7 @@ export class HttpOrderServiceClient implements OrderServiceClient {
         quantity: item.quantity,
       })),
       total: input.total,
+      ...(input.configId ? { configId: input.configId, configName: input.configName } : {}),
     });
 
     const response = await this.postJson<OrderApiResponse>(url, payload, input.userId);

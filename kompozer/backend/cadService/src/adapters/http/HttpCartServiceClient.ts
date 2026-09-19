@@ -11,20 +11,22 @@ export class HttpCartServiceClient implements CartServiceClient {
     private readonly timeoutMs = 5000,
   ) {}
 
-  async pushBomToCart(ownerId: string, items: BomItem[]): Promise<void> {
+  async pushBomToCart(ownerId: string, items: BomItem[], configId: string, configName: string): Promise<void> {
     for (const item of items) {
-      await this.upsertItem(ownerId, item);
+      await this.upsertItem(ownerId, item, configId, configName);
     }
   }
 
   // PUT .../items/:sku is an upsert — idempotent, safe to retry on
   // timeout and 5xx as well as connection errors.
-  private async upsertItem(ownerId: string, item: BomItem): Promise<void> {
+  private async upsertItem(ownerId: string, item: BomItem, configId: string, configName: string): Promise<void> {
     const url = new URL(`/cart/items/${encodeURIComponent(item.sku)}`, this.cartBaseUrl);
     const body = JSON.stringify({
       name: item.name,
       unitPrice: item.unitPriceCents,
       quantity: item.quantity,
+      configId,
+      configName,
     });
 
     try {

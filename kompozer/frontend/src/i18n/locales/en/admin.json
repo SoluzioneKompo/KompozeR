@@ -95,10 +95,13 @@
       "deliveryNotes": "Delivery notes:"
     },
     "itemsDetail": "Item detail",
+    "configuration": "Configuration:",
     "actions": {
       "updating": "Updating...",
       "markDone": "Mark as DONE",
-      "markCancelled": "Mark as CANCELLED"
+      "markCancelled": "Mark as CANCELLED",
+      "print": "Print / Download PDF",
+      "printing": "Generating PDF..."
     },
     "modals": {
       "confirmUpdateTitle": "Confirm update",
@@ -111,7 +114,8 @@
     "errors": {
       "loadFailed": "Failed to load orders",
       "updateFailed": "Failed to update order status",
-      "notAllowed": "Action not allowed: order is in {status} status."
+      "notAllowed": "Action not allowed: order is in {status} status.",
+      "printFailed": "Failed to generate order PDF"
     },
     "toasts": {
       "markedDone": "Order marked as DONE",

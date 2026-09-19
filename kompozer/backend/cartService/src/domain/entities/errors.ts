@@ -29,6 +29,12 @@ export class CartItemUnavailableError extends CartError {
   }
 }
 
+export class CartConfigConflictError extends CartError {
+  constructor(message: string) {
+    super('CONFIG_CONFLICT', message);
+  }
+}
+
 export class CartItemPriceChangedError extends CartError {
   constructor(
     public readonly sku: string,
