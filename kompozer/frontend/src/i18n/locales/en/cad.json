@@ -53,8 +53,7 @@
     "title": "Step 1 - Category",
     "label": "Category",
     "placeholder": "Select category",
-    "saving": "Saving...",
-    "save": "Save category"
+    "saving": "Saving..."
   },
   "columnsStep": {
     "title": "Step 2 - Column plan",
@@ -62,12 +61,11 @@
     "loadingWidths": "Loading widths from catalog...",
     "noShelvesAvailable": "No shelf available for the selected category.",
     "columnLabel": "Column {n}",
-    "saving": "Saving...",
-    "save": "Save column plan"
+    "saving": "Saving..."
   },
   "designStep": {
     "title": "Step 3 - Level construction (+ / -)",
-    "fixedThickness": "Fixed shelf thickness: {mm} mm",
+    "fixedThickness": "Fixed shelf thickness: {cm}",
     "intelligenteBanner": "<strong>INTELLIGENTE mode</strong> — “+ Level” adds the same shelf to <em>all</em> columns simultaneously. Outer columns use <strong>BORDO</strong> shelves, inner ones <strong>INTERMEZZO</strong>.",
     "alignmentWarning": "Levels not aligned across columns. Complete the design on all columns before finalizing.",
     "columnLabel": "Column {n}",
@@ -79,14 +77,19 @@
     "pieceHeightLabel": "Piece height to add",
     "selectHeightAriaLabel": "Select height to add for column {n}",
     "bridgeSuffix": " · bridge",
-    "notAllowedFallback": "NOT_ALLOWED",
-    "noOptionsAvailable": "No option available from the backend for this column.",
-    "noValidChoiceShort": "No valid choice",
-    "noValidChoiceWithReasons": "No valid choice: {reasons}",
+    "noOptionsAvailable": "No option available for this column under the current constraints.",
     "addLevel": "+ Level",
     "addLevelAriaLabel": "Add level to column {n}",
     "removeLast": "- Last",
     "removeLastAriaLabel": "Remove last level from column {n}"
+  },
+  "terminalStep": {
+    "title": "Terminals",
+    "hint": "Choose the terminal height for each spine (an outer column or the joint between two adjacent columns). Saved automatically.",
+    "noHeightsAvailable": "No terminal available in the catalog for this category.",
+    "outerLabel": "Column {n} terminal",
+    "innerLabel": "Terminal between column {left} and {right}",
+    "selectAriaLabel": "Select terminal height for spine {spine}"
   },
   "finalizeStep": {
     "title": "Step 4 - Finalization",
@@ -110,9 +113,17 @@
     "skuLine": "SKU: {sku} · {type}",
     "componentFallback": "Component"
   },
+  "resetConfig": {
+    "button": "Reset configuration",
+    "resetting": "Resetting...",
+    "confirmTitle": "Reset this configuration?",
+    "confirmMessage": "The column plan, design and components will be cleared. The selected category stays unchanged. This action cannot be undone.",
+    "cancel": "Cancel",
+    "confirm": "Reset configuration"
+  },
   "resetConfirm": {
     "title": "Confirm project reset",
-    "message": "Changing category after columns have been defined resets design and components. Do you want to continue?",
+    "message": "Changing category or column plan after the design has already started resets design and components. Do you want to continue?",
     "cancel": "Cancel",
     "continue": "Continue"
   },
@@ -122,19 +133,6 @@
     "cancel": "Cancel",
     "confirm": "Confirm reset"
   },
-  "optionReason": {
-    "INVALID_GAP": "Invalid piece height",
-    "NON_INCREASING_LEVEL": "The new level must be greater than the previous one",
-    "MAX_HEIGHT_EXCEEDED": "Exceeds the configured maximum height",
-    "ADJACENCY_CONFLICT": "Conflict with the adjacent column (same elevation)",
-    "LOOK_AHEAD_BLOCKED": "This choice blocks the following steps",
-    "INVALID_FIRST_LEVEL": "The first level must match a catalog foot piece",
-    "INVALID_SEGMENT": "The shared spine requires an upright that isn't available in the catalog",
-    "NO_TERMINAL_FIT": "No terminal compatible with the remaining height exists",
-    "SPINE_CONFLICT": "This choice violates the shared spine constraints",
-    "default": "Option not allowed"
-  },
-  "moreReasonsCount": "+{count} more",
   "toasts": {
     "httpError": "HTTP error {status}",
     "startSessionFailed": "Failed to start collaborative session",
@@ -159,6 +157,8 @@
     "columnNotFound": "Column {n} not found",
     "finalizeSuccess": "Configuration finalized and sent to cart",
     "finalizeError": "Error finalizing configuration",
+    "resetSuccess": "Configuration reset",
+    "resetError": "Error resetting configuration",
     "realtimeUnavailable": "Realtime connection not available",
     "joinTimeout": "Timeout joining collaborative session",
     "leaveTimeout": "Timeout leaving collaborative session",

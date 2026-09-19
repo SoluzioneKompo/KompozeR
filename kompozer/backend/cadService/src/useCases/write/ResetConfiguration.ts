@@ -7,16 +7,20 @@ import {
 import { ConfigurationRepository } from '../../domain/ports/ConfigurationRepository';
 import {
   ConfigurationDto,
-  SetCategoryInput,
+  ResetConfigurationInput,
   toConfigurationDto,
 } from '../types';
 import { canAccessConfiguration } from '../access';
 
-/** Write use case that sets the system category (first CAD workflow step). */
-export class SetCategory {
+/**
+ * Write use case backing the "reset configuration" button: clears column plan,
+ * design and derived BOM while keeping the already-selected category, so the
+ * user redoes columns/design without picking a category again.
+ */
+export class ResetConfiguration {
   constructor(private readonly configurationRepository: ConfigurationRepository) {}
 
-  async execute(input: SetCategoryInput): Promise<ConfigurationDto> {
+  async execute(input: ResetConfigurationInput): Promise<ConfigurationDto> {
     if (!input.id?.trim()) {
       throw new ValidationError('configurationId is required');
     }
@@ -27,12 +31,15 @@ export class SetCategory {
 
     const configuration = await this.loadOwnedConfiguration(input.id, input.ownerId);
     if (configuration.status === 'FINALIZED') {
-      throw new ResourceConflictError('Cannot change category for a finalized configuration');
+      throw new ResourceConflictError('Cannot reset a finalized configuration');
+    }
+
+    if (!configuration.category) {
+      throw new ResourceConflictError('Nothing to reset before a category is selected');
     }
 
     const updated: Configuration = {
       ...configuration,
-      category: input.category,
       columnPlan: null,
       columnDesigns: [],
       terminalSelections: [],

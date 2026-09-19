@@ -19,6 +19,17 @@ export interface ColumnDesign {
   shelfThicknessMm: number;
 }
 
+/**
+ * User-chosen terminal (cap) height for one spine.
+ * Spines are indexed 0..columnCount (inclusive), matching `SpineModel.buildSpines`:
+ * spine 0 and spine columnCount are owned by a single outer column, inner spines
+ * are shared between two adjacent columns.
+ */
+export interface TerminalSelection {
+  spineIndex: number;
+  heightMm: number;
+}
+
 export interface Configuration {
   id: string;
   ownerId: string;
@@ -28,6 +39,7 @@ export interface Configuration {
   category: Category | null;
   columnPlan: ColumnPlan | null;
   columnDesigns: ColumnDesign[];
+  terminalSelections: TerminalSelection[];
   components: BomItem[];
   version: number;
   createdAt: Date;
@@ -83,6 +95,21 @@ export function validateConfigurationModel(configuration: Configuration): void {
       if (design.levelsMm[i] <= design.levelsMm[i - 1]) {
         throw new ValidationError('columnDesign levelsMm must be strictly increasing');
       }
+    }
+  }
+
+  const seenSpineIndexes = new Set<number>();
+  for (const selection of configuration.terminalSelections) {
+    if (selection.spineIndex < 0) {
+      throw new ValidationError('terminalSelection spineIndex must be >= 0');
+    }
+    if (seenSpineIndexes.has(selection.spineIndex)) {
+      throw new ValidationError('terminalSelections must have unique spineIndex values');
+    }
+    seenSpineIndexes.add(selection.spineIndex);
+
+    if (selection.heightMm <= 0) {
+      throw new ValidationError('terminalSelection heightMm must be > 0');
     }
   }
 }

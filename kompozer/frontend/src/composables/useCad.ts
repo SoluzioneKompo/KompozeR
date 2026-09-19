@@ -8,6 +8,7 @@ import type {
   ColumnPlan,
   ConfigurationDto,
   NextOptionsDto,
+  TerminalSelection,
 } from '@/types/cad';
 import { ApiError } from '@/types/api';
 import { i18n } from '@/i18n';
@@ -29,6 +30,7 @@ export function useCad() {
   const categoryLoading = ref(false);
   const columnPlanLoading = ref(false);
   const designLoading = ref(false);
+  const resetLoading = ref(false);
   const nextOptionsLoading = ref(false);
 
   const error = ref('');
@@ -140,13 +142,13 @@ export function useCad() {
   }
 
   /** Saves full column design array (shelf levels) on the selected configuration. */
-  async function updateDesign(columnDesigns: ColumnDesign[]): Promise<void> {
+  async function updateDesign(columnDesigns: ColumnDesign[], terminalSelections?: TerminalSelection[]): Promise<void> {
     if (!selected.value) {
       return;
     }
     designLoading.value = true;
     try {
-      selected.value = await cadService.updateDesign(selected.value.id, columnDesigns);
+      selected.value = await cadService.updateDesign(selected.value.id, columnDesigns, terminalSelections);
       notifications.addToast('success', t('cad.toasts.designUpdated'));
       await loadList();
     } catch (e) {
@@ -154,6 +156,24 @@ export function useCad() {
       notifications.addToast('error', msg);
     } finally {
       designLoading.value = false;
+    }
+  }
+
+  /** Resets column plan and design back to CATEGORY_SELECTED, keeping the category. */
+  async function resetConfiguration(): Promise<void> {
+    if (!selected.value) {
+      return;
+    }
+    resetLoading.value = true;
+    try {
+      selected.value = await cadService.reset(selected.value.id);
+      notifications.addToast('success', t('cad.toasts.resetSuccess'));
+      await loadList();
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.resetError');
+      notifications.addToast('error', msg);
+    } finally {
+      resetLoading.value = false;
     }
   }
 
@@ -311,6 +331,7 @@ export function useCad() {
     categoryLoading,
     columnPlanLoading,
     designLoading,
+    resetLoading,
     nextOptionsLoading,
     error,
     page,
@@ -327,6 +348,7 @@ export function useCad() {
     updateCategory,
     updateColumnPlan,
     updateDesign,
+    resetConfiguration,
     fetchNextOptions,
     setNextOptions,
     addTopShelf,

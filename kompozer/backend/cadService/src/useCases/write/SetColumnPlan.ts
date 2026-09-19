@@ -46,9 +46,10 @@ export class SetColumnPlan {
       throw new ResourceConflictError('Category must be defined before column plan');
     }
 
-    if (configuration.columnDesigns.length > 0) {
-      throw new ResourceConflictError('Column plan cannot be changed after design is defined');
-    }
+    // Changing the plan (column count or widths) after a design already exists
+    // invalidates that design — the caller (UI) is expected to confirm this with
+    // the user before calling; the backend just enforces the reset itself.
+    const designExisted = configuration.columnDesigns.length > 0;
 
     const rules = await this.catalogRulesProvider.getRules(configuration.category);
     const seen = new Set<number>();
@@ -94,6 +95,8 @@ export class SetColumnPlan {
     const updated: Configuration = {
       ...configuration,
       columnPlan: input.columnPlan,
+      columnDesigns: designExisted ? [] : configuration.columnDesigns,
+      terminalSelections: designExisted ? [] : configuration.terminalSelections,
       components: [],
       status: 'COLUMNS_DEFINED',
       version: configuration.version + 1,

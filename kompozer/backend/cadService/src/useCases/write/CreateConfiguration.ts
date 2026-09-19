@@ -30,6 +30,7 @@ export class CreateConfiguration {
       category: input.category ?? null,
       columnPlan: null,
       columnDesigns: [],
+      terminalSelections: [],
       components: [],
       version: 1,
       createdAt: now,

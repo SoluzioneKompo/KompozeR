@@ -49,6 +49,7 @@ export class HttpCatalogRulesProvider implements CatalogRulesProvider {
     const intermezzoByWidthMm = new Map<number, CatalogComponentRule>();
     const uprightByHeightMm = new Map<number, CatalogComponentRule>();
     const footByHeightMm = new Map<number, CatalogComponentRule>();
+    const terminalByHeightMm = new Map<number, CatalogComponentRule>();
     const terminalHeightsMm: number[] = [];
     const footHeightsMm: number[] = [];
     const uprightHeightsMm: number[] = [];
@@ -100,6 +101,7 @@ export class HttpCatalogRulesProvider implements CatalogRulesProvider {
       if (type === 'TERMINALE') {
         terminalHeightsMm.push(heightMm);
         terminalRules.push(rule);
+        terminalByHeightMm.set(heightMm, rule);
       }
       if (type === 'PIEDINO') {
         footHeightsMm.push(heightMm);
@@ -121,6 +123,7 @@ export class HttpCatalogRulesProvider implements CatalogRulesProvider {
       intermezzoByWidthMm,
       uprightByHeightMm,
       footByHeightMm,
+      terminalByHeightMm,
       terminalHeightsMm: uniqueSorted(terminalHeightsMm),
       footHeightsMm: uniqueSorted(footHeightsMm),
       uprightHeightsMm: uniqueSorted(uprightHeightsMm),

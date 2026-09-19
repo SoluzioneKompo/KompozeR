@@ -21,6 +21,7 @@ import { ListNextOptions } from './useCases/read/ListNextOptions';
 import { CreateConfiguration } from './useCases/write/CreateConfiguration';
 import { FinalizeConfiguration } from './useCases/write/FinalizeConfiguration';
 import { ReorderConfiguration } from './useCases/write/ReorderConfiguration';
+import { ResetConfiguration } from './useCases/write/ResetConfiguration';
 import { SetCategory } from './useCases/write/SetCategory';
 import { SetColumnPlan } from './useCases/write/SetColumnPlan';
 import { UpdateDesign } from './useCases/write/UpdateDesign';
@@ -69,6 +70,7 @@ export function buildApp(deps: BuildAppDeps = {}) {
     notificationSubscriptionClient,
   );
   const reorderConfiguration = new ReorderConfiguration(configurationRepository, cartServiceClient);
+  const resetConfiguration = new ResetConfiguration(configurationRepository);
 
   const app = express();
 
@@ -113,6 +115,7 @@ export function buildApp(deps: BuildAppDeps = {}) {
       updateDesign,
       finalizeConfiguration,
       reorderConfiguration,
+      resetConfiguration,
       collabSessionService,
     }),
   );
