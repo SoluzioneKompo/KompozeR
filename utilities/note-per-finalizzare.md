@@ -13,3 +13,4 @@
 11. Pagina per inserire i dettagli di spedizione: fare in modo di fare skip, e inserire in automatico i dati dell'azienda (se mi crei il file li inserisco).
 12. Sistemazione pdf, se presenti i ripiani bordo e intermezzi, scriverlo in aggiunta alla misura.
 13. Pubblicazione Sito
+14. Capire come fare le mensole...
