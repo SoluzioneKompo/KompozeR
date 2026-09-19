@@ -10,3 +10,6 @@
 8. Possibilità di selezionare la misura di ogni terminale. *
 9. Nella lista dei componenti compatibili (nel cad) far vedere solo quelli compatibili! *
 10. Aggiunta metodo di generazione automatica dello SKU dei componenti*
+11. Pagina per inserire i dettagli di spedizione: fare in modo di fare skip, e inserire in automatico i dati dell'azienda (se mi crei il file li inserisco).
+12. Sistemazione pdf, se presenti i ripiani bordo e intermezzi, scriverlo in aggiunta alla misura.
+13. Pubblicazione Sito
