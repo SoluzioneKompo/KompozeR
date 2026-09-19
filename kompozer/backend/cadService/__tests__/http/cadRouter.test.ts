@@ -123,6 +123,8 @@ describe('cadRouter', () => {
     expect(finalized.body.bom).toBeDefined();
     expect(finalized.body.bom.length).toBeGreaterThan(0);
     expect(cart.calls).toHaveLength(1);
+    expect(cart.calls[0].configId).toBe(configurationId);
+    expect(cart.calls[0].configName).toBe('Scaffale soggiorno');
 
     const fetched = await request(app)
       .get(`/cad/configurations/${configurationId}`)
@@ -133,6 +135,43 @@ describe('cadRouter', () => {
     expect(fetched.body.columnPlan.columns).toHaveLength(2);
     expect(fetched.body.columnDesigns).toHaveLength(2);
     expect(fetched.body.status).toBe('FINALIZED');
+  });
+
+  it('GET /cad/configurations/:id -> 404 for a non-owner without ADMIN role', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(buildConfiguration({ id: 'cfg_1', ownerId: 'usr_1' }));
+
+    const app = buildApp({
+      configurationRepository: repo,
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const res = await request(app)
+      .get('/cad/configurations/cfg_1')
+      .set('x-user-id', 'usr_2');
+
+    expect(res.status).toBe(404);
+  });
+
+  it('GET /cad/configurations/:id -> 200 for a non-owner with ADMIN role (order printing)', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(buildConfiguration({ id: 'cfg_1', ownerId: 'usr_1', name: 'Scaffale ospite' }));
+
+    const app = buildApp({
+      configurationRepository: repo,
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const res = await request(app)
+      .get('/cad/configurations/cfg_1')
+      .set('x-user-id', 'adm_1')
+      .set('x-user-role', 'ADMIN');
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe('cfg_1');
+    expect(res.body.name).toBe('Scaffale ospite');
   });
 
   it('PATCH /cad/configurations/:id/category -> 200 for INTELLIGENTE', async () => {

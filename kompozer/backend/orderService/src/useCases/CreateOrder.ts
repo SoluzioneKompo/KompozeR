@@ -43,6 +43,7 @@ export class CreateOrder {
       total: input.total,
       status: 'AWAITING_PAYMENT',
       submittedAt: now,
+      ...(input.configId ? { configId: input.configId, configName: input.configName } : {}),
     };
 
     await this.repo.create(order);

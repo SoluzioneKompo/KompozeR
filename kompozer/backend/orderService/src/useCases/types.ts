@@ -13,6 +13,8 @@ export interface OrderDto {
   submittedAt: string;
   doneAt?: string;
   cancelledAt?: string;
+  configId?: string;
+  configName?: string;
 }
 
 export interface CreateOrderInput {
@@ -20,6 +22,8 @@ export interface CreateOrderInput {
   expeditionInfo: Order['expeditionInfo'];
   items: OrderItem[];
   total: number;
+  configId?: string;
+  configName?: string;
 }
 
 export interface ListOrdersInput {
@@ -54,5 +58,7 @@ export function toOrderDto(order: Order): OrderDto {
     submittedAt: order.submittedAt.toISOString(),
     doneAt: order.doneAt?.toISOString(),
     cancelledAt: order.cancelledAt?.toISOString(),
+    configId: order.configId,
+    configName: order.configName,
   };
 }

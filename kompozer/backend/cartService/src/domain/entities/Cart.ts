@@ -22,6 +22,9 @@ export interface Cart {
   removedUnavailableItems?: Record<string, RemovedUnavailableItemSnapshot>;
   total: number;
   updatedAt: Date;
+  /** Id/name of the single CAD configuration this cart's items were pushed from, if any. */
+  configId?: string;
+  configName?: string;
 }
 
 export function computeLineTotal(unitPrice: number, quantity: number): number {

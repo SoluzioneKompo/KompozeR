@@ -11,7 +11,7 @@ import {
   ValidationError,
 } from '../../domain/entities/errors';
 import { deriveBom } from '../../domain/services/deriveBom';
-import { canAccessConfiguration } from '../access';
+import { canAccessConfiguration, isAdminRole } from '../access';
 
 /** Read use case that returns one owned configuration by id. */
 export class GetConfiguration {
@@ -30,7 +30,9 @@ export class GetConfiguration {
     }
 
     const configuration = await this.configurationRepository.findById(input.id);
-    if (!configuration || !canAccessConfiguration(configuration, input.ownerId)) {
+    const hasAccess =
+      !!configuration && (canAccessConfiguration(configuration, input.ownerId) || isAdminRole(input.actorRole));
+    if (!configuration || !hasAccess) {
       throw new ResourceNotFoundError('Configuration not found');
     }
 

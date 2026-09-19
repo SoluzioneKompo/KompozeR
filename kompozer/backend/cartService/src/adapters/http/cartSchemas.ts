@@ -17,6 +17,8 @@ export const upsertCartItemSchema = z
     name: z.string().trim().min(1, 'name is required'),
     unitPrice: z.number(),
     quantity: z.number(),
+    configId: z.string().trim().min(1).optional(),
+    configName: z.string().trim().min(1).optional(),
   })
   .strict();
 

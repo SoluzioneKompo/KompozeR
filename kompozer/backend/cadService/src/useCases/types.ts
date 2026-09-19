@@ -36,6 +36,7 @@ export interface ConfigurationDto {
 export interface GetConfigurationInput {
   id: string;
   ownerId: string;
+  actorRole?: string;
 }
 
 export interface ListConfigurationsInput {

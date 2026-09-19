@@ -7,6 +7,7 @@ import { useNotificationStore } from '@/store/notificationStore';
 import type { Order, OrderStatus } from '@/types/order';
 import { ApiError } from '@/types/api';
 import { formatCurrencyFromCents, getIntlLocale } from '@/i18n/format';
+import { printOrder } from '@/utils/orderPrint';
 
 const { t } = useI18n();
 const notifications = useNotificationStore();
@@ -15,6 +16,7 @@ const items = ref<Order[]>([]);
 const loading = ref(false);
 const error = ref('');
 const updatingOrderId = ref('');
+const printingOrderId = ref('');
 const statusFilter = ref<OrderStatus | ''>('');
 const orderToConfirmDone = ref<Order | null>(null);
 const blockedActionMessage = ref('');
@@ -80,6 +82,19 @@ async function markDone(order: Order): Promise<void> {
     notifications.addToast('error', msg);
   } finally {
     updatingOrderId.value = '';
+  }
+}
+
+/** Generates and downloads the order PDF (schema + BOM + shipping). */
+async function handlePrintOrder(order: Order): Promise<void> {
+  printingOrderId.value = order.id;
+  try {
+    await printOrder(order);
+  } catch (e) {
+    const msg = e instanceof ApiError ? e.message : t('admin.orders.errors.printFailed');
+    notifications.addToast('error', msg);
+  } finally {
+    printingOrderId.value = '';
   }
 }
 
@@ -234,6 +249,7 @@ function formatExpeditionName(order: Order): string {
         <div class="order__top">
           <div>
             <h2>{{ t('admin.orders.order') }}</h2>
+            <p v-if="order.configName" class="order__config">{{ t('admin.orders.configuration') }} {{ order.configName }}</p>
           </div>
           <span :class="['status', order.status.toLowerCase()]">{{ order.status }}</span>
         </div>
@@ -300,6 +316,13 @@ function formatExpeditionName(order: Order): string {
             @click="requestMarkCancelled(order)"
           >
             {{ updatingOrderId === order.id ? t('admin.orders.actions.updating') : t('admin.orders.actions.markCancelled') }}
+          </button>
+          <button
+            class="btn btn--light"
+            :disabled="printingOrderId === order.id"
+            @click="handlePrintOrder(order)"
+          >
+            {{ printingOrderId === order.id ? t('admin.orders.actions.printing') : t('admin.orders.actions.print') }}
           </button>
         </div>
       </article>
@@ -420,6 +443,12 @@ function formatExpeditionName(order: Order): string {
   justify-content: space-between;
   align-items: center;
   gap: var(--space-4);
+}
+
+.order__config {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
 }
 
 .status {

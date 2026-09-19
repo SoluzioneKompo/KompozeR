@@ -342,9 +342,11 @@ export function buildCadRouter(deps: CadRouterDeps) {
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
       const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
+      const actorRole = req.headers['x-user-role'];
       const configuration = await deps.getConfiguration.execute({
         id: req.params['id'],
         ownerId,
+        actorRole: typeof actorRole === 'string' ? actorRole : undefined,
       });
       res.json(configuration);
     }),

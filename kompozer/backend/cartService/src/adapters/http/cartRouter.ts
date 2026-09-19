@@ -74,10 +74,12 @@ export function buildCartRouter(deps: CartRouterDeps) {
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
       const { sku } = req.params;
-      const { name, unitPrice, quantity } = req.body as {
+      const { name, unitPrice, quantity, configId, configName } = req.body as {
         name: string;
         unitPrice: number;
         quantity: number;
+        configId?: string;
+        configName?: string;
       };
 
       const cart = await deps.upsertCartItem.execute({
@@ -86,6 +88,8 @@ export function buildCartRouter(deps: CartRouterDeps) {
         name,
         unitPrice,
         quantity,
+        configId,
+        configName,
       });
       logFor(req).info(
         { event: 'cart.item.upserted.success', userId, sku, quantity },

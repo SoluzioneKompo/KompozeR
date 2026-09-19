@@ -77,6 +77,8 @@ export function buildOrderRouter(deps: OrderRouterDeps) {
         expeditionInfo: req.body.expeditionInfo,
         items: req.body.items,
         total: req.body.total,
+        configId: req.body.configId,
+        configName: req.body.configName,
       });
 
       logFor(req).info(

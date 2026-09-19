@@ -93,4 +93,68 @@ describe('CreateOrder', () => {
     expect(result.status).toBe('AWAITING_PAYMENT');
     expect(result.expeditionInfo.deliveryNotes).toBeUndefined();
   });
+
+  it('stores configId/configName when the order comes from a CAD configuration', async () => {
+    const repo = new FakeOrderRepository();
+    const createOrder = new CreateOrder(repo);
+
+    const result = await createOrder.execute({
+      userId: 'usr_1',
+      expeditionInfo: {
+        name: 'Mario',
+        surname: 'Rossi',
+        mail: 'mario.rossi@example.com',
+        nation: 'Italia',
+        city: 'Milano',
+        cap: '20100',
+        address: 'Via Roma 10',
+        phone: '+390212345678',
+      },
+      items: [
+        {
+          sku: 'SKU-001',
+          name: 'Montante',
+          unitPrice: 1990,
+          quantity: 2,
+        },
+      ],
+      total: 3980,
+      configId: 'cfg_1',
+      configName: 'Libreria salotto',
+    });
+
+    expect(result.configId).toBe('cfg_1');
+    expect(result.configName).toBe('Libreria salotto');
+  });
+
+  it('omits configId/configName for plain catalog orders', async () => {
+    const repo = new FakeOrderRepository();
+    const createOrder = new CreateOrder(repo);
+
+    const result = await createOrder.execute({
+      userId: 'usr_1',
+      expeditionInfo: {
+        name: 'Mario',
+        surname: 'Rossi',
+        mail: 'mario.rossi@example.com',
+        nation: 'Italia',
+        city: 'Milano',
+        cap: '20100',
+        address: 'Via Roma 10',
+        phone: '+390212345678',
+      },
+      items: [
+        {
+          sku: 'SKU-001',
+          name: 'Ripiano',
+          unitPrice: 1990,
+          quantity: 2,
+        },
+      ],
+      total: 3980,
+    });
+
+    expect(result.configId).toBeUndefined();
+    expect(result.configName).toBeUndefined();
+  });
 });

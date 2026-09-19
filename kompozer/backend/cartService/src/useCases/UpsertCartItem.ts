@@ -4,7 +4,7 @@
  */
 import { Cart, CartItem, computeCartTotal, computeLineTotal } from '../domain/entities/Cart';
 import { CartEvent } from '../domain/entities/CartEvent';
-import { ValidationError } from '../domain/entities/errors';
+import { CartConfigConflictError, ValidationError } from '../domain/entities/errors';
 import { CartEventPublisher } from '../domain/ports/CartEventPublisher';
 import { CartRepository } from '../domain/ports/CartRepository';
 import { GetCartOutput, UpsertCartItemInput } from './types';
@@ -29,6 +29,31 @@ export class UpsertCartItem {
     const existingCart = await this.cartRepo.findByUserId(input.userId);
     const cart =
       existingCart ?? ({ userId: input.userId, items: [], total: 0, updatedAt: new Date() } as Cart);
+
+    // A cart holds items from at most one CAD configuration (or none, for
+    // plain catalog purchases) so an order can always be traced back to a
+    // single configuration. Reject anything that would mix the two.
+    if (cart.items.length > 0) {
+      if (input.configId && cart.configId && cart.configId !== input.configId) {
+        throw new CartConfigConflictError(
+          `Cart already contains items from configuration "${cart.configName ?? cart.configId}". Checkout or clear the cart before adding a different configuration.`,
+        );
+      }
+      if (input.configId && !cart.configId) {
+        throw new CartConfigConflictError(
+          'Cart already contains manually added items. Checkout or clear the cart before adding a configuration.',
+        );
+      }
+      if (!input.configId && cart.configId) {
+        throw new CartConfigConflictError(
+          `Cart is reserved for configuration "${cart.configName ?? cart.configId}". Checkout or clear the cart before adding other items.`,
+        );
+      }
+    }
+    if (input.configId) {
+      cart.configId = input.configId;
+      cart.configName = input.configName ?? cart.configName;
+    }
 
     const updatedItem: CartItem = {
       sku: input.sku,
@@ -78,6 +103,7 @@ export class UpsertCartItem {
       items: cart.items,
       total: cart.total,
       updatedAt: cart.updatedAt,
+      ...(cart.configId ? { configId: cart.configId, configName: cart.configName } : {}),
     };
   }
 

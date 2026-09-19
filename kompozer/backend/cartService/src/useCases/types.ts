@@ -12,6 +12,8 @@ export interface GetCartOutput {
   items: CartItem[];
   total: number;
   updatedAt: Date;
+  configId?: string;
+  configName?: string;
 }
 
 export interface UpsertCartItemInput {
@@ -20,6 +22,8 @@ export interface UpsertCartItemInput {
   name: string;
   unitPrice: number;
   quantity: number;
+  configId?: string;
+  configName?: string;
 }
 
 export interface RemoveCartItemInput {
@@ -59,4 +63,6 @@ export interface CheckoutCartOutput {
   items: CartItem[];
   total: number;
   submittedAt: Date;
+  configId?: string;
+  configName?: string;
 }

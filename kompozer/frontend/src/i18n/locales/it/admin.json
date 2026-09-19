@@ -95,10 +95,13 @@
       "deliveryNotes": "Note consegna:"
     },
     "itemsDetail": "Dettaglio articoli",
+    "configuration": "Configurazione:",
     "actions": {
       "updating": "Aggiornamento...",
       "markDone": "Segna come DONE",
-      "markCancelled": "Segna come CANCELLED"
+      "markCancelled": "Segna come CANCELLED",
+      "print": "Stampa / Scarica PDF",
+      "printing": "Generazione PDF..."
     },
     "modals": {
       "confirmUpdateTitle": "Conferma aggiornamento",
@@ -111,7 +114,8 @@
     "errors": {
       "loadFailed": "Errore caricamento ordini",
       "updateFailed": "Errore aggiornamento stato ordine",
-      "notAllowed": "Operazione non consentita: ordine in stato {status}."
+      "notAllowed": "Operazione non consentita: ordine in stato {status}.",
+      "printFailed": "Errore nella generazione del PDF"
     },
     "toasts": {
       "markedDone": "Ordine marcato come DONE",
