@@ -14,3 +14,4 @@
 12. Sistemazione pdf, se presenti i ripiani bordo e intermezzi, scriverlo in aggiunta alla misura.
 13. Pubblicazione Sito
 14. Capire come fare le mensole...
+15. Correggere i terminali nel frontend.
