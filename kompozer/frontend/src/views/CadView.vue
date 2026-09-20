@@ -609,7 +609,9 @@ const canvasColumns = computed(() => {
 });
 
 /** Realistic 2D assembly geometry (feet/uprights/terminals/shelves) for the schema panel. */
-const assembly = computed(() => computeAssemblyGeometry(selected.value?.columnPlan, selected.value?.columnDesigns));
+const assembly = computed(() =>
+  computeAssemblyGeometry(selected.value?.columnPlan, selected.value?.columnDesigns, selected.value?.terminalSelections),
+);
 
 const ASSEMBLY_BASE_SCALE_PX_PER_MM = 0.6;
 const assemblyZoom = ref(1);

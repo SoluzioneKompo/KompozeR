@@ -13,7 +13,7 @@ import { cadService } from '@/services/cadService';
 import { computeAssemblyGeometry, type AssemblyPiece } from '@/utils/cadAssembly';
 import { formatCurrencyFromCents } from '@/i18n/format';
 import { i18n } from '@/i18n';
-import type { ColumnDesign, ColumnPlan } from '@/types/cad';
+import type { ColumnDesign, ColumnPlan, TerminalSelection } from '@/types/cad';
 import type { Order } from '@/types/order';
 
 const PAGE_WIDTH_MM = 210;
@@ -63,8 +63,9 @@ function drawSchemaPage(
   title: string,
   columnPlan: ColumnPlan | null,
   columnDesigns: ColumnDesign[],
+  terminalSelections: TerminalSelection[],
 ): void {
-  const geometry = computeAssemblyGeometry(columnPlan, columnDesigns);
+  const geometry = computeAssemblyGeometry(columnPlan, columnDesigns, terminalSelections);
 
   drawSectionTitle(doc, title || 'Configuration', MARGIN_MM, MARGIN_MM, 16);
 
@@ -179,7 +180,7 @@ export async function printOrder(order: Order): Promise<void> {
 
   if (order.configId) {
     const config = await cadService.get(order.configId);
-    drawSchemaPage(doc, order.configName ?? config.name, config.columnPlan, config.columnDesigns);
+    drawSchemaPage(doc, order.configName ?? config.name, config.columnPlan, config.columnDesigns, config.terminalSelections);
     hasSchemaPage = true;
   }
 
