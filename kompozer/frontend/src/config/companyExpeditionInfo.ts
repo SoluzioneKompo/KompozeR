@@ -5,13 +5,13 @@
 import type { ExpeditionInfo } from '@/types/cart';
 
 export const companyExpeditionInfo: ExpeditionInfo = {
-  name: '',
-  surname: '',
-  mail: '',
-  nation: '',
-  city: '',
-  cap: '',
-  address: '',
-  phone: '',
+  name: 'Fabio',
+  surname: 'Fratini',
+  mail: 'soluzionekompo@gmail.com',
+  nation: 'IT',
+  city: 'Amandola (FM)',
+  cap: '63857',
+  address: 'Via Angelo Biondi, 12',
+  phone: '+39 0736 848636',
   deliveryNotes: '',
 };
