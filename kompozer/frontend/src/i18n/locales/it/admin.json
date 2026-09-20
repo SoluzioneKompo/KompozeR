@@ -4,6 +4,13 @@
     "subtitle": "Gestisci il catalogo mantenendo separata la vista acquisto.",
     "addComponentAria": "Aggiungi componente",
     "refresh": "Aggiorna",
+    "export": {
+      "format": "Formato",
+      "button": "Esporta catalogo",
+      "exporting": "Esportazione...",
+      "success": "Catalogo esportato (3 file, uno per categoria)",
+      "error": "Errore esportazione catalogo"
+    },
     "modal": {
       "addComponent": "Aggiungi componente",
       "close": "Chiudi",

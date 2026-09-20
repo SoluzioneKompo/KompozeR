@@ -9,6 +9,7 @@ import { ApiError } from '@/types/api';
 import { groupCatalog, dimensionLabel, categoryLabel, typeLabel, type TypeGroup, type CategoryGroup } from '@/utils/catalogGrouping';
 import { formatCurrencyFromCents } from '@/i18n/format';
 import { previewSku } from '@/utils/skuGenerator';
+import { exportCatalogByCategory, type CatalogExportFormat } from '@/utils/catalogExport';
 
 const { t } = useI18n();
 const notifications = useNotificationStore();
@@ -25,6 +26,8 @@ const categoryFilter = ref('');
 const availableOnly = ref(false);
 
 const isCreateModalOpen = ref(false);
+const exportFormat = ref<CatalogExportFormat>('json');
+const exporting = ref(false);
 
 const createForm = reactive({
   name: '',
@@ -132,6 +135,20 @@ async function load(): Promise<void> {
     error.value = e instanceof ApiError ? e.message : t('admin.catalog.errors.loadFailed');
   } finally {
     loading.value = false;
+  }
+}
+
+/** Downloads the full catalog as 3 files (one per category) in the selected format. */
+async function exportCatalog(): Promise<void> {
+  exporting.value = true;
+  try {
+    await exportCatalogByCategory(exportFormat.value);
+    notifications.addToast('success', t('admin.catalog.export.success'));
+  } catch (e) {
+    const msg = e instanceof ApiError ? e.message : t('admin.catalog.export.error');
+    notifications.addToast('error', msg);
+  } finally {
+    exporting.value = false;
   }
 }
 
@@ -252,6 +269,16 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
       <div class="header-actions">
         <button class="btn btn--add" @click="openCreateModal" :aria-label="t('admin.catalog.addComponentAria')">+</button>
         <button class="btn btn--light" :disabled="loading" @click="load">{{ t('admin.catalog.refresh') }}</button>
+        <label class="field export-format">
+          <span class="field__label">{{ t('admin.catalog.export.format') }}</span>
+          <select v-model="exportFormat" class="field__input">
+            <option value="json">JSON</option>
+            <option value="csv">CSV</option>
+          </select>
+        </label>
+        <button class="btn btn--light" :disabled="exporting" @click="exportCatalog">
+          {{ exporting ? t('admin.catalog.export.exporting') : t('admin.catalog.export.button') }}
+        </button>
       </div>
     </header>
 
@@ -436,6 +463,11 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.export-format {
+  flex-direction: row;
+  align-items: center;
 }
 
 .subtitle {

@@ -4,6 +4,13 @@
     "subtitle": "Manage the catalog, kept separate from the customer-facing view.",
     "addComponentAria": "Add component",
     "refresh": "Refresh",
+    "export": {
+      "format": "Format",
+      "button": "Export catalog",
+      "exporting": "Exporting...",
+      "success": "Catalog exported (3 files, one per category)",
+      "error": "Error exporting catalog"
+    },
     "modal": {
       "addComponent": "Add component",
       "close": "Close",
