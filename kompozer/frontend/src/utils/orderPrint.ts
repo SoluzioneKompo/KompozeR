@@ -39,11 +39,12 @@ const LEGEND_MAX_HEIGHT_MM = 55;
 /** Kompo brand accent (legno naturale) — see --color-admin-accent in tokens.css. */
 const KOMPO_ACCENT: [number, number, number] = [138, 109, 79];
 
+/** Piece colors mirror CadView.vue's SVG schema (.assembly-piece--*), i.e. cadService tokens. */
 const PIECE_FILL: Record<AssemblyPiece['kind'], [number, number, number]> = {
-  foot: [130, 130, 130],
-  upright: [180, 180, 180],
-  terminal: [90, 90, 90],
-  shelf: [55, 65, 81],
+  foot: KOMPO_ACCENT, // --color-admin-accent
+  upright: KOMPO_ACCENT, // --color-admin-accent
+  terminal: [85, 85, 85], // --color-text-secondary
+  shelf: [236, 236, 236], // --color-accent-subtle
 };
 
 function t(key: string): string {
