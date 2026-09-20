@@ -75,6 +75,7 @@
     "pieceHeightLabel": "Piece height to add",
     "selectHeightAriaLabel": "Select height to add for column {n}",
     "bridgeSuffix": " · bridge",
+    "stackedSuffix": " · stacked",
     "noOptionsAvailable": "No option available for this column under the current constraints.",
     "addLevel": "+ Level",
     "addLevelAriaLabel": "Add level to column {n}",

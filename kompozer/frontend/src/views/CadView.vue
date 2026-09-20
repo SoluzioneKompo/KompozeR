@@ -1205,7 +1205,7 @@ function stepActive(index: number): boolean {
                         :key="`opt-${column.index}-${option.heightMm}`"
                         :value="option.heightMm"
                       >
-                          {{ formatCm(option.heightMm) }}{{ option.kind === 'bridge' ? t('cad.designStep.bridgeSuffix') : '' }}
+                          {{ formatCm(option.heightMm) }}{{ option.kind === 'bridge' ? t('cad.designStep.bridgeSuffix') : '' }}{{ option.kind === 'stacked' ? t('cad.designStep.stackedSuffix') : '' }}
                       </option>
                     </select>
                   </label>

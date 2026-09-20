@@ -2,7 +2,6 @@ import {
   assertStep4LogicImplemented,
   resolveStep4LogicFamily,
 } from "../../src/domain/services/Step4LogicResolver";
-import { CategoryLogicNotImplementedError } from "../../src/domain/entities/errors";
 
 describe("Step4LogicResolver", () => {
   it("resolves TONDO to the STANDARD family", () => {
@@ -25,7 +24,7 @@ describe("Step4LogicResolver", () => {
     expect(() => assertStep4LogicImplemented("QUADRO")).not.toThrow();
   });
 
-  it("throws CategoryLogicNotImplementedError for KUBE", () => {
-    expect(() => assertStep4LogicImplemented("KUBE")).toThrow(CategoryLogicNotImplementedError);
+  it("does not throw for KUBE", () => {
+    expect(() => assertStep4LogicImplemented("KUBE")).not.toThrow();
   });
 });

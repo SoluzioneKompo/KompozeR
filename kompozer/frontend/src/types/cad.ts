@@ -86,7 +86,7 @@ export type NextOptionReasonCode =
 export interface NextOption {
   heightMm: number;
   allowed: boolean;
-  kind?: 'standard' | 'bridge';
+  kind?: 'standard' | 'bridge' | 'stacked';
   reasonCode?: NextOptionReasonCode;
   reason?: string;
 }

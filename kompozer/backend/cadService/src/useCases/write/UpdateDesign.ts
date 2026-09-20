@@ -165,6 +165,7 @@ export class UpdateDesign {
           levelsMm: byIndex.get(column.index)?.levelsMm ?? [],
         })),
         spineRules,
+        { allowStackedUprights: configuration.category === 'KUBE' },
       );
       if (!validation.valid) {
         throw new ValidationError(

@@ -75,6 +75,7 @@
     "pieceHeightLabel": "Altezza pezzo da aggiungere",
     "selectHeightAriaLabel": "Seleziona altezza da aggiungere per colonna {n}",
     "bridgeSuffix": " · ponte",
+    "stackedSuffix": " · più montanti",
     "noOptionsAvailable": "Nessuna opzione disponibile per questa colonna con i vincoli attuali.",
     "addLevel": "+ Livello",
     "addLevelAriaLabel": "Aggiungi livello alla colonna {n}",

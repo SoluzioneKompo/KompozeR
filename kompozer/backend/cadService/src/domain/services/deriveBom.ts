@@ -5,6 +5,7 @@ import { CatalogRules } from '../ports/CatalogRulesProvider';
 import {
   SPINE_COMPONENT_MULTIPLIER,
   buildSpines,
+  composeUprightBreakdown,
   deriveSpineBom,
   resolveFirstLevelHeightsMm,
 } from './SpineModel';
@@ -21,8 +22,11 @@ import { resolveShelfRoles } from './ShelfRoleResolver';
  * - Spine components are counted per shared spine, not per column.
  * - PIEDINO:   2 per non-empty spine (front + back).
  * - TERMINALE: 2 per non-empty spine (front + back).
- * - MONTANTE:  2 per exact-fit spine segment (front + back).
- * - KUBE:      treated like every other system for now.
+ * - MONTANTE:  2 per exact-fit spine segment (front + back). For KUBE, a
+ *              segment that has no single matching catalog upright is
+ *              decomposed into the minimum-piece stack that sums to it (see
+ *              SpineModel.composeUprightBreakdown), and each piece gets its
+ *              own 2-per-spine count.
  *
  * Aggregation: items with the same SKU are summed before returning.
  */
@@ -133,6 +137,8 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
     }),
   );
 
+  const allowStackedUprights = category === 'KUBE';
+
   for (const spine of spines) {
     const spineBom = deriveSpineBom(
       spine.levelsMm,
@@ -146,6 +152,7 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
         maxHeightMm: Number.MAX_SAFE_INTEGER,
       },
       terminalHeightBySpineIndex.get(spine.index),
+      { allowStackedUprights },
     );
 
     if (!spineBom) {
@@ -179,18 +186,30 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
     );
 
     for (const gapMm of spineBom.uprightHeightsMm) {
-      const uprightRule = rules.uprightByHeightMm.get(gapMm);
-      if (!uprightRule) {
-        throw new ValidationError(`No MONTANTE found for exact spine segment=${gapMm}mm`);
+      const pieceHeightsMm = allowStackedUprights
+        ? composeUprightBreakdown(gapMm, rules.uprightHeightsMm)
+        : rules.uprightByHeightMm.has(gapMm)
+          ? [gapMm]
+          : null;
+
+      if (!pieceHeightsMm) {
+        throw new ValidationError(`No MONTANTE combination found for spine segment=${gapMm}mm`);
       }
 
-      add(
-        uprightRule.sku,
-        uprightRule.name,
-        SPINE_COMPONENT_MULTIPLIER,
-        uprightRule.priceCents,
-        'MONTANTE',
-      );
+      for (const pieceHeightMm of pieceHeightsMm) {
+        const uprightRule = rules.uprightByHeightMm.get(pieceHeightMm);
+        if (!uprightRule) {
+          throw new ValidationError(`No MONTANTE found for exact height=${pieceHeightMm}mm`);
+        }
+
+        add(
+          uprightRule.sku,
+          uprightRule.name,
+          SPINE_COMPONENT_MULTIPLIER,
+          uprightRule.priceCents,
+          'MONTANTE',
+        );
+      }
     }
   }
 

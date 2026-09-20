@@ -1,5 +1,4 @@
 import { Category } from '../entities/Category';
-import { CategoryLogicNotImplementedError } from '../entities/errors';
 
 export type Step4LogicFamily = 'STANDARD' | 'QUADRO' | 'KUBE';
 
@@ -17,11 +16,10 @@ export function resolveStep4LogicFamily(category: Category): Step4LogicFamily {
 }
 
 /**
- * Guard used by Step4 flows until category-specific strategies are implemented.
+ * Guard used by Step4 flows for category-specific strategies. All three
+ * families (STANDARD, QUADRO, KUBE) are implemented; kept as a single choke
+ * point should a future category need to be staged in disabled first.
  */
-export function assertStep4LogicImplemented(category: Category): void {
-  const logicFamily = resolveStep4LogicFamily(category);
-  if (logicFamily === 'KUBE') {
-    throw new CategoryLogicNotImplementedError(category);
-  }
+export function assertStep4LogicImplemented(_category: Category): void {
+  // no-op
 }

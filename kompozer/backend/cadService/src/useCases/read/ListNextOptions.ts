@@ -112,13 +112,20 @@ export class ListNextOptions {
     const columnIndexInPlan = sortedPlanColumns.findIndex((column) => column.index === input.columnIndex);
 
     const isQuadro = configuration.category === 'QUADRO';
+    const isKube = configuration.category === 'KUBE';
 
     // Candidates always include neighbor-anchored 'bridge' gaps: TONDO and
     // QUADRO both share the STANDARD spine model for feet/uprights/terminals.
-    const candidates = buildCandidateGaps(columnLevels, columnIndexInPlan, {
-      footHeightsMm: rules.footHeightsMm,
-      uprightHeightsMm: rules.uprightHeightsMm,
-    });
+    // KUBE additionally offers 'stacked' gaps built from 2+ uprights.
+    const candidates = buildCandidateGaps(
+      columnLevels,
+      columnIndexInPlan,
+      {
+        footHeightsMm: rules.footHeightsMm,
+        uprightHeightsMm: rules.uprightHeightsMm,
+      },
+      { allowStackedUprights: isKube },
+    );
 
     // Evaluate each candidate independently and explain exactly why it is blocked.
     // This enables the UI to present a "disabled with reason" dropdown.
@@ -186,7 +193,7 @@ export class ListNextOptions {
         columnIndexInPlan,
         heightMm,
         spineRules,
-        { blockSharedLevel: !isQuadro },
+        { blockSharedLevel: !isQuadro, allowStackedUprights: isKube },
       );
 
       if (!validation.valid) {
