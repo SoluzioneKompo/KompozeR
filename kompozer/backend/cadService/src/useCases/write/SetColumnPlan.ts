@@ -51,7 +51,7 @@ export class SetColumnPlan {
     // the user before calling; the backend just enforces the reset itself.
     const designExisted = configuration.columnDesigns.length > 0;
 
-    const rules = await this.catalogRulesProvider.getRules(configuration.category);
+    const rules = await this.catalogRulesProvider.getRules(configuration.category, configuration.depthMm ?? undefined);
     const seen = new Set<number>();
 
     // Step2 only fixes each column's width; adjacency (and therefore whether a

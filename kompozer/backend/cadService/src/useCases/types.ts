@@ -23,6 +23,7 @@ export interface ConfigurationDto {
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
+  depthMm: number | null;
   columnPlan: ColumnPlan | null;
   columnDesigns: ColumnDesign[];
   terminalSelections: TerminalSelection[];
@@ -60,6 +61,13 @@ export interface SetCategoryInput {
   id: string;
   ownerId: string;
   category: Category;
+}
+
+/** Input payload for depth selection step (right after category, before column plan). */
+export interface SetDepthInput {
+  id: string;
+  ownerId: string;
+  depthMm: number;
 }
 
 /** Input payload for column-plan step. */
@@ -129,6 +137,7 @@ export function toConfigurationDto(configuration: Configuration): ConfigurationD
     name: configuration.name,
     status: configuration.status,
     category: configuration.category,
+    depthMm: configuration.depthMm,
     columnPlan: configuration.columnPlan,
     columnDesigns: configuration.columnDesigns,
     terminalSelections: configuration.terminalSelections,

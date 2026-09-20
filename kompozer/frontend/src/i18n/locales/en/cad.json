@@ -55,6 +55,13 @@
     "placeholder": "Select category",
     "saving": "Saving..."
   },
+  "depthStep": {
+    "title": "Depth",
+    "label": "Shelf depth",
+    "placeholder": "Select depth",
+    "hint": "Filters the sizes offered in the next steps. Changing it after columns or levels are defined resets the configuration.",
+    "saving": "Saving..."
+  },
   "columnsStep": {
     "title": "Step 2 - Column plan",
     "countLabel": "Number of columns (1-8)",
@@ -148,6 +155,8 @@
     "createError": "Error creating configuration",
     "categoryUpdated": "Category updated",
     "categoryUpdateError": "Error updating category",
+    "depthUpdated": "Depth updated",
+    "depthUpdateError": "Error updating depth",
     "columnPlanUpdated": "Column plan updated",
     "columnPlanUpdateError": "Error updating column plan",
     "designUpdated": "Column design updated",

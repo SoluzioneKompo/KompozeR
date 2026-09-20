@@ -59,3 +59,57 @@ describe('HttpCatalogRulesProvider — retry', () => {
     }
   });
 });
+
+describe('HttpCatalogRulesProvider — depth filter', () => {
+  function shelfItem(sku: string, widthMm: number, depthMm: number) {
+    return {
+      sku,
+      name: sku,
+      price: 100,
+      Type: 'RIPIANO',
+      dimensions: { widthMm, heightMm: 20, depthMm },
+    };
+  }
+
+  async function withCatalogServer(items: unknown[], run: (provider: HttpCatalogRulesProvider) => Promise<void>) {
+    const { baseUrl, close } = await startServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ items }));
+    });
+
+    try {
+      await run(new HttpCatalogRulesProvider(baseUrl, 1000));
+    } finally {
+      await close();
+    }
+  }
+
+  it('getRules keeps only shelves matching the requested depth', async () => {
+    await withCatalogServer(
+      [shelfItem('RIP-600-D200', 600, 200), shelfItem('RIP-600-D300', 600, 300)],
+      async (provider) => {
+        const rules = await provider.getRules('TONDO', 300);
+        expect(rules.shelfByWidthMm.get(600)?.sku).toBe('RIP-600-D300');
+      },
+    );
+  });
+
+  it('getRules returns every depth when no filter is given', async () => {
+    await withCatalogServer(
+      [shelfItem('RIP-A', 600, 200), shelfItem('RIP-B', 800, 300)],
+      async (provider) => {
+        const rules = await provider.getRules('TONDO');
+        expect(rules.shelfByWidthMm.size).toBe(2);
+      },
+    );
+  });
+
+  it('getAvailableDepthsMm returns the distinct sorted shelf depths for a category', async () => {
+    await withCatalogServer(
+      [shelfItem('RIP-A', 600, 300), shelfItem('RIP-B', 800, 200), shelfItem('RIP-C', 1000, 300)],
+      async (provider) => {
+        await expect(provider.getAvailableDepthsMm('TONDO')).resolves.toEqual([200, 300]);
+      },
+    );
+  });
+});

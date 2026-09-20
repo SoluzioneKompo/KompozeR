@@ -34,6 +34,10 @@ export const cadService = {
     return http.patch<ConfigurationDto>(`/cad/configurations/${id}/category`, { category });
   },
 
+  setDepth(id: string, depthMm: number): Promise<ConfigurationDto> {
+    return http.patch<ConfigurationDto>(`/cad/configurations/${id}/depth`, { depthMm });
+  },
+
   setColumnPlan(id: string, plan: ColumnPlan): Promise<ConfigurationDto> {
     return http.patch<ConfigurationDto>(`/cad/configurations/${id}/column-plan`, plan);
   },

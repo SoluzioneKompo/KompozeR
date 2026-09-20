@@ -54,6 +54,7 @@ export interface ConfigurationDto {
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
+  depthMm: number | null;
   columnPlan: ColumnPlan | null;
   columnDesigns: ColumnDesign[];
   terminalSelections: TerminalSelection[];

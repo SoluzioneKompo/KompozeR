@@ -35,5 +35,13 @@ export interface CatalogRules {
 
 /** Read-only contract for resolving catalog rules required by CAD validation and BOM logic. */
 export interface CatalogRulesProvider {
-  getRules(category: Category): Promise<CatalogRules>;
+  /**
+   * When depthMm is given, shelf-like rules (RIPIANO/BORDO/INTERMEDIO/MENSOLA)
+   * are filtered to that depth only — everything else (feet/uprights/terminals,
+   * which have no meaningful depth) is unaffected.
+   */
+  getRules(category: Category, depthMm?: number): Promise<CatalogRules>;
+
+  /** Distinct depths (mm) available among shelf components for a category. */
+  getAvailableDepthsMm(category: Category): Promise<number[]>;
 }

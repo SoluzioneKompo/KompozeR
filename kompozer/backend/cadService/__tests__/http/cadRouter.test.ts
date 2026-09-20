@@ -195,6 +195,57 @@ describe('cadRouter', () => {
     expect(res.body.category).toBe('QUADRO');
   });
 
+  it('PATCH /cad/configurations/:id/depth -> 200 and stores the selected depth', async () => {
+    const app = buildApp({
+      configurationRepository: new FakeConfigurationRepository(),
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const created = await request(app)
+      .post('/cad/configurations')
+      .set('x-user-id', 'usr_1')
+      .send({ name: 'Bozza profondita' });
+
+    await request(app)
+      .patch(`/cad/configurations/${created.body.id}/category`)
+      .set('x-user-id', 'usr_1')
+      .send({ category: 'TONDO' });
+
+    const res = await request(app)
+      .patch(`/cad/configurations/${created.body.id}/depth`)
+      .set('x-user-id', 'usr_1')
+      .send({ depthMm: 300 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.depthMm).toBe(300);
+  });
+
+  it('PATCH /cad/configurations/:id/depth -> 422 for a depth not in the catalog', async () => {
+    const app = buildApp({
+      configurationRepository: new FakeConfigurationRepository(),
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const created = await request(app)
+      .post('/cad/configurations')
+      .set('x-user-id', 'usr_1')
+      .send({ name: 'Bozza profondita invalida' });
+
+    await request(app)
+      .patch(`/cad/configurations/${created.body.id}/category`)
+      .set('x-user-id', 'usr_1')
+      .send({ category: 'TONDO' });
+
+    const res = await request(app)
+      .patch(`/cad/configurations/${created.body.id}/depth`)
+      .set('x-user-id', 'usr_1')
+      .send({ depthMm: 12345 });
+
+    expect(res.status).toBe(422);
+  });
+
   it('PATCH /cad/configurations/:id/design -> 422 on invalid payload', async () => {
     const app = buildApp({
       configurationRepository: new FakeConfigurationRepository(),

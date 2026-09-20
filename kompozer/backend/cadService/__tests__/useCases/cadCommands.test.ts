@@ -3,6 +3,7 @@ import { FinalizeConfiguration } from '../../src/useCases/write/FinalizeConfigur
 import { ReorderConfiguration } from '../../src/useCases/write/ReorderConfiguration';
 import { ResetConfiguration } from '../../src/useCases/write/ResetConfiguration';
 import { SetCategory } from '../../src/useCases/write/SetCategory';
+import { SetDepth } from '../../src/useCases/write/SetDepth';
 import { SetColumnPlan } from '../../src/useCases/write/SetColumnPlan';
 import { ListNextOptions } from '../../src/useCases/read/ListNextOptions';
 import { UpdateDesign } from '../../src/useCases/write/UpdateDesign';
@@ -657,5 +658,87 @@ describe('CAD command use cases', () => {
     expect(result.columnIndex).toBe(1);
     expect(result.options).toEqual([]);
     expect(result.lookAhead.feasible).toBe(false);
+  });
+
+  it('SetDepth stores the selected depth once a category is set', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(buildConfiguration({ status: 'CATEGORY_SELECTED', category: 'TONDO' }));
+
+    const useCase = new SetDepth(repo, new FakeCatalogRulesProvider());
+    const result = await useCase.execute({ id: 'cfg_test', ownerId: 'usr_1', depthMm: 300 });
+
+    expect(result.depthMm).toBe(300);
+    expect(result.status).toBe('CATEGORY_SELECTED');
+  });
+
+  it('SetDepth rejects a depth not available in the catalog for the category', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(buildConfiguration({ status: 'CATEGORY_SELECTED', category: 'TONDO' }));
+
+    const useCase = new SetDepth(repo, new FakeCatalogRulesProvider());
+
+    await expect(
+      useCase.execute({ id: 'cfg_test', ownerId: 'usr_1', depthMm: 999 }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('SetDepth rejects when no category has been selected yet', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(buildConfiguration({ status: 'DRAFT', category: null }));
+
+    const useCase = new SetDepth(repo, new FakeCatalogRulesProvider());
+
+    await expect(
+      useCase.execute({ id: 'cfg_test', ownerId: 'usr_1', depthMm: 300 }),
+    ).rejects.toMatchObject({ code: 'RESOURCE_CONFLICT' });
+  });
+
+  it('SetDepth changing depth after a column plan exists resets plan/design back to CATEGORY_SELECTED', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(
+      buildConfiguration({
+        status: 'DESIGN_IN_PROGRESS',
+        category: 'TONDO',
+        depthMm: 300,
+        columnPlan: { columnCount: 1, columns: [{ index: 0, shelfWidthMm: 800 }] },
+        columnDesigns: [{ columnIndex: 0, levelsMm: [120], shelfThicknessMm: 20 }],
+      }),
+    );
+
+    const catalog = new FakeCatalogRulesProvider(buildCatalogRules({
+      shelfByWidthMm: new Map([
+        [600, { type: 'RIPIANO', sku: 'RIP-600-D200', name: 'Ripiano 600', priceCents: 2990, widthMm: 600, heightMm: 20, depthMm: 200 }],
+      ]),
+    }));
+
+    const useCase = new SetDepth(repo, catalog);
+    const result = await useCase.execute({ id: 'cfg_test', ownerId: 'usr_1', depthMm: 200 });
+
+    expect(result.depthMm).toBe(200);
+    expect(result.status).toBe('CATEGORY_SELECTED');
+    expect(result.columnPlan).toBeNull();
+    expect(result.columnDesigns).toEqual([]);
+  });
+
+  it('SetColumnPlan forwards the configuration depth to the catalog rules provider', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(buildConfiguration({ status: 'CATEGORY_SELECTED', category: 'TONDO', depthMm: 200 }));
+
+    const calls: Array<[string | undefined, number | undefined]> = [];
+    const spyingCatalog = new FakeCatalogRulesProvider();
+    const originalGetRules = spyingCatalog.getRules.bind(spyingCatalog);
+    spyingCatalog.getRules = async (category, depthMm) => {
+      calls.push([category, depthMm]);
+      return originalGetRules(category, depthMm);
+    };
+
+    const useCase = new SetColumnPlan(repo, spyingCatalog);
+    await useCase.execute({
+      id: 'cfg_test',
+      ownerId: 'usr_1',
+      columnPlan: { columnCount: 1, columns: [{ index: 0, shelfWidthMm: 800 }] },
+    });
+
+    expect(calls).toEqual([['TONDO', 200]]);
   });
 });

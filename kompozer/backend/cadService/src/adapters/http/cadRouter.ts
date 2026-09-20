@@ -17,6 +17,7 @@ import { FinalizeConfiguration } from '../../useCases/write/FinalizeConfiguratio
 import { ReorderConfiguration } from '../../useCases/write/ReorderConfiguration';
 import { ResetConfiguration } from '../../useCases/write/ResetConfiguration';
 import { SetCategory } from '../../useCases/write/SetCategory';
+import { SetDepth } from '../../useCases/write/SetDepth';
 import { SetColumnPlan } from '../../useCases/write/SetColumnPlan';
 import { UpdateDesign } from '../../useCases/write/UpdateDesign';
 
@@ -26,6 +27,7 @@ export interface CadRouterDeps {
   getConfiguration: GetConfiguration;
   listNextOptions: ListNextOptions;
   setCategory: SetCategory;
+  setDepth: SetDepth;
   setColumnPlan: SetColumnPlan;
   updateDesign: UpdateDesign;
   finalizeConfiguration: FinalizeConfiguration;
@@ -394,6 +396,24 @@ export function buildCadRouter(deps: CadRouterDeps) {
         id: req.params['id'],
         ownerId,
         category,
+      });
+      res.json(configuration);
+    }),
+  );
+
+  router.patch(
+    '/configurations/:id/depth',
+    requireUserId,
+    wrap(async (req, res) => {
+      const userId = req.headers['x-user-id'] as string;
+      const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
+      const body = (req.body ?? {}) as { depthMm?: unknown };
+      const depthMm = requireNumber(body.depthMm, 'depthMm');
+
+      const configuration = await deps.setDepth.execute({
+        id: req.params['id'],
+        ownerId,
+        depthMm,
       });
       res.json(configuration);
     }),

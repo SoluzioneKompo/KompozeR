@@ -49,7 +49,7 @@ export class GetConfiguration {
           { event: 'cad.configuration.lazy_migration', configurationId: configuration.id },
           'Lazy migrating components for configuration',
         );
-        const rules = await this.catalogRulesProvider.getRules(configuration.category);
+        const rules = await this.catalogRulesProvider.getRules(configuration.category, configuration.depthMm ?? undefined);
         configuration.components = deriveBom(configuration, rules);
       } catch (err) {
         // Log but don't fail — return configuration as-is if deriveBom fails

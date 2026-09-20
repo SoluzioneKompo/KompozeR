@@ -23,6 +23,7 @@ import { FinalizeConfiguration } from './useCases/write/FinalizeConfiguration';
 import { ReorderConfiguration } from './useCases/write/ReorderConfiguration';
 import { ResetConfiguration } from './useCases/write/ResetConfiguration';
 import { SetCategory } from './useCases/write/SetCategory';
+import { SetDepth } from './useCases/write/SetDepth';
 import { SetColumnPlan } from './useCases/write/SetColumnPlan';
 import { UpdateDesign } from './useCases/write/UpdateDesign';
 
@@ -62,6 +63,7 @@ export function buildApp(deps: BuildAppDeps = {}) {
   const getConfiguration = new GetConfiguration(configurationRepository, catalogRulesProvider);
   const listNextOptions = new ListNextOptions(configurationRepository, catalogRulesProvider);
   const setCategory = new SetCategory(configurationRepository);
+  const setDepth = new SetDepth(configurationRepository, catalogRulesProvider);
   const setColumnPlan = new SetColumnPlan(configurationRepository, catalogRulesProvider);
   const updateDesign = new UpdateDesign(configurationRepository, catalogRulesProvider);
   const finalizeConfiguration = new FinalizeConfiguration(
@@ -111,6 +113,7 @@ export function buildApp(deps: BuildAppDeps = {}) {
       getConfiguration,
       listNextOptions,
       setCategory,
+      setDepth,
       setColumnPlan,
       updateDesign,
       finalizeConfiguration,

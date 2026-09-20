@@ -30,6 +30,7 @@ const {
   createLoading,
   finalizeLoading,
   categoryLoading,
+  depthLoading,
   columnPlanLoading,
   designLoading,
   resetLoading,
@@ -37,6 +38,7 @@ const {
   nextOptionsByColumn,
   loadDetail,
   updateCategory,
+  updateDepth,
   updateColumnPlan,
   fetchNextOptions,
   setNextOptions,
@@ -59,6 +61,7 @@ const shelfWidthsDraft = ref<number[]>([800, 800]);
 const SHELF_THICKNESS_MM = 20;
 const shelfThicknessDraft = ref(SHELF_THICKNESS_MM);
 const categoryDraft = ref('');
+const depthDraft = ref<number | ''>('');
 const selectedGapByColumn = ref<Record<number, number | null>>({});
 const categoryCatalogItems = ref<CatalogItem[]>([]);
 const catalogLoading = ref(false);
@@ -68,6 +71,7 @@ const showResetConfirm = ref(false);
 const showResetFinalConfirm = ref(false);
 const showResetConfigConfirm = ref(false);
 const pendingCategory = ref<Category | null>(null);
+const pendingDepth = ref<number | null>(null);
 const pendingColumnPlan = ref<ColumnPlan | null>(null);
 const terminalHeightBySpine = ref<Record<number, number | null>>({});
 const joinCodeInput = ref('');
@@ -355,6 +359,7 @@ watch(selected, (value) => {
   }
 
   categoryDraft.value = value.category ?? '';
+  depthDraft.value = value.depthMm ?? '';
 
   if (value.columnPlan) {
     columnCountDraft.value = value.columnPlan.columnCount;
@@ -395,14 +400,18 @@ const currentStepIndex = computed(() => {
 
 const canFinalize = computed(() => selected.value?.status === 'READY_FOR_FINALIZE');
 const canEditCategory = computed(() => selected.value && selected.value.status !== 'FINALIZED');
+const canEditDepth = computed(() => !!selected.value && !!selected.value.category && selected.value.status !== 'FINALIZED');
 const canEditColumns = computed(() => {
   if (!selected.value) return false;
-  return (
+  const statusOk =
     selected.value.status === 'CATEGORY_SELECTED' ||
     selected.value.status === 'COLUMNS_DEFINED' ||
     selected.value.status === 'DESIGN_IN_PROGRESS' ||
-    selected.value.status === 'READY_FOR_FINALIZE'
-  );
+    selected.value.status === 'READY_FOR_FINALIZE';
+  if (!statusOk) return false;
+  // Depth (when the category offers one) must be picked before column widths.
+  if (depthRequired.value && selected.value.depthMm == null) return false;
+  return true;
 });
 const canEditDesign = computed(() => {
   if (!selected.value) return false;
@@ -448,12 +457,31 @@ const orderedColumns = computed(() => {
   return plan.columns.slice().sort((a, b) => a.index - b.index);
 });
 
+/** Distinct RIPIANO depths (mm) available for the selected category. */
+const availableDepths = computed(() =>
+  uniqueSortedNumeric(
+    categoryCatalogItems.value
+      .filter((item) => normalizedType(item) === 'RIPIANO')
+      .map((item) => Number(item.dimensions?.depthMm))
+      .filter((value) => Number.isFinite(value) && value > 0),
+  ),
+);
+
+/** True once a depth pick is required before widths/levels can be chosen. */
+const depthRequired = computed(() => availableDepths.value.length > 0);
+
 // Step2 only offers plain RIPIANO widths: BORDO/INTERMEDIO shelves are assigned
 // dynamically per level (based on adjacency), never chosen directly by the user.
+// Once a depth is selected, only shelves matching it are offered — depth acts
+// as a filter, same as category.
 const availableShelfWidths = computed(() =>
   uniqueSortedNumeric(
     categoryCatalogItems.value
       .filter((item) => normalizedType(item) === 'RIPIANO')
+      .filter((item) => {
+        const depthMm = selected.value?.depthMm;
+        return depthMm == null || Number(item.dimensions?.depthMm) === depthMm;
+      })
       .map((item) => Number(item.dimensions?.widthMm))
       .filter((value) => Number.isFinite(value) && value > 0),
   ),
@@ -765,6 +793,39 @@ async function submitCategory(): Promise<void> {
   await saveCategory(categoryDraft.value);
 }
 
+/** Saves selected depth, with reset confirmation when design already progressed. */
+async function saveDepth(value: number): Promise<void> {
+  if (!selected.value || !value) {
+    return;
+  }
+
+  if (value === selected.value.depthMm) {
+    return;
+  }
+
+  if (selected.value.status === 'FINALIZED') {
+    return;
+  }
+
+  const requiresReset = selected.value.columnPlan != null || selected.value.columnDesigns.length > 0;
+  if (requiresReset) {
+    pendingDepth.value = value;
+    showResetConfirm.value = true;
+    return;
+  }
+
+  await updateDepth(value);
+}
+
+/** Saves currently selected depth draft; triggered automatically on select change. */
+async function submitDepth(): Promise<void> {
+  if (depthDraft.value === '') {
+    return;
+  }
+
+  await saveDepth(Number(depthDraft.value));
+}
+
 /** Advances reset confirmation flow to final irreversible confirmation. */
 async function confirmResetStepOne(): Promise<void> {
   showResetConfirm.value = false;
@@ -783,6 +844,13 @@ async function confirmResetStepTwo(): Promise<void> {
     return;
   }
 
+  if (pendingDepth.value != null) {
+    const depth = pendingDepth.value;
+    pendingDepth.value = null;
+    await updateDepth(depth);
+    return;
+  }
+
   if (pendingColumnPlan.value) {
     const plan = pendingColumnPlan.value;
     pendingColumnPlan.value = null;
@@ -795,6 +863,7 @@ function cancelReset(): void {
   showResetConfirm.value = false;
   showResetFinalConfirm.value = false;
   pendingCategory.value = null;
+  pendingDepth.value = null;
   pendingColumnPlan.value = null;
 }
 
@@ -1121,6 +1190,24 @@ function stepActive(index: number): boolean {
                 </select>
               </label>
               <p class="mini muted" v-if="categoryLoading">{{ t('cad.categoryStep.saving') }}</p>
+            </article>
+
+            <article class="control-card" v-if="selected.category && depthRequired">
+              <h3>{{ t('cad.depthStep.title') }}</h3>
+              <label class="field">
+                <span class="field__label">{{ t('cad.depthStep.label') }}</span>
+                <select
+                  class="field__input"
+                  v-model.number="depthDraft"
+                  :disabled="!canEditDepth || depthLoading"
+                  @change="submitDepth"
+                >
+                  <option disabled value="">{{ t('cad.depthStep.placeholder') }}</option>
+                  <option v-for="depth in availableDepths" :key="depth" :value="depth">{{ formatCm(depth) }}</option>
+                </select>
+              </label>
+              <p class="mini muted">{{ t('cad.depthStep.hint') }}</p>
+              <p class="mini muted" v-if="depthLoading">{{ t('cad.depthStep.saving') }}</p>
             </article>
 
             <article class="control-card">

@@ -34,15 +34,8 @@ export class HttpCatalogRulesProvider implements CatalogRulesProvider {
     private readonly timeoutMs = 3000,
   ) {}
 
-  async getRules(category: Category): Promise<CatalogRules> {
-    const url = new URL('/catalog', this.catalogBaseUrl);
-    url.searchParams.set('category', category);
-    url.searchParams.set('limit', '500');
-
-    const data = await this.getJson<CatalogListResponse>(url);
-    if (!data || !Array.isArray(data.items)) {
-      throw new ResourceConflictError('Catalog response does not contain a valid items array');
-    }
+  async getRules(category: Category, filterDepthMm?: number): Promise<CatalogRules> {
+    const data = await this.fetchCatalogList(category);
 
     const shelfByWidthMm = new Map<number, CatalogComponentRule>();
     const bordoByWidthMm = new Map<number, CatalogComponentRule>();
@@ -71,7 +64,14 @@ export class HttpCatalogRulesProvider implements CatalogRulesProvider {
 
       // RIPIANO, RIPIANO_BORDO, RIPIANO_INTERMEDIO and MENSOLA need physical width/depth.
       // Vertical parts can use 0 for width/depth in our catalog seed.
-      if ((type === 'RIPIANO' || type === 'MENSOLA' || type === 'RIPIANO_BORDO' || type === 'RIPIANO_INTERMEDIO') && (widthMm <= 0 || depthMm <= 0)) {
+      const isShelfLike = type === 'RIPIANO' || type === 'MENSOLA' || type === 'RIPIANO_BORDO' || type === 'RIPIANO_INTERMEDIO';
+      if (isShelfLike && (widthMm <= 0 || depthMm <= 0)) {
+        continue;
+      }
+
+      // Depth filter (Step "select depth"): only shelf-like parts have a
+      // meaningful depth, so feet/uprights/terminals are never filtered out.
+      if (isShelfLike && filterDepthMm != null && depthMm !== filterDepthMm) {
         continue;
       }
 
@@ -130,6 +130,30 @@ export class HttpCatalogRulesProvider implements CatalogRulesProvider {
       defaultFoot: sortedFeet[0] ?? null,
       defaultTerminal: sortedTerminals[0] ?? null,
     };
+  }
+
+  async getAvailableDepthsMm(category: Category): Promise<number[]> {
+    const data = await this.fetchCatalogList(category);
+
+    const depths = data.items
+      .filter((item) => this.parseType(item.Type) === 'RIPIANO')
+      .map((item) => Number(item.dimensions?.depthMm))
+      .filter((depthMm) => Number.isFinite(depthMm) && depthMm > 0);
+
+    return uniqueSorted(depths);
+  }
+
+  private async fetchCatalogList(category: Category): Promise<CatalogListResponse> {
+    const url = new URL('/catalog', this.catalogBaseUrl);
+    url.searchParams.set('category', category);
+    url.searchParams.set('limit', '500');
+
+    const data = await this.getJson<CatalogListResponse>(url);
+    if (!data || !Array.isArray(data.items)) {
+      throw new ResourceConflictError('Catalog response does not contain a valid items array');
+    }
+
+    return data;
   }
 
   private parseType(type: unknown): CatalogComponentType {

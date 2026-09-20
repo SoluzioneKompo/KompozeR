@@ -82,7 +82,7 @@ export class ListNextOptions {
       };
     }
 
-    const rules = await this.catalogRulesProvider.getRules(configuration.category);
+    const rules = await this.catalogRulesProvider.getRules(configuration.category, configuration.depthMm ?? undefined);
     if (!rules.shelfByWidthMm.get(planColumn.shelfWidthMm)) {
       throw new ValidationError(
         `No shelf rule found for width ${planColumn.shelfWidthMm} in category ${configuration.category}`,

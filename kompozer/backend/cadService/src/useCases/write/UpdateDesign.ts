@@ -68,7 +68,7 @@ export class UpdateDesign {
 
     assertStep4LogicImplemented(configuration.category);
 
-    const rules = await this.catalogRulesProvider.getRules(configuration.category);
+    const rules = await this.catalogRulesProvider.getRules(configuration.category, configuration.depthMm ?? undefined);
     const normalizedDesigns = input.columnDesigns.map((design) => ({
       ...design,
       shelfThicknessMm: SHELF_THICKNESS_MM,

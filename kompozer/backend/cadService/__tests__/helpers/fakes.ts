@@ -1,4 +1,5 @@
 import { Configuration } from '../../src/domain/entities/Configuration';
+import { Category } from '../../src/domain/entities/Category';
 import { BomItem } from '../../src/domain/entities/Bom';
 import {
   CatalogRules,
@@ -89,6 +90,7 @@ export function buildConfiguration(overrides: Partial<Configuration> = {}): Conf
     name: 'Configurazione test',
     status: 'DRAFT',
     category: null,
+    depthMm: null,
     columnPlan: null,
     columnDesigns: [],
     terminalSelections: [],
@@ -104,7 +106,12 @@ export function buildConfiguration(overrides: Partial<Configuration> = {}): Conf
 export class FakeCatalogRulesProvider implements CatalogRulesProvider {
   constructor(private readonly rules: CatalogRules = buildCatalogRules()) {}
 
-  async getRules(): Promise<CatalogRules> {
+  async getAvailableDepthsMm(): Promise<number[]> {
+    const depths = new Set([...this.rules.shelfByWidthMm.values()].map((rule) => rule.depthMm));
+    return [...depths].sort((a, b) => a - b);
+  }
+
+  async getRules(_category?: Category, _depthMm?: number): Promise<CatalogRules> {
     return {
       shelfByWidthMm: new Map(this.rules.shelfByWidthMm),
       bordoByWidthMm: new Map(this.rules.bordoByWidthMm),

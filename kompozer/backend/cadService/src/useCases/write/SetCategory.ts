@@ -33,6 +33,9 @@ export class SetCategory {
     const updated: Configuration = {
       ...configuration,
       category: input.category,
+      // Depth options are category-specific — a category change must be
+      // re-confirmed with a fresh depth pick, same as columns/design below.
+      depthMm: null,
       columnPlan: null,
       columnDesigns: [],
       terminalSelections: [],

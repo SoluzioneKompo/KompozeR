@@ -55,6 +55,13 @@
     "placeholder": "Seleziona categoria",
     "saving": "Salvataggio..."
   },
+  "depthStep": {
+    "title": "Profondità",
+    "label": "Profondità ripiani",
+    "placeholder": "Seleziona profondità",
+    "hint": "Filtra le misure disponibili nei passi successivi. Cambiandola dopo aver definito colonne o livelli, la configurazione viene resettata.",
+    "saving": "Salvataggio..."
+  },
   "columnsStep": {
     "title": "Step 2 - Piano colonne",
     "countLabel": "Numero colonne (1-8)",
@@ -148,6 +155,8 @@
     "createError": "Errore creazione configurazione",
     "categoryUpdated": "Categoria aggiornata",
     "categoryUpdateError": "Errore aggiornamento categoria",
+    "depthUpdated": "Profondità aggiornata",
+    "depthUpdateError": "Errore aggiornamento profondità",
     "columnPlanUpdated": "Piano colonne aggiornato",
     "columnPlanUpdateError": "Errore aggiornamento piano colonne",
     "designUpdated": "Design colonne aggiornato",
