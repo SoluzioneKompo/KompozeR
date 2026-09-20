@@ -55,6 +55,13 @@
     "placeholder": "Select category",
     "saving": "Saving..."
   },
+  "depthStep": {
+    "title": "Depth",
+    "label": "Shelf depth",
+    "placeholder": "Select depth",
+    "hint": "Filters the sizes offered in the next steps. Changing it after columns or levels are defined resets the configuration.",
+    "saving": "Saving..."
+  },
   "columnsStep": {
     "title": "Step 2 - Column plan",
     "countLabel": "Number of columns (1-8)",
@@ -66,8 +73,6 @@
   "designStep": {
     "title": "Step 3 - Level construction (+ / -)",
     "fixedThickness": "Fixed shelf thickness: {cm}",
-    "intelligenteBanner": "<strong>INTELLIGENTE mode</strong> — “+ Level” adds the same shelf to <em>all</em> columns simultaneously. Outer columns use <strong>BORDO</strong> shelves, inner ones <strong>INTERMEZZO</strong>.",
-    "alignmentWarning": "Levels not aligned across columns. Complete the design on all columns before finalizing.",
     "columnLabel": "Column {n}",
     "currentLevels": "Current levels: {levels}",
     "none": "none",
@@ -77,6 +82,7 @@
     "pieceHeightLabel": "Piece height to add",
     "selectHeightAriaLabel": "Select height to add for column {n}",
     "bridgeSuffix": " · bridge",
+    "stackedSuffix": " · stacked",
     "noOptionsAvailable": "No option available for this column under the current constraints.",
     "addLevel": "+ Level",
     "addLevelAriaLabel": "Add level to column {n}",
@@ -149,6 +155,8 @@
     "createError": "Error creating configuration",
     "categoryUpdated": "Category updated",
     "categoryUpdateError": "Error updating category",
+    "depthUpdated": "Depth updated",
+    "depthUpdateError": "Error updating depth",
     "columnPlanUpdated": "Column plan updated",
     "columnPlanUpdateError": "Error updating column plan",
     "designUpdated": "Column design updated",

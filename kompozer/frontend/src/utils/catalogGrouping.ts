@@ -16,7 +16,7 @@ export interface CategoryGroup {
   types: TypeGroup[];
 }
 
-export const CATEGORY_ORDER: Category[] = ['TONDO', 'QUADRO', 'KUBE', 'INTELLIGENTE'];
+export const CATEGORY_ORDER: Category[] = ['TONDO', 'QUADRO', 'KUBE'];
 
 /** Translated display label for a catalog category — reactive to the active locale. */
 export function categoryLabel(category: Category): string {

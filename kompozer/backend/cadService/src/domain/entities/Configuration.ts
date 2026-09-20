@@ -37,6 +37,8 @@ export interface Configuration {
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
+  /** Shelf depth (mm) chosen right after category; filters which widths/levels are offered. */
+  depthMm: number | null;
   columnPlan: ColumnPlan | null;
   columnDesigns: ColumnDesign[];
   terminalSelections: TerminalSelection[];
@@ -65,6 +67,10 @@ export function validateConfigurationModel(configuration: Configuration): void {
 
   if (configuration.version < 1) {
     throw new ValidationError('Version must be >= 1');
+  }
+
+  if (configuration.depthMm != null && configuration.depthMm <= 0) {
+    throw new ValidationError('depthMm must be > 0');
   }
 
   if (configuration.columnPlan) {

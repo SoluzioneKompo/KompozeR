@@ -23,6 +23,7 @@ export interface ConfigurationDto {
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
+  depthMm: number | null;
   columnPlan: ColumnPlan | null;
   columnDesigns: ColumnDesign[];
   terminalSelections: TerminalSelection[];
@@ -62,6 +63,13 @@ export interface SetCategoryInput {
   category: Category;
 }
 
+/** Input payload for depth selection step (right after category, before column plan). */
+export interface SetDepthInput {
+  id: string;
+  ownerId: string;
+  depthMm: number;
+}
+
 /** Input payload for column-plan step. */
 export interface SetColumnPlanInput {
   id: string;
@@ -97,14 +105,17 @@ export interface ListNextOptionsInput {
   columnIndex: number;
 }
 
-export type NextOptionReasonCode = SpineReasonCode | 'INVALID_GAP' | 'SPINE_CONFLICT';
+export type NextOptionReasonCode = SpineReasonCode | 'INVALID_GAP' | 'SPINE_CONFLICT' | 'INTELLIGENTE_CATALOG_MISSING';
 
 /** Candidate gap option returned for one design column. */
 export interface NextOptionDto {
   heightMm: number;
   allowed: boolean;
-  /** 'bridge' when the shelf spans a tall gap anchored to adjacent columns' joints. */
-  kind?: 'standard' | 'bridge';
+  /**
+   * 'bridge' when the shelf spans a tall gap anchored to adjacent columns'
+   * joints; 'stacked' (KUBE only) when the gap is built from 2+ uprights.
+   */
+  kind?: 'standard' | 'bridge' | 'stacked';
   reasonCode?: NextOptionReasonCode;
   reason?: string;
 }
@@ -126,6 +137,7 @@ export function toConfigurationDto(configuration: Configuration): ConfigurationD
     name: configuration.name,
     status: configuration.status,
     category: configuration.category,
+    depthMm: configuration.depthMm,
     columnPlan: configuration.columnPlan,
     columnDesigns: configuration.columnDesigns,
     terminalSelections: configuration.terminalSelections,

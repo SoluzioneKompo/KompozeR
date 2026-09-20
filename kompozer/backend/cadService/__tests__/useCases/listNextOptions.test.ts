@@ -116,3 +116,46 @@ describe('ListNextOptions — STANDARD tall-gap bridge', () => {
     expect(foot?.allowed).toBe(false);
   });
 });
+
+describe('ListNextOptions — KUBE stacked uprights', () => {
+  it('offers an allowed "stacked" option for a gap with no single matching catalog upright', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(
+      buildConfiguration({
+        id: 'cfg_kube',
+        ownerId: 'usr_1',
+        category: 'KUBE',
+        status: 'DESIGN_IN_PROGRESS',
+        columnPlan: { columnCount: 1, columns: [{ index: 0, shelfWidthMm: 800 }] },
+        // Foot at 120mm already placed; default fake uprights are [120,300,400,500].
+        columnDesigns: [{ columnIndex: 0, shelfThicknessMm: 20, levelsMm: [120] }],
+      }),
+    );
+
+    const useCase = new ListNextOptions(repo, new FakeCatalogRulesProvider());
+    const result = await useCase.execute({ id: 'cfg_kube', ownerId: 'usr_1', columnIndex: 0 });
+
+    // 240mm = 120+120, only reachable by stacking two uprights.
+    const stacked = result.options.find((o) => o.heightMm === 240);
+    expect(stacked).toMatchObject({ allowed: true, kind: 'stacked' });
+  });
+
+  it('does not offer stacked gaps for TONDO (STANDARD stays single-piece only)', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(
+      buildConfiguration({
+        id: 'cfg_tondo',
+        ownerId: 'usr_1',
+        category: 'TONDO',
+        status: 'DESIGN_IN_PROGRESS',
+        columnPlan: { columnCount: 1, columns: [{ index: 0, shelfWidthMm: 800 }] },
+        columnDesigns: [{ columnIndex: 0, shelfThicknessMm: 20, levelsMm: [120] }],
+      }),
+    );
+
+    const useCase = new ListNextOptions(repo, new FakeCatalogRulesProvider());
+    const result = await useCase.execute({ id: 'cfg_tondo', ownerId: 'usr_1', columnIndex: 0 });
+
+    expect(result.options.some((o) => o.kind === 'stacked')).toBe(false);
+  });
+});

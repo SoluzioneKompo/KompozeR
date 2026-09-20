@@ -1,0 +1,41 @@
+{
+  "components": [
+    {
+      "sku": "KUBE-SKU-PIEDINO-40",
+      "name": "Piedino KUBE 40mm",
+      "description": "TODO Descrizione componente",
+      "category": "KUBE",
+      "Type": "PIEDINO",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 40,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "KUBE"
+      ]
+    },
+    {
+      "sku": "KUBE-SKU-PIEDINO-50",
+      "name": "Piedino KUBE 50mm",
+      "description": "TODO Descrizione componente",
+      "category": "KUBE",
+      "Type": "PIEDINO",
+      "price": 300,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 0,
+        "heightMm": 50,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "KUBE"
+      ]
+    }
+  ]
+}
+

@@ -7,7 +7,7 @@ export type ConfigurationStatus =
   | 'READY_FOR_FINALIZE'
   | 'FINALIZED';
 
-export type Category = 'TONDO' | 'QUADRO' | 'KUBE' | 'INTELLIGENTE';
+export type Category = 'TONDO' | 'QUADRO' | 'KUBE';
 
 export interface ColumnPlanItem {
   index: number;
@@ -54,6 +54,7 @@ export interface ConfigurationDto {
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
+  depthMm: number | null;
   columnPlan: ColumnPlan | null;
   columnDesigns: ColumnDesign[];
   terminalSelections: TerminalSelection[];
@@ -80,12 +81,13 @@ export type NextOptionReasonCode =
   | 'INVALID_FIRST_LEVEL'
   | 'INVALID_SEGMENT'
   | 'NO_TERMINAL_FIT'
-  | 'SPINE_CONFLICT';
+  | 'SPINE_CONFLICT'
+  | 'INTELLIGENTE_CATALOG_MISSING';
 
 export interface NextOption {
   heightMm: number;
   allowed: boolean;
-  kind?: 'standard' | 'bridge';
+  kind?: 'standard' | 'bridge' | 'stacked';
   reasonCode?: NextOptionReasonCode;
   reason?: string;
 }

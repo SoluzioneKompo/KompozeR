@@ -55,6 +55,13 @@
     "placeholder": "Seleziona categoria",
     "saving": "Salvataggio..."
   },
+  "depthStep": {
+    "title": "Profondità",
+    "label": "Profondità ripiani",
+    "placeholder": "Seleziona profondità",
+    "hint": "Filtra le misure disponibili nei passi successivi. Cambiandola dopo aver definito colonne o livelli, la configurazione viene resettata.",
+    "saving": "Salvataggio..."
+  },
   "columnsStep": {
     "title": "Step 2 - Piano colonne",
     "countLabel": "Numero colonne (1-8)",
@@ -66,8 +73,6 @@
   "designStep": {
     "title": "Step 3 - Costruzione livelli (+ / -)",
     "fixedThickness": "Spessore ripiano fisso: {cm}",
-    "intelligenteBanner": "<strong>Modalità INTELLIGENTE</strong> — “+ Livello” aggiunge lo stesso ripiano a <em>tutte</em> le colonne simultaneamente. Le colonne esterne usano ripiani <strong>BORDO</strong>, quelle interne <strong>INTERMEZZO</strong>.",
-    "alignmentWarning": "Livelli non allineati tra colonne. Completa il design su tutte le colonne prima di finalizzare.",
     "columnLabel": "Colonna {n}",
     "currentLevels": "Livelli correnti: {levels}",
     "none": "nessuno",
@@ -77,6 +82,7 @@
     "pieceHeightLabel": "Altezza pezzo da aggiungere",
     "selectHeightAriaLabel": "Seleziona altezza da aggiungere per colonna {n}",
     "bridgeSuffix": " · ponte",
+    "stackedSuffix": " · più montanti",
     "noOptionsAvailable": "Nessuna opzione disponibile per questa colonna con i vincoli attuali.",
     "addLevel": "+ Livello",
     "addLevelAriaLabel": "Aggiungi livello alla colonna {n}",
@@ -149,6 +155,8 @@
     "createError": "Errore creazione configurazione",
     "categoryUpdated": "Categoria aggiornata",
     "categoryUpdateError": "Errore aggiornamento categoria",
+    "depthUpdated": "Profondità aggiornata",
+    "depthUpdateError": "Errore aggiornamento profondità",
     "columnPlanUpdated": "Piano colonne aggiornato",
     "columnPlanUpdateError": "Errore aggiornamento piano colonne",
     "designUpdated": "Design colonne aggiornato",

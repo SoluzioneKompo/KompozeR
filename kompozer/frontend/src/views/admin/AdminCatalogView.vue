@@ -8,6 +8,8 @@ import type { CatalogItem } from '@/types/catalog';
 import { ApiError } from '@/types/api';
 import { groupCatalog, dimensionLabel, categoryLabel, typeLabel, type TypeGroup, type CategoryGroup } from '@/utils/catalogGrouping';
 import { formatCurrencyFromCents } from '@/i18n/format';
+import { previewSku } from '@/utils/skuGenerator';
+import { exportCatalogByCategory, type CatalogExportFormat } from '@/utils/catalogExport';
 
 const { t } = useI18n();
 const notifications = useNotificationStore();
@@ -24,9 +26,10 @@ const categoryFilter = ref('');
 const availableOnly = ref(false);
 
 const isCreateModalOpen = ref(false);
+const exportFormat = ref<CatalogExportFormat>('json');
+const exporting = ref(false);
 
 const createForm = reactive({
-  sku: '',
   name: '',
   description: '',
   category: 'TONDO',
@@ -42,7 +45,7 @@ const createForm = reactive({
 
 const editCommercial = reactive<Record<string, { priceEuro: string; isAvailable: boolean }>>({});
 
-const categories = ['TONDO', 'QUADRO', 'KUBE', 'INTELLIGENTE'] as const;
+const categories = ['TONDO', 'QUADRO', 'KUBE'] as const;
 const componentTypes = ['PIEDINO', 'MONTANTE', 'RIPIANO', 'TERMINALE', 'MENSOLA'] as const;
 
 onMounted(() => {
@@ -94,6 +97,15 @@ function initCommercialState(list: CatalogItem[]): void {
   }
 }
 
+/** Live preview of the SKU the backend will generate from the form's category/Type/dimensions. */
+const skuPreview = computed<string>(() =>
+  previewSku(createForm.category as CatalogItem['category'], createForm.Type as CatalogItem['Type'], {
+    widthMm: Number(createForm.widthMm) || 0,
+    heightMm: Number(createForm.heightMm) || 0,
+    depthMm: Number(createForm.depthMm) || 0,
+  }),
+);
+
 const groupedCatalog = computed<CategoryGroup[]>(() => groupCatalog(items.value));
 
 // Ricorda la variante (misura) selezionata per ogni gruppo Category/Type;
@@ -126,9 +138,22 @@ async function load(): Promise<void> {
   }
 }
 
+/** Downloads the full catalog as 3 files (one per category) in the selected format. */
+async function exportCatalog(): Promise<void> {
+  exporting.value = true;
+  try {
+    await exportCatalogByCategory(exportFormat.value);
+    notifications.addToast('success', t('admin.catalog.export.success'));
+  } catch (e) {
+    const msg = e instanceof ApiError ? e.message : t('admin.catalog.export.error');
+    notifications.addToast('error', msg);
+  } finally {
+    exporting.value = false;
+  }
+}
+
 /** Resets the create-component modal form to default values. */
 function resetCreateForm(): void {
-  createForm.sku = '';
   createForm.name = '';
   createForm.description = '';
   createForm.category = 'TONDO';
@@ -160,7 +185,6 @@ async function createComponent(): Promise<void> {
     const compatibleWith = createForm.compatibleCategory ? [createForm.compatibleCategory] : [];
 
     const created = await catalogService.create({
-      sku: createForm.sku.trim(),
       name: createForm.name.trim(),
       description: createForm.description.trim(),
       category: createForm.category,
@@ -245,6 +269,16 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
       <div class="header-actions">
         <button class="btn btn--add" @click="openCreateModal" :aria-label="t('admin.catalog.addComponentAria')">+</button>
         <button class="btn btn--light" :disabled="loading" @click="load">{{ t('admin.catalog.refresh') }}</button>
+        <label class="field export-format">
+          <span class="field__label">{{ t('admin.catalog.export.format') }}</span>
+          <select v-model="exportFormat" class="field__input">
+            <option value="json">JSON</option>
+            <option value="csv">CSV</option>
+          </select>
+        </label>
+        <button class="btn btn--light" :disabled="exporting" @click="exportCatalog">
+          {{ exporting ? t('admin.catalog.export.exporting') : t('admin.catalog.export.button') }}
+        </button>
       </div>
     </header>
 
@@ -258,8 +292,8 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
 
         <div class="wizard-grid wizard-grid--modal">
           <label class="field">
-            <span class="field__label">{{ t('admin.catalog.fields.sku') }} <span class="required-asterisk">*</span></span>
-            <input v-model="createForm.sku" class="field__input" type="text" :placeholder="t('admin.catalog.placeholders.sku')" />
+            <span class="field__label">{{ t('admin.catalog.fields.sku') }}</span>
+            <input class="field__input" type="text" :value="skuPreview" readonly disabled />
           </label>
           <label class="field">
             <span class="field__label">{{ t('admin.catalog.fields.name') }} <span class="required-asterisk">*</span></span>
@@ -429,6 +463,11 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.export-format {
+  flex-direction: row;
+  align-items: center;
 }
 
 .subtitle {

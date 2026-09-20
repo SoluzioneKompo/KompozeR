@@ -51,19 +51,13 @@ export class SetColumnPlan {
     // the user before calling; the backend just enforces the reset itself.
     const designExisted = configuration.columnDesigns.length > 0;
 
-    const rules = await this.catalogRulesProvider.getRules(configuration.category);
+    const rules = await this.catalogRulesProvider.getRules(configuration.category, configuration.depthMm ?? undefined);
     const seen = new Set<number>();
 
-    // INTELLIGENTE columns use BORDO shelves on the outer columns (first and last)
-    // and INTERMEZZO shelves on the inner ones, so their widths live in dedicated
-    // catalog maps rather than the plain RIPIANO map used by the other categories.
-    const isIntelligente = configuration.category === 'INTELLIGENTE';
-    const sortedIndices = [...input.columnPlan.columns]
-      .map((column) => column.index)
-      .sort((a, b) => a - b);
-    const firstIndex = sortedIndices[0];
-    const lastIndex = sortedIndices[sortedIndices.length - 1];
-
+    // Step2 only fixes each column's width; adjacency (and therefore whether a
+    // level later becomes a QUADRO BORDO/INTERMEDIO shelf) is only known once
+    // levels are designed in Step4, so here every category validates against
+    // the plain RIPIANO width map.
     for (const column of input.columnPlan.columns) {
       if (column.index < 0) {
         throw new ValidationError('column index must be >= 0');
@@ -76,16 +70,7 @@ export class SetColumnPlan {
       if (column.shelfWidthMm <= 0) {
         throw new ValidationError('column shelfWidthMm must be > 0');
       }
-      let widthAvailable: boolean;
-      if (isIntelligente) {
-        const isOuterColumn = column.index === firstIndex || column.index === lastIndex;
-        widthAvailable = isOuterColumn
-          ? rules.bordoByWidthMm.has(column.shelfWidthMm)
-          : rules.intermezzoByWidthMm.has(column.shelfWidthMm);
-      } else {
-        widthAvailable = rules.shelfByWidthMm.has(column.shelfWidthMm);
-      }
-      if (!widthAvailable) {
+      if (!rules.shelfByWidthMm.has(column.shelfWidthMm)) {
         throw new ValidationError(
           `column shelfWidthMm ${column.shelfWidthMm} is not available for category ${configuration.category}`,
         );

@@ -28,6 +28,7 @@ export function useCad() {
   const createLoading = ref(false);
   const finalizeLoading = ref(false);
   const categoryLoading = ref(false);
+  const depthLoading = ref(false);
   const columnPlanLoading = ref(false);
   const designLoading = ref(false);
   const resetLoading = ref(false);
@@ -120,6 +121,24 @@ export function useCad() {
       notifications.addToast('error', msg);
     } finally {
       categoryLoading.value = false;
+    }
+  }
+
+  /** Sets shelf depth on the selected configuration and refreshes list state. */
+  async function updateDepth(depthMm: number): Promise<void> {
+    if (!selected.value) {
+      return;
+    }
+    depthLoading.value = true;
+    try {
+      selected.value = await cadService.setDepth(selected.value.id, depthMm);
+      notifications.addToast('success', t('cad.toasts.depthUpdated'));
+      await loadList();
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.depthUpdateError');
+      notifications.addToast('error', msg);
+    } finally {
+      depthLoading.value = false;
     }
   }
 
@@ -329,6 +348,7 @@ export function useCad() {
     createLoading,
     finalizeLoading,
     categoryLoading,
+    depthLoading,
     columnPlanLoading,
     designLoading,
     resetLoading,
@@ -346,6 +366,7 @@ export function useCad() {
     loadDetail,
     createConfiguration,
     updateCategory,
+    updateDepth,
     updateColumnPlan,
     updateDesign,
     resetConfiguration,

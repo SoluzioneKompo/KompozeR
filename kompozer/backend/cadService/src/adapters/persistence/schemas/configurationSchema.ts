@@ -39,6 +39,7 @@ export type ConfigurationDoc = {
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
+  depthMm: number | null;
   columnPlan: ColumnPlanDoc | null;
   columnDesigns: ColumnDesignDoc[];
   terminalSelections: TerminalSelectionDoc[];
@@ -119,6 +120,11 @@ const configurationSchema = new Schema<ConfigurationDoc>(
     category: {
       type: String,
       enum: CATEGORIES,
+      required: false,
+      default: null,
+    },
+    depthMm: {
+      type: Number,
       required: false,
       default: null,
     },

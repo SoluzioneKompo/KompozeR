@@ -451,6 +451,366 @@
       ]
     },
     {
+      "sku": "QUADRO-SKU-BORDO-200x200",
+      "name": "Ripiano Bordo Quadro 200x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_BORDO",
+      "price": 500,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 200,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-BORDO-250x200",
+      "name": "Ripiano Bordo Quadro 250x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_BORDO",
+      "price": 500,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 250,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-BORDO-300x200",
+      "name": "Ripiano Bordo Quadro 300x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_BORDO",
+      "price": 500,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 300,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-BORDO-400x200",
+      "name": "Ripiano Bordo Quadro 400x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_BORDO",
+      "price": 600,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 400,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-BORDO-500x200",
+      "name": "Ripiano Bordo Quadro 500x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_BORDO",
+      "price": 700,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 500,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-BORDO-600x200",
+      "name": "Ripiano Bordo Quadro 600x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_BORDO",
+      "price": 800,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 600,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-BORDO-700x200",
+      "name": "Ripiano Bordo Quadro 700x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_BORDO",
+      "price": 900,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 700,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-BORDO-800x200",
+      "name": "Ripiano Bordo Quadro 800x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_BORDO",
+      "price": 1000,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 800,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-BORDO-900x200",
+      "name": "Ripiano Bordo Quadro 900x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_BORDO",
+      "price": 1100,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 900,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-BORDO-1000x200",
+      "name": "Ripiano Bordo Quadro 1000x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_BORDO",
+      "price": 1200,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 1000,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-INT-200x200",
+      "name": "Ripiano Intermezzo Quadro 200x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_INTERMEDIO",
+      "price": 500,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 200,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-INT-250x200",
+      "name": "Ripiano Intermezzo Quadro 250x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_INTERMEDIO",
+      "price": 500,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 250,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-INT-300x200",
+      "name": "Ripiano Intermezzo Quadro 300x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_INTERMEDIO",
+      "price": 500,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 300,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-INT-400x200",
+      "name": "Ripiano Intermezzo Quadro 400x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_INTERMEDIO",
+      "price": 600,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 400,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-INT-500x200",
+      "name": "Ripiano Intermezzo Quadro 500x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_INTERMEDIO",
+      "price": 700,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 500,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-INT-600x200",
+      "name": "Ripiano Intermezzo Quadro 600x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_INTERMEDIO",
+      "price": 800,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 600,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-INT-700x200",
+      "name": "Ripiano Intermezzo Quadro 700x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_INTERMEDIO",
+      "price": 900,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 700,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-INT-800x200",
+      "name": "Ripiano Intermezzo Quadro 800x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_INTERMEDIO",
+      "price": 1000,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 800,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-INT-900x200",
+      "name": "Ripiano Intermezzo Quadro 900x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_INTERMEDIO",
+      "price": 1100,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 900,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
+      "sku": "QUADRO-SKU-INT-1000x200",
+      "name": "Ripiano Intermezzo Quadro 1000x200mm",
+      "description": "TODO Descrizione componente",
+      "category": "QUADRO",
+      "Type": "RIPIANO_INTERMEDIO",
+      "price": 1200,
+      "isAvailable": true,
+      "imageUrl": "",
+      "dimensions": {
+        "widthMm": 1000,
+        "heightMm": 18,
+        "depthMm": 200
+      },
+      "compatibleWith": [
+        "QUADRO"
+      ]
+    },
+    {
       "sku": "QUADRO-SKU-TERMINALE-50",
       "name": "Terminale Quadro 50mm",
       "description": "TODO Descrizione componente",

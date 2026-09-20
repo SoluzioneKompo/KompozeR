@@ -4,6 +4,13 @@
     "subtitle": "Gestisci il catalogo mantenendo separata la vista acquisto.",
     "addComponentAria": "Aggiungi componente",
     "refresh": "Aggiorna",
+    "export": {
+      "format": "Formato",
+      "button": "Esporta catalogo",
+      "exporting": "Esportazione...",
+      "success": "Catalogo esportato (3 file, uno per categoria)",
+      "error": "Errore esportazione catalogo"
+    },
     "modal": {
       "addComponent": "Aggiungi componente",
       "close": "Chiudi",
@@ -12,7 +19,7 @@
       "creating": "Creazione..."
     },
     "fields": {
-      "sku": "SKU",
+      "sku": "SKU (generato automaticamente)",
       "name": "Nome",
       "category": "Categoria",
       "type": "Tipo",
@@ -26,7 +33,6 @@
       "compatibleCategory": "Compatibile con categoria"
     },
     "placeholders": {
-      "sku": "Es. TONDO-SKU-NUOVO-001",
       "name": "Nome componente",
       "price": "0,00",
       "description": "Descrizione componente",

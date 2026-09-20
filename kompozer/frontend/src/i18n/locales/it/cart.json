@@ -39,6 +39,7 @@
       "deliveryNotes": "Note consegna (opzionale)"
     },
     "cancel": "Annulla",
+    "skip": "Salta (dati azienda)",
     "confirm": "Conferma checkout",
     "inProgress": "Checkout in corso...",
     "missingFields": "Compila tutti i campi obbligatori.",

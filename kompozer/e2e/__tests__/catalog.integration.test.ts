@@ -7,20 +7,21 @@
  *
  * Prerequisito: globalSetup ha eseguito il seed (devuser con ruolo ADMIN).
  *
- * Ogni run usa uno SKU con timestamp univoco → nessun conflitto tra esecuzioni.
+ * Lo SKU e generato dal backend da category/Type/dimensions (non e piu
+ * accettato dal client) — vedi domain/services/generateSku.
  * I dati NON vengono puliti: restano visibili in Compass (utile per debuggare).
  */
 
 export {};
 
 const BASE = 'http://localhost:3000';
-const SKU  = `INT-TONDO-${Date.now()}`; // univoco per ogni run
-const SMART_SKU = `INT-SMART-${Date.now()}`;
 const SEARCH_TOKEN = `catalog-e2e-${Date.now()}`;
 
 let adminToken = '';
 let baseToken  = '';
 let componentId = '';
+let createdSku = '';
+let kubeSku = '';
 
 // ── Setup: login come ADMIN e come utente BASE ────────────────────────────────
 
@@ -90,7 +91,6 @@ describe('[INT] Catalog — CRUD (ruolo ADMIN)', () => {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${baseToken}` },
       body: JSON.stringify({
-        sku:            SKU,
         name:           'Non dovrebbe crearsi',
         description:    '',
         category:       'TONDO',
@@ -106,12 +106,11 @@ describe('[INT] Catalog — CRUD (ruolo ADMIN)', () => {
     // → nessun documento in Compass
   });
 
-  it('POST /catalog → 201, crea componente TONDO/RIPIANO (visibile in Compass → catalogdb.components)', async () => {
+  it('POST /catalog → 201, crea componente TONDO/RIPIANO con SKU generato da category/Type/dimensions (visibile in Compass → catalogdb.components)', async () => {
     const res = await fetch(`${BASE}/catalog`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
       body: JSON.stringify({
-        sku:            SKU,
         name:           'Ripiano test integrazione',
         description:    `Creato dai test e2e ${SEARCH_TOKEN} — sicuro da eliminare`,
         category:       'TONDO',
@@ -126,19 +125,21 @@ describe('[INT] Catalog — CRUD (ruolo ADMIN)', () => {
     expect(res.status).toBe(201);
 
     const body = await res.json() as Record<string, unknown>;
-    expect(body['sku']).toBe(SKU);
+    // Suite non pulisce i dati tra le run: se le stesse specifiche esistono
+    // già, il backend aggiunge un suffisso numerico (vedi test successivo).
+    expect(body['sku']).toMatch(/^TONDO-SKU-RIPIANO-800x300(-\d+)?$/);
     expect(body['price']).toBe(2500);
     expect(body['version']).toBe(1);      // OCC: parte da 1
     componentId = body['id'] as string;
+    createdSku  = body['sku'] as string;
     // → Compass: catalogdb.components — documento con version=1, price=2500
   });
 
-  it('POST /catalog → 409 DUPLICATE_SKU sullo stesso SKU', async () => {
+  it('POST /catalog → 201, stesse specifiche → SKU con suffisso numerico', async () => {
     const res = await fetch(`${BASE}/catalog`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
       body: JSON.stringify({
-        sku:            SKU,      // stesso SKU del test precedente
         name:           'Doppione',
         description:    '',
         category:       'TONDO',
@@ -146,15 +147,15 @@ describe('[INT] Catalog — CRUD (ruolo ADMIN)', () => {
         price:          1000,
         isAvailable:    true,
         imageUrl:       '',
-        dimensions:     { widthMm: 1, heightMm: 1, depthMm: 1 },
+        dimensions:     { widthMm: 800, heightMm: 20, depthMm: 300 }, // stesse specifiche del test precedente
         compatibleWith: [],
       }),
     });
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(201);
 
     const body = await res.json() as Record<string, unknown>;
-    const error = body['error'] as Record<string, unknown>;
-    expect(error['code']).toBe('DUPLICATE_SKU');
+    expect(body['sku']).not.toBe(createdSku);
+    expect(body['sku']).toMatch(/^TONDO-SKU-RIPIANO-800x300-\d+$/);
   });
 
   it('POST /catalog → 422 VALIDATION_ERROR con name vuoto', async () => {
@@ -162,7 +163,6 @@ describe('[INT] Catalog — CRUD (ruolo ADMIN)', () => {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
       body: JSON.stringify({
-        sku:            `${SKU}-invalid`,
         name:           '',              // campo obbligatorio vuoto
         description:    '',
         category:       'TONDO',
@@ -181,15 +181,38 @@ describe('[INT] Catalog — CRUD (ruolo ADMIN)', () => {
     expect(error['code']).toBe('VALIDATION_ERROR');
   });
 
-  it('POST /catalog → 201, crea componente INTELLIGENTE/RIPIANO', async () => {
+  it('POST /catalog → 422 VALIDATION_ERROR se il body include ancora uno sku (campo non piu accettato)', async () => {
     const res = await fetch(`${BASE}/catalog`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
       body: JSON.stringify({
-        sku:            SMART_SKU,
-        name:           'Ripiano intelligente test integrazione',
-        description:    `Creato dai test e2e ${SEARCH_TOKEN} — categoria intelligente`,
-        category:       'INTELLIGENTE',
+        sku:            'CLIENT-PROVIDED',
+        name:           'Non dovrebbe crearsi',
+        description:    '',
+        category:       'TONDO',
+        Type:           'RIPIANO',
+        price:          1000,
+        isAvailable:    true,
+        imageUrl:       '',
+        dimensions:     { widthMm: 1, heightMm: 1, depthMm: 1 },
+        compatibleWith: [],
+      }),
+    });
+    expect(res.status).toBe(422);
+
+    const body = await res.json() as Record<string, unknown>;
+    const error = body['error'] as Record<string, unknown>;
+    expect(error['code']).toBe('VALIDATION_ERROR');
+  });
+
+  it('POST /catalog → 201, crea componente KUBE/RIPIANO', async () => {
+    const res = await fetch(`${BASE}/catalog`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        name:           'Ripiano kube test integrazione',
+        description:    `Creato dai test e2e ${SEARCH_TOKEN} — categoria kube`,
+        category:       'KUBE',
         Type:           'RIPIANO',
         price:          2700,
         isAvailable:    true,
@@ -201,8 +224,9 @@ describe('[INT] Catalog — CRUD (ruolo ADMIN)', () => {
 
     expect(res.status).toBe(201);
     const body = await res.json() as Record<string, unknown>;
-    expect(body['sku']).toBe(SMART_SKU);
-    expect(body['category']).toBe('INTELLIGENTE');
+    expect(body['sku']).toMatch(/^KUBE-SKU-RIPIANO-800x300(-\d+)?$/);
+    expect(body['category']).toBe('KUBE');
+    kubeSku = body['sku'] as string;
   });
 });
 
@@ -243,16 +267,16 @@ describe('[INT] Catalog — lettura e filtri', () => {
     expect(items.every(i => i['category'] === 'TONDO')).toBe(true);
   });
 
-  it('GET /catalog?category=INTELLIGENTE → 200, solo componenti INTELLIGENTE', async () => {
-    const res = await fetch(`${BASE}/catalog?category=INTELLIGENTE&search=${encodeURIComponent(SEARCH_TOKEN)}&limit=100`, {
+  it('GET /catalog?category=KUBE → 200, solo componenti KUBE', async () => {
+    const res = await fetch(`${BASE}/catalog?category=KUBE&search=${encodeURIComponent(SEARCH_TOKEN)}&limit=100`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
     expect(res.status).toBe(200);
 
     const body = await res.json() as Record<string, unknown>;
     const items = body['items'] as Array<Record<string, unknown>>;
-    expect(items.some(i => i['sku'] === SMART_SKU)).toBe(true);
-    expect(items.every(i => i['category'] === 'INTELLIGENTE')).toBe(true);
+    expect(items.some(i => i['sku'] === kubeSku)).toBe(true);
+    expect(items.every(i => i['category'] === 'KUBE')).toBe(true);
   });
 
   it('GET /catalog?available=true → 200, contiene il componente (isAvailable=true)', async () => {

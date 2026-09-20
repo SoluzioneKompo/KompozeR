@@ -20,6 +20,7 @@ import type { ConfigurationDto } from '@/types/cad';
 import { typeLabel } from '@/utils/catalogGrouping';
 import { getIntlLocale } from '@/i18n/format';
 import { computeAssemblyGeometry } from '@/utils/cadAssembly';
+import { resolveShelfRoles, type ShelfRole } from '@/utils/shelfRoleResolver';
 
 const { t } = useI18n();
 
@@ -29,6 +30,7 @@ const {
   createLoading,
   finalizeLoading,
   categoryLoading,
+  depthLoading,
   columnPlanLoading,
   designLoading,
   resetLoading,
@@ -36,6 +38,7 @@ const {
   nextOptionsByColumn,
   loadDetail,
   updateCategory,
+  updateDepth,
   updateColumnPlan,
   fetchNextOptions,
   setNextOptions,
@@ -48,7 +51,7 @@ const {
   finalizeSelected,
 } = useCad();
 
-const categories: Array<Category> = ['TONDO', 'QUADRO', 'KUBE', 'INTELLIGENTE'];
+const categories: Array<Category> = ['TONDO', 'QUADRO', 'KUBE'];
 const route = useRoute();
 const notifications = useNotificationStore();
 const authStore = useAuthStore();
@@ -58,6 +61,7 @@ const shelfWidthsDraft = ref<number[]>([800, 800]);
 const SHELF_THICKNESS_MM = 20;
 const shelfThicknessDraft = ref(SHELF_THICKNESS_MM);
 const categoryDraft = ref('');
+const depthDraft = ref<number | ''>('');
 const selectedGapByColumn = ref<Record<number, number | null>>({});
 const categoryCatalogItems = ref<CatalogItem[]>([]);
 const catalogLoading = ref(false);
@@ -67,6 +71,7 @@ const showResetConfirm = ref(false);
 const showResetFinalConfirm = ref(false);
 const showResetConfigConfirm = ref(false);
 const pendingCategory = ref<Category | null>(null);
+const pendingDepth = ref<number | null>(null);
 const pendingColumnPlan = ref<ColumnPlan | null>(null);
 const terminalHeightBySpine = ref<Record<number, number | null>>({});
 const joinCodeInput = ref('');
@@ -354,6 +359,7 @@ watch(selected, (value) => {
   }
 
   categoryDraft.value = value.category ?? '';
+  depthDraft.value = value.depthMm ?? '';
 
   if (value.columnPlan) {
     columnCountDraft.value = value.columnPlan.columnCount;
@@ -394,14 +400,18 @@ const currentStepIndex = computed(() => {
 
 const canFinalize = computed(() => selected.value?.status === 'READY_FOR_FINALIZE');
 const canEditCategory = computed(() => selected.value && selected.value.status !== 'FINALIZED');
+const canEditDepth = computed(() => !!selected.value && !!selected.value.category && selected.value.status !== 'FINALIZED');
 const canEditColumns = computed(() => {
   if (!selected.value) return false;
-  return (
+  const statusOk =
     selected.value.status === 'CATEGORY_SELECTED' ||
     selected.value.status === 'COLUMNS_DEFINED' ||
     selected.value.status === 'DESIGN_IN_PROGRESS' ||
-    selected.value.status === 'READY_FOR_FINALIZE'
-  );
+    selected.value.status === 'READY_FOR_FINALIZE';
+  if (!statusOk) return false;
+  // Depth (when the category offers one) must be picked before column widths.
+  if (depthRequired.value && selected.value.depthMm == null) return false;
+  return true;
 });
 const canEditDesign = computed(() => {
   if (!selected.value) return false;
@@ -447,12 +457,30 @@ const orderedColumns = computed(() => {
   return plan.columns.slice().sort((a, b) => a.index - b.index);
 });
 
+/** Distinct RIPIANO depths (mm) available for the selected category. */
+const availableDepths = computed(() =>
+  uniqueSortedNumeric(
+    categoryCatalogItems.value
+      .filter((item) => normalizedType(item) === 'RIPIANO')
+      .map((item) => Number(item.dimensions?.depthMm))
+      .filter((value) => Number.isFinite(value) && value > 0),
+  ),
+);
+
+/** True once a depth pick is required before widths/levels can be chosen. */
+const depthRequired = computed(() => availableDepths.value.length > 0);
+
+// Step2 only offers plain RIPIANO widths: BORDO/INTERMEDIO shelves are assigned
+// dynamically per level (based on adjacency), never chosen directly by the user.
+// Once a depth is selected, only shelves matching it are offered — depth acts
+// as a filter, same as category.
 const availableShelfWidths = computed(() =>
   uniqueSortedNumeric(
     categoryCatalogItems.value
+      .filter((item) => normalizedType(item) === 'RIPIANO')
       .filter((item) => {
-        const t = normalizedType(item);
-        return t === 'RIPIANO' || t === 'RIPIANO_BORDO' || t === 'RIPIANO_INTERMEDIO';
+        const depthMm = selected.value?.depthMm;
+        return depthMm == null || Number(item.dimensions?.depthMm) === depthMm;
       })
       .map((item) => Number(item.dimensions?.widthMm))
       .filter((value) => Number.isFinite(value) && value > 0),
@@ -545,32 +573,33 @@ const designByColumn = computed(() => {
   return map;
 });
 
-/** True when the selected configuration uses INTELLIGENTE logic. */
-const isIntelligente = computed(() => selected.value?.category === 'INTELLIGENTE');
+/** True when the selected configuration uses QUADRO logic (BORDO/INTERMEDIO shelves possible). */
+const isQuadro = computed(() => selected.value?.category === 'QUADRO');
 
 /**
- * Maps each column index to its INTELLIGENTE role:
- * outer columns (first and last) are BORDO; inner ones are INTERMEZZO.
+ * QUADRO shelf role per (column, level): a level shared with index-adjacent
+ * columns becomes BORDO (cluster of 2) or BORDO/INTERMEDIO (cluster of 3+); a
+ * level not shared by any neighbor stays NORMALE (plain RIPIANO). The same
+ * column can therefore have different roles on different levels.
  */
-const columnRoles = computed((): Map<number, 'BORDO' | 'INTERMEZZO'> => {
+const shelfRolesByColumn = computed((): Map<number, Map<number, ShelfRole>> => {
   const plan = selected.value?.columnPlan;
-  if (!plan || !isIntelligente.value) return new Map();
+  if (!plan || !isQuadro.value) return new Map();
   const sorted = plan.columns.slice().sort((a, b) => a.index - b.index);
-  const result = new Map<number, 'BORDO' | 'INTERMEZZO'>();
-  sorted.forEach((col, i) => {
-    result.set(col.index, (i === 0 || i === sorted.length - 1) ? 'BORDO' : 'INTERMEZZO');
+  const levelsByPosition = sorted.map((col) => ({
+    levelsMm: designByColumn.value.get(col.index)?.levelsMm ?? [],
+  }));
+  const rolesByPosition = resolveShelfRoles(levelsByPosition);
+  const result = new Map<number, Map<number, ShelfRole>>();
+  sorted.forEach((col, position) => {
+    result.set(col.index, rolesByPosition.get(position) ?? new Map());
   });
   return result;
 });
 
-/** True when all INTELLIGENTE columns share identical levelsMm (alignment satisfied). */
-const columnsAligned = computed((): boolean => {
-  if (!isIntelligente.value || !selected.value) return true;
-  const designs = selected.value.columnDesigns;
-  if (designs.length < 2) return true;
-  const ref = [...designs[0].levelsMm].sort((a, b) => a - b).join(',');
-  return designs.every((d) => [...d.levelsMm].sort((a, b) => a - b).join(',') === ref);
-});
+function shelfRoleFor(columnIndex: number, levelMm: number): ShelfRole {
+  return shelfRolesByColumn.value.get(columnIndex)?.get(levelMm) ?? 'NORMALE';
+}
 
 const canvasColumns = computed(() => {
   return orderedColumns.value.map((column) => {
@@ -580,7 +609,9 @@ const canvasColumns = computed(() => {
 });
 
 /** Realistic 2D assembly geometry (feet/uprights/terminals/shelves) for the schema panel. */
-const assembly = computed(() => computeAssemblyGeometry(selected.value?.columnPlan, selected.value?.columnDesigns));
+const assembly = computed(() =>
+  computeAssemblyGeometry(selected.value?.columnPlan, selected.value?.columnDesigns, selected.value?.terminalSelections),
+);
 
 const ASSEMBLY_BASE_SCALE_PX_PER_MM = 0.6;
 const assemblyZoom = ref(1);
@@ -764,6 +795,39 @@ async function submitCategory(): Promise<void> {
   await saveCategory(categoryDraft.value);
 }
 
+/** Saves selected depth, with reset confirmation when design already progressed. */
+async function saveDepth(value: number): Promise<void> {
+  if (!selected.value || !value) {
+    return;
+  }
+
+  if (value === selected.value.depthMm) {
+    return;
+  }
+
+  if (selected.value.status === 'FINALIZED') {
+    return;
+  }
+
+  const requiresReset = selected.value.columnPlan != null || selected.value.columnDesigns.length > 0;
+  if (requiresReset) {
+    pendingDepth.value = value;
+    showResetConfirm.value = true;
+    return;
+  }
+
+  await updateDepth(value);
+}
+
+/** Saves currently selected depth draft; triggered automatically on select change. */
+async function submitDepth(): Promise<void> {
+  if (depthDraft.value === '') {
+    return;
+  }
+
+  await saveDepth(Number(depthDraft.value));
+}
+
 /** Advances reset confirmation flow to final irreversible confirmation. */
 async function confirmResetStepOne(): Promise<void> {
   showResetConfirm.value = false;
@@ -782,6 +846,13 @@ async function confirmResetStepTwo(): Promise<void> {
     return;
   }
 
+  if (pendingDepth.value != null) {
+    const depth = pendingDepth.value;
+    pendingDepth.value = null;
+    await updateDepth(depth);
+    return;
+  }
+
   if (pendingColumnPlan.value) {
     const plan = pendingColumnPlan.value;
     pendingColumnPlan.value = null;
@@ -794,6 +865,7 @@ function cancelReset(): void {
   showResetConfirm.value = false;
   showResetFinalConfirm.value = false;
   pendingCategory.value = null;
+  pendingDepth.value = null;
   pendingColumnPlan.value = null;
 }
 
@@ -910,33 +982,11 @@ async function addShelf(columnIndex: number): Promise<void> {
     [columnIndex]: gap,
   };
 
-  if (isIntelligente.value) {
-    // INTELLIGENTE: add the same gap to ALL columns simultaneously
-    const allDesigns = (selected.value.columnPlan?.columns ?? []).map((col) => {
-      const existing = selected.value!.columnDesigns.find((d) => d.columnIndex === col.index)
-        ?? { columnIndex: col.index, levelsMm: [], shelfThicknessMm: SHELF_THICKNESS_MM };
-      const lastLevel = existing.levelsMm.length > 0 ? existing.levelsMm[existing.levelsMm.length - 1] : 0;
-      const nextLevel = existing.levelsMm.length === 0
-        ? gap
-        : lastLevel + SHELF_THICKNESS_MM + gap;
-      return {
-        ...existing,
-        shelfThicknessMm: SHELF_THICKNESS_MM,
-        levelsMm: [...existing.levelsMm, nextLevel].sort((a, b) => a - b),
-      };
-    });
-    await updateDesign(allDesigns);
-    if (selected.value) {
-      await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
-    }
-    await refreshAllNextOptions();
-  } else {
-    await addTopShelf(columnIndex, gap, shelfThicknessDraft.value);
-    if (selected.value) {
-      await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
-    }
-    await refreshOptionsAround(columnIndex);
+  await addTopShelf(columnIndex, gap, shelfThicknessDraft.value);
+  if (selected.value) {
+    await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
   }
+  await refreshOptionsAround(columnIndex);
 }
 
 /** Removes top shelf from a column and refreshes dependent options. */
@@ -947,29 +997,11 @@ async function removeShelf(columnIndex: number): Promise<void> {
 
   const baseVersion = selected.value.version;
 
-  if (isIntelligente.value) {
-    // INTELLIGENTE: remove top shelf from ALL columns simultaneously
-    const allDesigns = (selected.value.columnPlan?.columns ?? []).map((col) => {
-      const existing = selected.value!.columnDesigns.find((d) => d.columnIndex === col.index)
-        ?? { columnIndex: col.index, levelsMm: [], shelfThicknessMm: SHELF_THICKNESS_MM };
-      return {
-        ...existing,
-        shelfThicknessMm: SHELF_THICKNESS_MM,
-        levelsMm: existing.levelsMm.slice(0, -1),
-      };
-    });
-    await updateDesign(allDesigns);
-    if (selected.value) {
-      await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
-    }
-    await refreshAllNextOptions();
-  } else {
-    await removeTopShelf(columnIndex, shelfThicknessDraft.value);
-    if (selected.value) {
-      await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
-    }
-    await refreshOptionsAround(columnIndex);
+  await removeTopShelf(columnIndex, shelfThicknessDraft.value);
+  if (selected.value) {
+    await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
   }
+  await refreshOptionsAround(columnIndex);
 }
 
 /** Persists the chosen terminal height for one spine; auto-saves on selection. */
@@ -1162,6 +1194,24 @@ function stepActive(index: number): boolean {
               <p class="mini muted" v-if="categoryLoading">{{ t('cad.categoryStep.saving') }}</p>
             </article>
 
+            <article class="control-card" v-if="selected.category && depthRequired">
+              <h3>{{ t('cad.depthStep.title') }}</h3>
+              <label class="field">
+                <span class="field__label">{{ t('cad.depthStep.label') }}</span>
+                <select
+                  class="field__input"
+                  v-model.number="depthDraft"
+                  :disabled="!canEditDepth || depthLoading"
+                  @change="submitDepth"
+                >
+                  <option disabled value="">{{ t('cad.depthStep.placeholder') }}</option>
+                  <option v-for="depth in availableDepths" :key="depth" :value="depth">{{ formatCm(depth) }}</option>
+                </select>
+              </label>
+              <p class="mini muted">{{ t('cad.depthStep.hint') }}</p>
+              <p class="mini muted" v-if="depthLoading">{{ t('cad.depthStep.saving') }}</p>
+            </article>
+
             <article class="control-card">
               <h3>{{ t('cad.columnsStep.title') }}</h3>
               <label class="field">
@@ -1202,26 +1252,24 @@ function stepActive(index: number): boolean {
               <h3>{{ t('cad.designStep.title') }}</h3>
               <p class="mini muted">{{ t('cad.designStep.fixedThickness', { cm: formatCm(shelfThicknessDraft) }) }}</p>
 
-              <div v-if="isIntelligente" class="intelligente-banner" role="note">
-                <span v-html="t('cad.designStep.intelligenteBanner')"></span>
-                <span v-if="!columnsAligned" class="alignment-warning" role="alert">
-                  ⚠️ {{ t('cad.designStep.alignmentWarning') }}
-                </span>
-              </div>
-
               <div class="design-columns">
                 <article v-for="column in canvasColumns" :key="`design-col-${column.index}`" class="design-column">
                   <header>
                     <strong>{{ t('cad.designStep.columnLabel', { n: column.index + 1 }) }}</strong>
                     <span>{{ formatCm(column.shelfWidthMm) }}</span>
-                    <span
-                      v-if="isIntelligente"
-                      class="role-badge"
-                      :class="columnRoles.get(column.index) === 'BORDO' ? 'role-badge--bordo' : 'role-badge--intermezzo'"
-                    >{{ columnRoles.get(column.index) ?? '' }}</span>
                   </header>
 
-                  <p class="mini muted">{{ t('cad.designStep.currentLevels', { levels: column.levels.length > 0 ? column.levels.map(formatCm).join(', ') : t('cad.designStep.none') }) }}</p>
+                  <ul v-if="isQuadro && column.levels.length > 0" class="mini muted level-list">
+                    <li v-for="level in column.levels" :key="`lvl-${column.index}-${level}`">
+                      {{ formatCm(level) }}
+                      <span
+                        v-if="shelfRoleFor(column.index, level) !== 'NORMALE'"
+                        class="role-badge"
+                        :class="shelfRoleFor(column.index, level) === 'BORDO' ? 'role-badge--bordo' : 'role-badge--intermezzo'"
+                      >{{ shelfRoleFor(column.index, level) }}</span>
+                    </li>
+                  </ul>
+                  <p v-else class="mini muted">{{ t('cad.designStep.currentLevels', { levels: column.levels.length > 0 ? column.levels.map(formatCm).join(', ') : t('cad.designStep.none') }) }}</p>
                   <p class="mini muted">
                     {{
                       column.levels.length === 0
@@ -1229,7 +1277,7 @@ function stepActive(index: number): boolean {
                         : t('cad.designStep.nextLevelHint', { type: typeLabel('MONTANTE') })
                     }}
                   </p>
-                  <p v-if="!isIntelligente && hasBridgeOption(column.index)" class="mini bridge-hint">
+                  <p v-if="hasBridgeOption(column.index)" class="mini bridge-hint">
                     🌉 <span v-html="t('cad.designStep.bridgeHint')"></span>
                   </p>
 
@@ -1246,7 +1294,7 @@ function stepActive(index: number): boolean {
                         :key="`opt-${column.index}-${option.heightMm}`"
                         :value="option.heightMm"
                       >
-                          {{ formatCm(option.heightMm) }}{{ option.kind === 'bridge' ? t('cad.designStep.bridgeSuffix') : '' }}
+                          {{ formatCm(option.heightMm) }}{{ option.kind === 'bridge' ? t('cad.designStep.bridgeSuffix') : '' }}{{ option.kind === 'stacked' ? t('cad.designStep.stackedSuffix') : '' }}
                       </option>
                     </select>
                   </label>
@@ -1387,7 +1435,7 @@ function stepActive(index: number): boolean {
                   class="assembly-column-label"
                   :style="{ left: `${(label.centerXMm / assembly.totalWidthMm) * 100}%` }"
                 >
-                  {{ t('cad.designStep.columnLabel', { n: label.index + 1 }) }} - {{ formatCm(label.shelfWidthMm) }}<template v-if="isIntelligente"> ({{ columnRoles.get(label.index) ?? '' }})</template>
+                  {{ t('cad.designStep.columnLabel', { n: label.index + 1 }) }} - {{ formatCm(label.shelfWidthMm) }}
                 </span>
               </div>
             </div>
@@ -1839,21 +1887,18 @@ function stepActive(index: number): boolean {
   line-height: 1.4;
 }
 
-.intelligente-banner {
-  background: color-mix(in srgb, var(--color-primary, #4f46e5) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-primary, #4f46e5) 30%, transparent);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3);
-  margin-bottom: var(--space-3);
-  font-size: 0.85rem;
-  line-height: 1.5;
+.level-list {
+  display: grid;
+  gap: 2px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
-.alignment-warning {
-  display: block;
-  margin-top: var(--space-1);
-  color: var(--color-warning, #b45309);
-  font-weight: 600;
+.level-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .role-badge {

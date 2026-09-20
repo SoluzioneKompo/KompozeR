@@ -9,11 +9,12 @@
  * column boundaries are shared between adjacent columns, exactly like the
  * physical assembly.
  */
-import type { ColumnDesign, ColumnPlan } from '@/types/cad';
+import type { ColumnDesign, ColumnPlan, TerminalSelection } from '@/types/cad';
+import { resolveShelfRoles, type ShelfRole } from '@/utils/shelfRoleResolver';
 
 export const SHELF_THICKNESS_MM = 20;
 export const POST_WIDTH_MM = 40;
-/** Decorative cap height — not sourced from catalog, purely visual. */
+/** Fallback cap height when a spine has no terminal selection yet. */
 export const TERMINAL_HEIGHT_MM = 40;
 
 export type AssemblyPieceKind = 'foot' | 'upright' | 'terminal' | 'shelf';
@@ -24,6 +25,8 @@ export interface AssemblyPiece {
   widthMm: number;
   bottomMm: number;
   topMm: number;
+  /** Only set for 'shelf' pieces — NORMALE unless the level is shared with an adjacent column (QUADRO). */
+  role?: ShelfRole;
 }
 
 export interface AssemblyGeometry {
@@ -41,7 +44,10 @@ function resolveAdjacentPositions(spineIndex: number, columnCount: number): numb
   return [spineIndex - 1, spineIndex];
 }
 
-function buildPostSegments(levelsMm: number[]): Array<{ kind: AssemblyPieceKind; bottomMm: number; topMm: number }> {
+function buildPostSegments(
+  levelsMm: number[],
+  terminalHeightMm: number,
+): Array<{ kind: AssemblyPieceKind; bottomMm: number; topMm: number }> {
   if (levelsMm.length === 0) return [];
 
   const segments: Array<{ kind: AssemblyPieceKind; bottomMm: number; topMm: number }> = [
@@ -57,7 +63,7 @@ function buildPostSegments(levelsMm: number[]): Array<{ kind: AssemblyPieceKind;
   }
 
   const capBottom = levelsMm[levelsMm.length - 1] + SHELF_THICKNESS_MM;
-  segments.push({ kind: 'terminal', bottomMm: capBottom, topMm: capBottom + TERMINAL_HEIGHT_MM });
+  segments.push({ kind: 'terminal', bottomMm: capBottom, topMm: capBottom + terminalHeightMm });
 
   return segments;
 }
@@ -65,7 +71,11 @@ function buildPostSegments(levelsMm: number[]): Array<{ kind: AssemblyPieceKind;
 export function computeAssemblyGeometry(
   columnPlan: ColumnPlan | null | undefined,
   columnDesigns: ColumnDesign[] | undefined,
+  terminalSelections: TerminalSelection[] | undefined = [],
 ): AssemblyGeometry {
+  const terminalHeightBySpineIndex = new Map(
+    terminalSelections.map((selection) => [selection.spineIndex, selection.heightMm]),
+  );
   const columns = columnPlan?.columns ?? [];
   if (columns.length === 0) {
     return { totalWidthMm: 1, totalHeightMm: 1, pieces: [], columnLabels: [] };
@@ -104,7 +114,8 @@ export function computeAssemblyGeometry(
     const merged = Array.from(new Set(positions.flatMap((position) => columnLevelsByPosition[position]))).sort(
       (a, b) => a - b,
     );
-    const segments = buildPostSegments(merged);
+    const terminalHeightMm = terminalHeightBySpineIndex.get(spineIndex) ?? TERMINAL_HEIGHT_MM;
+    const segments = buildPostSegments(merged, terminalHeightMm);
     const xLeft = spineLeftX[spineIndex];
     for (const segment of segments) {
       pieces.push({ kind: segment.kind, xMm: xLeft, widthMm: POST_WIDTH_MM, bottomMm: segment.bottomMm, topMm: segment.topMm });
@@ -112,12 +123,15 @@ export function computeAssemblyGeometry(
     }
   }
 
+  const rolesByPosition = resolveShelfRoles(columnLevelsByPosition.map((levelsMm) => ({ levelsMm })));
+
   const columnLabels: AssemblyGeometry['columnLabels'] = [];
   sortedColumns.forEach((column, position) => {
     const levels = columnLevelsByPosition[position];
     const { left, right } = columnX[position];
     for (const level of levels) {
-      pieces.push({ kind: 'shelf', xMm: left, widthMm: right - left, bottomMm: level, topMm: level + SHELF_THICKNESS_MM });
+      const role = rolesByPosition.get(position)?.get(level) ?? 'NORMALE';
+      pieces.push({ kind: 'shelf', xMm: left, widthMm: right - left, bottomMm: level, topMm: level + SHELF_THICKNESS_MM, role });
     }
     columnLabels.push({
       index: column.index,

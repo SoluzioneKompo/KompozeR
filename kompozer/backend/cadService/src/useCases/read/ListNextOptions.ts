@@ -10,8 +10,8 @@ import {
   computeNextLevelMm,
   resolveFirstLevelHeightsMm,
   validateColumnCandidate,
-  validateSpine,
 } from '../../domain/services/SpineModel';
+import { resolveShelfRoles } from '../../domain/services/ShelfRoleResolver';
 import { assertStep4LogicImplemented } from '../../domain/services/Step4LogicResolver';
 import {
   ListNextOptionsInput,
@@ -82,21 +82,8 @@ export class ListNextOptions {
       };
     }
 
-    const rules = await this.catalogRulesProvider.getRules(configuration.category);
-    if (configuration.category === 'INTELLIGENTE') {
-      const sortedColumnPlanIndices = [...columnPlan.columns]
-        .sort((a, b) => a.index - b.index)
-        .map((c) => c.index);
-      const isOuterColumn =
-        input.columnIndex === sortedColumnPlanIndices[0] ||
-        input.columnIndex === sortedColumnPlanIndices[sortedColumnPlanIndices.length - 1];
-      const shelfMap = isOuterColumn ? rules.bordoByWidthMm : rules.intermezzoByWidthMm;
-      if (!shelfMap.get(planColumn.shelfWidthMm)) {
-        throw new ValidationError(
-          `No ${isOuterColumn ? 'BORDO' : 'INTERMEZZO'} shelf rule found for width ${planColumn.shelfWidthMm} in INTELLIGENTE`,
-        );
-      }
-    } else if (!rules.shelfByWidthMm.get(planColumn.shelfWidthMm)) {
+    const rules = await this.catalogRulesProvider.getRules(configuration.category, configuration.depthMm ?? undefined);
+    if (!rules.shelfByWidthMm.get(planColumn.shelfWidthMm)) {
       throw new ValidationError(
         `No shelf rule found for width ${planColumn.shelfWidthMm} in category ${configuration.category}`,
       );
@@ -118,30 +105,27 @@ export class ListNextOptions {
       footHeightsMm: rules.footHeightsMm,
       uprightHeightsMm: rules.uprightHeightsMm,
     });
-    const columnLevels = [...columnPlan.columns]
-      .sort((left, right) => left.index - right.index)
-      .map((column) => ({
-        levelsMm: byIndex.get(column.index)?.levelsMm ?? [],
-      }));
-    const columnIndexInPlan = [...columnPlan.columns]
-      .sort((left, right) => left.index - right.index)
-      .findIndex((column) => column.index === input.columnIndex);
+    const sortedPlanColumns = [...columnPlan.columns].sort((left, right) => left.index - right.index);
+    const columnLevels = sortedPlanColumns.map((column) => ({
+      levelsMm: byIndex.get(column.index)?.levelsMm ?? [],
+    }));
+    const columnIndexInPlan = sortedPlanColumns.findIndex((column) => column.index === input.columnIndex);
 
-    const isIntelligente = configuration.category === 'INTELLIGENTE';
+    const isQuadro = configuration.category === 'QUADRO';
+    const isKube = configuration.category === 'KUBE';
 
-    // Candidate gaps:
-    // - INTELLIGENTE: classic single-piece candidates (columns are kept aligned,
-    //   so no bridging over neighbor joints is offered).
-    // - STANDARD: extended candidates including neighbor-anchored 'bridge' gaps,
-    //   enabling a column to bridge a tall gap supported by adjacent columns' joints.
-    const candidates: Array<{ heightMm: number; kind: 'standard' | 'bridge' }> = isIntelligente
-      ? (levels.length === 0 ? [...firstLevelHeightsMm] : [...rules.uprightHeightsMm]).map(
-          (heightMm) => ({ heightMm, kind: 'standard' as const }),
-        )
-      : buildCandidateGaps(columnLevels, columnIndexInPlan, {
-          footHeightsMm: rules.footHeightsMm,
-          uprightHeightsMm: rules.uprightHeightsMm,
-        });
+    // Candidates always include neighbor-anchored 'bridge' gaps: TONDO and
+    // QUADRO both share the STANDARD spine model for feet/uprights/terminals.
+    // KUBE additionally offers 'stacked' gaps built from 2+ uprights.
+    const candidates = buildCandidateGaps(
+      columnLevels,
+      columnIndexInPlan,
+      {
+        footHeightsMm: rules.footHeightsMm,
+        uprightHeightsMm: rules.uprightHeightsMm,
+      },
+      { allowStackedUprights: isKube },
+    );
 
     // Evaluate each candidate independently and explain exactly why it is blocked.
     // This enables the UI to present a "disabled with reason" dropdown.
@@ -163,14 +147,54 @@ export class ListNextOptions {
         };
       }
 
-      let validation;
-      if (isIntelligente) {
-        // INTELLIGENTE: no shared-spine adjacency — validate target column alone
+      if (isQuadro) {
+        // QUADRO: a candidate that would land on the same level as a neighbor
+        // is only allowed if the resulting BORDO/INTERMEDIO cluster is fully
+        // covered by the catalog — checked before the geometric validation.
         const nextLevelMm = computeNextLevelMm({ existingLevelsMm: levels, candidateHeightMm: heightMm });
-        validation = validateSpine([...levels, nextLevelMm], spineRules);
-      } else {
-        validation = validateColumnCandidate(columnLevels, columnIndexInPlan, heightMm, spineRules);
+        const sharesWithNeighbor =
+          (columnLevels[columnIndexInPlan - 1]?.levelsMm ?? []).includes(nextLevelMm)
+          || (columnLevels[columnIndexInPlan + 1]?.levelsMm ?? []).includes(nextLevelMm);
+
+        if (sharesWithNeighbor) {
+          const simulatedLevels = columnLevels.map((column, position) =>
+            position === columnIndexInPlan
+              ? { levelsMm: [...column.levelsMm, nextLevelMm] }
+              : column,
+          );
+          const roles = resolveShelfRoles(simulatedLevels);
+          const missing: string[] = [];
+          simulatedLevels.forEach((_, position) => {
+            const role = roles.get(position)?.get(nextLevelMm);
+            if (!role || role === 'NORMALE') {
+              return;
+            }
+            const shelfWidthMm = sortedPlanColumns[position]?.shelfWidthMm;
+            const shelfMap = role === 'BORDO' ? rules.bordoByWidthMm : rules.intermezzoByWidthMm;
+            if (shelfWidthMm != null && !shelfMap.get(shelfWidthMm)) {
+              missing.push(`${role}@${shelfWidthMm}mm`);
+            }
+          });
+
+          if (missing.length > 0) {
+            return {
+              heightMm,
+              allowed: false,
+              kind,
+              reasonCode: 'INTELLIGENTE_CATALOG_MISSING',
+              reason: `Missing catalog shelf for: ${missing.join(', ')}`,
+            };
+          }
+        }
       }
+
+      const validation = validateColumnCandidate(
+        columnLevels,
+        columnIndexInPlan,
+        heightMm,
+        spineRules,
+        { blockSharedLevel: !isQuadro, allowStackedUprights: isKube },
+      );
 
       if (!validation.valid) {
         return {

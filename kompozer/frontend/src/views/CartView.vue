@@ -7,6 +7,7 @@ import { useCart } from '@/composables/useCart';
 import { getIntlLocale } from '@/i18n/format';
 import PaymentPanel from '@/components/PaymentPanel.vue';
 import type { CartItem, ExpeditionInfo } from '@/types/cart';
+import { companyExpeditionInfo } from '@/config/companyExpeditionInfo';
 
 const { t } = useI18n();
 const { cart, loading, checkoutLoading, clearLoading, error, load, setQuantity, clearCart, checkout } = useCart();
@@ -87,6 +88,12 @@ async function submitCheckout(): Promise<void> {
   } catch {
     checkoutError.value = t('cart.checkout.genericError');
   }
+}
+
+/** Fills the form with the company's own shipping data and submits right away. */
+async function skipCheckout(): Promise<void> {
+  Object.assign(checkoutForm, companyExpeditionInfo);
+  await submitCheckout();
 }
 
 function closePaymentModal(): void {
@@ -205,6 +212,9 @@ async function onPaymentDone(): Promise<void> {
 
           <div class="checkout-modal__actions">
             <button class="btn btn--light" type="button" @click="closeCheckoutModal">{{ t('cart.checkout.cancel') }}</button>
+            <button class="btn btn--light" type="button" :disabled="checkoutLoading" @click="skipCheckout">
+              {{ t('cart.checkout.skip') }}
+            </button>
             <button class="btn btn--primary" type="submit" :disabled="checkoutLoading">
               {{ checkoutLoading ? t('cart.checkout.inProgress') : t('cart.checkout.confirm') }}
             </button>
