@@ -69,9 +69,14 @@ export class HttpCatalogRulesProvider implements CatalogRulesProvider {
         continue;
       }
 
-      // Depth filter (Step "select depth"): only shelf-like parts have a
-      // meaningful depth, so feet/uprights/terminals are never filtered out.
-      if (isShelfLike && filterDepthMm != null && depthMm !== filterDepthMm) {
+      // Depth filter (Step "select depth"): applies to any component that
+      // actually carries a depth in the catalog (depthMm > 0). RIPIANO always
+      // does; PIEDINO/MONTANTE/TERMINALE only for categories whose catalog
+      // gives them a real depth (e.g. KUBE, where the whole piece set is
+      // depth-specific). Items with depthMm === 0 (TONDO/QUADRO feet/
+      // uprights/terminals) have no meaningful depth, so they're never
+      // filtered out.
+      if (filterDepthMm != null && depthMm > 0 && depthMm !== filterDepthMm) {
         continue;
       }
 

@@ -71,6 +71,16 @@ describe('HttpCatalogRulesProvider — depth filter', () => {
     };
   }
 
+  function footItem(sku: string, heightMm: number, depthMm: number) {
+    return {
+      sku,
+      name: sku,
+      price: 100,
+      Type: 'PIEDINO',
+      dimensions: { widthMm: 0, heightMm, depthMm },
+    };
+  }
+
   async function withCatalogServer(items: unknown[], run: (provider: HttpCatalogRulesProvider) => Promise<void>) {
     const { baseUrl, close } = await startServer((_req, res) => {
       res.writeHead(200, { 'content-type': 'application/json' });
@@ -100,6 +110,27 @@ describe('HttpCatalogRulesProvider — depth filter', () => {
       async (provider) => {
         const rules = await provider.getRules('TONDO');
         expect(rules.shelfByWidthMm.size).toBe(2);
+      },
+    );
+  });
+
+  it('getRules also filters PIEDINO/MONTANTE/TERMINALE when they carry a real depth (KUBE)', async () => {
+    await withCatalogServer(
+      [footItem('PIE-40-D200', 40, 200), footItem('PIE-40-D300', 40, 300)],
+      async (provider) => {
+        const rules = await provider.getRules('KUBE', 200);
+        expect(rules.footByHeightMm.get(40)?.sku).toBe('PIE-40-D200');
+        expect(rules.footHeightsMm).toEqual([40]);
+      },
+    );
+  });
+
+  it('getRules never filters out PIEDINO/MONTANTE/TERMINALE with depthMm 0 (TONDO/QUADRO)', async () => {
+    await withCatalogServer(
+      [footItem('PIE-40-D0', 40, 0)],
+      async (provider) => {
+        const rules = await provider.getRules('TONDO', 300);
+        expect(rules.footByHeightMm.get(40)?.sku).toBe('PIE-40-D0');
       },
     );
   });
