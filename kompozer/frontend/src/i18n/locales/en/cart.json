@@ -39,6 +39,7 @@
       "deliveryNotes": "Delivery notes (optional)"
     },
     "cancel": "Cancel",
+    "skip": "Skip (company data)",
     "confirm": "Confirm checkout",
     "inProgress": "Processing checkout...",
     "missingFields": "Please fill in all required fields.",
