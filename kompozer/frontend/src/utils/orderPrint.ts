@@ -13,13 +13,29 @@ import { cadService } from '@/services/cadService';
 import { computeAssemblyGeometry, type AssemblyPiece } from '@/utils/cadAssembly';
 import { formatCurrencyFromCents } from '@/i18n/format';
 import { i18n } from '@/i18n';
-import type { ColumnDesign, ColumnPlan, TerminalSelection } from '@/types/cad';
+import type { Category, ColumnDesign, ColumnPlan, TerminalSelection } from '@/types/cad';
 import type { Order } from '@/types/order';
+
+/** Short sigla printed next to a QUADRO shelf: N(ormale) / B(ordo) / I(ntermedio). */
+const SHELF_ROLE_LETTER: Record<string, string> = {
+  NORMALE: 'N',
+  BORDO: 'B',
+  INTERMEDIO: 'I',
+};
 
 const PAGE_WIDTH_MM = 210;
 const PAGE_HEIGHT_MM = 297;
 const MARGIN_MM = 15;
 const SCHEMA_HEIGHT_MM = 190;
+/**
+ * Legend explaining the schema (piece colors, QUADRO shelf sigla N/B/I),
+ * drawn below the schema. Optional: place the PNG at
+ * kompozer/frontend/public/schema-legend.png — served as-is by Vite, so the
+ * printed PDF just skips it (no crash) until the file exists.
+ */
+const LEGEND_IMAGE_URL = '/schema-legend.png';
+const LEGEND_MAX_WIDTH_MM = 120;
+const LEGEND_MAX_HEIGHT_MM = 55;
 /** Kompo brand accent (legno naturale) — see --color-admin-accent in tokens.css. */
 const KOMPO_ACCENT: [number, number, number] = [138, 109, 79];
 
@@ -58,13 +74,53 @@ function drawField(doc: jsPDF, label: string, value: string, x: number, y: numbe
   doc.text(value, x + labelWidth, y);
 }
 
-function drawSchemaPage(
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+function readImagePixelSize(dataUrl: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve({ width: 0, height: 0 });
+    img.src = dataUrl;
+  });
+}
+
+/** Loads the legend PNG as a data URL sized to fit the reserved legend box. Returns null when not present. */
+async function loadLegendImage(): Promise<{ dataUrl: string; widthMm: number; heightMm: number } | null> {
+  try {
+    const response = await fetch(LEGEND_IMAGE_URL);
+    if (!response.ok) {
+      return null;
+    }
+
+    const dataUrl = await blobToDataUrl(await response.blob());
+    const { width, height } = await readImagePixelSize(dataUrl);
+    if (width <= 0 || height <= 0) {
+      return null;
+    }
+
+    const scale = Math.min(LEGEND_MAX_WIDTH_MM / width, LEGEND_MAX_HEIGHT_MM / height);
+    return { dataUrl, widthMm: width * scale, heightMm: height * scale };
+  } catch {
+    return null;
+  }
+}
+
+async function drawSchemaPage(
   doc: jsPDF,
   title: string,
   columnPlan: ColumnPlan | null,
   columnDesigns: ColumnDesign[],
   terminalSelections: TerminalSelection[],
-): void {
+  category: Category | null,
+): Promise<void> {
   const geometry = computeAssemblyGeometry(columnPlan, columnDesigns, terminalSelections);
 
   drawSectionTitle(doc, title || 'Configuration', MARGIN_MM, MARGIN_MM, 16);
@@ -88,15 +144,24 @@ function drawSchemaPage(
     doc.setFillColor(r, g, b);
     doc.rect(x, y, w, h, 'F');
 
-    doc.setFontSize(5);
+    doc.setFontSize(7);
     doc.setTextColor(0, 0, 0);
     if (piece.kind === 'shelf') {
       // Width of this shelf (piece.widthMm already equals the column's shelf width).
-      doc.text(`L = ${formatCm(piece.widthMm)}`, x + w / 2, y - 1, { align: 'center' });
+      // QUADRO only: append the shelf role sigla (N/B/I) — legend explains it.
+      const roleSuffix = category === 'QUADRO' && piece.role ? ` · ${SHELF_ROLE_LETTER[piece.role]}` : '';
+      doc.text(`L = ${formatCm(piece.widthMm)}${roleSuffix}`, x + w / 2, y - 1, { align: 'center' });
     } else {
       // Measurement of this foot/upright/terminal segment, next to the piece.
       doc.text(formatCm(piece.topMm - piece.bottomMm), x + w + 0.8, y + h / 2, { baseline: 'middle' });
     }
+  }
+
+  const legend = await loadLegendImage();
+  if (legend) {
+    const legendX = MARGIN_MM + (contentWidth - legend.widthMm) / 2;
+    const legendY = contentTop + SCHEMA_HEIGHT_MM + 5;
+    doc.addImage(legend.dataUrl, legendX, legendY, legend.widthMm, legend.heightMm);
   }
 }
 
@@ -180,7 +245,14 @@ export async function printOrder(order: Order): Promise<void> {
 
   if (order.configId) {
     const config = await cadService.get(order.configId);
-    drawSchemaPage(doc, order.configName ?? config.name, config.columnPlan, config.columnDesigns, config.terminalSelections);
+    await drawSchemaPage(
+      doc,
+      order.configName ?? config.name,
+      config.columnPlan,
+      config.columnDesigns,
+      config.terminalSelections,
+      config.category,
+    );
     hasSchemaPage = true;
   }
 

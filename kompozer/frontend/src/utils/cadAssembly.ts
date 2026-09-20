@@ -10,6 +10,7 @@
  * physical assembly.
  */
 import type { ColumnDesign, ColumnPlan, TerminalSelection } from '@/types/cad';
+import { resolveShelfRoles, type ShelfRole } from '@/utils/shelfRoleResolver';
 
 export const SHELF_THICKNESS_MM = 20;
 export const POST_WIDTH_MM = 40;
@@ -24,6 +25,8 @@ export interface AssemblyPiece {
   widthMm: number;
   bottomMm: number;
   topMm: number;
+  /** Only set for 'shelf' pieces — NORMALE unless the level is shared with an adjacent column (QUADRO). */
+  role?: ShelfRole;
 }
 
 export interface AssemblyGeometry {
@@ -120,12 +123,15 @@ export function computeAssemblyGeometry(
     }
   }
 
+  const rolesByPosition = resolveShelfRoles(columnLevelsByPosition.map((levelsMm) => ({ levelsMm })));
+
   const columnLabels: AssemblyGeometry['columnLabels'] = [];
   sortedColumns.forEach((column, position) => {
     const levels = columnLevelsByPosition[position];
     const { left, right } = columnX[position];
     for (const level of levels) {
-      pieces.push({ kind: 'shelf', xMm: left, widthMm: right - left, bottomMm: level, topMm: level + SHELF_THICKNESS_MM });
+      const role = rolesByPosition.get(position)?.get(level) ?? 'NORMALE';
+      pieces.push({ kind: 'shelf', xMm: left, widthMm: right - left, bottomMm: level, topMm: level + SHELF_THICKNESS_MM, role });
     }
     columnLabels.push({
       index: column.index,
