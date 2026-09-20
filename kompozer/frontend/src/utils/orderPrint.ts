@@ -33,9 +33,9 @@ const SCHEMA_HEIGHT_MM = 190;
  * kompozer/frontend/public/schema-legend.png — served as-is by Vite, so the
  * printed PDF just skips it (no crash) until the file exists.
  */
-const LEGEND_IMAGE_URL = '/schema-legend.png';
-const LEGEND_MAX_WIDTH_MM = 120;
-const LEGEND_MAX_HEIGHT_MM = 55;
+const LEGEND_IMAGE_URL = '/Legenda.png';
+const LEGEND_MAX_WIDTH_MM = 240;
+const LEGEND_MAX_HEIGHT_MM = 110;
 /** Kompo brand accent (legno naturale) — see --color-admin-accent in tokens.css. */
 const KOMPO_ACCENT: [number, number, number] = [138, 109, 79];
 
@@ -161,7 +161,11 @@ async function drawSchemaPage(
   const legend = await loadLegendImage();
   if (legend) {
     const legendX = MARGIN_MM + (contentWidth - legend.widthMm) / 2;
-    const legendY = contentTop + SCHEMA_HEIGHT_MM + 5;
+    let legendY = contentTop + SCHEMA_HEIGHT_MM;
+    if (legendY + legend.heightMm > PAGE_HEIGHT_MM - MARGIN_MM) {
+      doc.addPage();
+      legendY = MARGIN_MM;
+    }
     doc.addImage(legend.dataUrl, legendX, legendY, legend.widthMm, legend.heightMm);
   }
 }
