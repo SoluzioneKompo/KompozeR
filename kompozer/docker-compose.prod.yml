@@ -1,0 +1,273 @@
+# docker-compose.prod.yml — Stack di produzione/locale per l'installer Windows.
+#
+# Differenze rispetto a docker-compose.yml (dev, build da sorgente):
+#   - Ogni servizio usa un'immagine pre-buildata da GHCR (ghcr.io/soluzionekompo/kompozer-*)
+#     invece di `build:`, così l'utente finale non deve compilare nulla.
+#   - Ogni MongoDB ha un volume named per la persistenza dei dati tra un
+#     riavvio/chiusura dell'app e l'altro (`docker compose down` senza `-v`
+#     lascia i volumi intatti).
+#   - `restart: unless-stopped` su ogni servizio long-running, così i
+#     container ripartono da soli se Docker Desktop riparte (autostart).
+#
+# Uso (gestito dai batch dell'installer, non a mano):
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml down        # persistenza OK
+#   docker compose -f docker-compose.prod.yml down -v      # cancella anche i dati
+
+services:
+
+  # ── Infrastructure ─────────────────────────────────────────────
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    restart: unless-stopped
+
+  mongo-auth:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: authdb
+    volumes:
+      - mongo-auth-data:/data/db
+    restart: unless-stopped
+
+  # CAD replica set (PSA: 2 data + 1 arbiter) — DS fault-tolerance / failover.
+  mongo-cad-1:
+    image: mongo:7
+    command: ["mongod", "--replSet", "cadrs", "--bind_ip_all", "--port", "27017"]
+    ports: ["27020:27017"]
+    volumes:
+      - mongo-cad1-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --port 27017 --eval \"db.adminCommand('ping').ok\" | grep 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+
+  mongo-cad-2:
+    image: mongo:7
+    command: ["mongod", "--replSet", "cadrs", "--bind_ip_all", "--port", "27017"]
+    volumes:
+      - mongo-cad2-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --port 27017 --eval \"db.adminCommand('ping').ok\" | grep 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+
+  mongo-cad-arb:
+    image: mongo:7
+    command: ["mongod", "--replSet", "cadrs", "--bind_ip_all", "--port", "27017"]
+    volumes:
+      - mongo-cadarb-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --port 27017 --eval \"db.adminCommand('ping').ok\" | grep 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+
+  mongo-cad-init:
+    image: mongo:7
+    restart: "no"
+    depends_on:
+      mongo-cad-1:
+        condition: service_healthy
+      mongo-cad-2:
+        condition: service_healthy
+      mongo-cad-arb:
+        condition: service_healthy
+    entrypoint:
+      - bash
+      - -c
+      - |
+        mongosh --host mongo-cad-1:27017 --quiet --eval '
+          try {
+            rs.status();
+            print("replica set cadrs already initiated");
+          } catch (e) {
+            print("initiating replica set cadrs...");
+            rs.initiate({
+              _id: "cadrs",
+              members: [
+                { _id: 0, host: "mongo-cad-1:27017", priority: 2 },
+                { _id: 1, host: "mongo-cad-2:27017", priority: 1 },
+                { _id: 2, host: "mongo-cad-arb:27017", arbiterOnly: true }
+              ]
+            });
+          }
+        '
+
+  mongo-cart:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: cartdb
+    volumes:
+      - mongo-cart-data:/data/db
+    restart: unless-stopped
+
+  mongo-catalog:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: catalogdb
+    volumes:
+      - mongo-catalog-data:/data/db
+    restart: unless-stopped
+
+  mongo-order:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: orderdb
+    volumes:
+      - mongo-order-data:/data/db
+    restart: unless-stopped
+
+  mongo-payment:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: paymentdb
+    volumes:
+      - mongo-payment-data:/data/db
+    restart: unless-stopped
+
+  mongo-notification:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: notificationdb
+    volumes:
+      - mongo-notification-data:/data/db
+    restart: unless-stopped
+
+  mongo-reporting:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: reportingdb
+    volumes:
+      - mongo-reporting-data:/data/db
+    restart: unless-stopped
+
+  # ── Backend services ───────────────────────────────────────────
+
+  api-gateway:
+    image: ghcr.io/soluzionekompo/kompozer-api-gateway:latest
+    ports: ["${GATEWAY_PORT}:${GATEWAY_PORT}"]
+    env_file: .env
+    depends_on: [auth-service, cad-service, cart-service, catalog-service, order-service, payment-service, reporting-service, redis]
+    restart: unless-stopped
+
+  auth-service:
+    image: ghcr.io/soluzionekompo/kompozer-auth-service:latest
+    env_file: .env
+    environment:
+      MONGO_URI: ${AUTH_MONGO_URI}
+      PORT: ${AUTH_PORT}
+    depends_on: [mongo-auth]
+    restart: unless-stopped
+
+  cad-service:
+    image: ghcr.io/soluzionekompo/kompozer-cad-service:latest
+    env_file: .env
+    environment:
+      CAD_MONGO_URI: "mongodb://mongo-cad-1:27017,mongo-cad-2:27017/caddb?replicaSet=cadrs"
+      CAD_WRITE_CONCERN: ${CAD_WRITE_CONCERN:-majority}
+      CAD_READ_CONCERN: ${CAD_READ_CONCERN:-majority}
+      CAD_READ_PREFERENCE: ${CAD_READ_PREFERENCE:-primaryPreferred}
+      CAD_CHECKPOINT_INTERVAL_MS: ${CAD_CHECKPOINT_INTERVAL_MS:-10000}
+      PORT: ${CAD_PORT}
+      CATALOG_BASE_URL: http://catalog-service:${CATALOG_PORT}
+      CART_BASE_URL: http://cart-service:${CART_PORT}
+    depends_on:
+      mongo-cad-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      catalog-service:
+        condition: service_started
+    restart: unless-stopped
+
+  cart-service:
+    image: ghcr.io/soluzionekompo/kompozer-cart-service:latest
+    env_file: .env
+    environment:
+      MONGO_URI: ${CART_MONGO_URI}
+      PORT: ${CART_PORT}
+    depends_on: [mongo-cart, redis, catalog-service, order-service]
+    restart: unless-stopped
+
+  catalog-service:
+    image: ghcr.io/soluzionekompo/kompozer-catalog-service:latest
+    env_file: .env
+    environment:
+      MONGO_URI: ${CATALOG_MONGO_URI}
+      PORT: ${CATALOG_PORT}
+    depends_on: [mongo-catalog, redis]
+    restart: unless-stopped
+
+  order-service:
+    image: ghcr.io/soluzionekompo/kompozer-order-service:latest
+    env_file: .env
+    environment:
+      MONGO_URI: ${ORDER_MONGO_URI}
+      PORT: ${ORDER_PORT}
+    depends_on: [mongo-order, redis]
+    restart: unless-stopped
+
+  payment-service:
+    image: ghcr.io/soluzionekompo/kompozer-payment-service:latest
+    env_file: .env
+    environment:
+      MONGO_URI: ${PAYMENT_MONGO_URI}
+      PORT: ${PAYMENT_PORT}
+    depends_on: [mongo-payment, redis]
+    restart: unless-stopped
+
+  notification-service:
+    image: ghcr.io/soluzionekompo/kompozer-notification-service:latest
+    env_file: .env
+    depends_on: [mongo-notification, redis]
+    restart: unless-stopped
+
+  reporting-service:
+    image: ghcr.io/soluzionekompo/kompozer-reporting-service:latest
+    env_file: .env
+    depends_on: [mongo-reporting, cart-service, catalog-service]
+    restart: unless-stopped
+
+  # ── Frontend ───────────────────────────────────────────────────
+
+  frontend:
+    image: ghcr.io/soluzionekompo/kompozer-frontend:latest
+    ports: ["8080:80", "8443:443"]
+    depends_on: [api-gateway]
+    restart: unless-stopped
+
+volumes:
+  mongo-auth-data:
+  mongo-cad1-data:
+  mongo-cad2-data:
+  mongo-cadarb-data:
+  mongo-cart-data:
+  mongo-catalog-data:
+  mongo-order-data:
+  mongo-payment-data:
+  mongo-notification-data:
+  mongo-reporting-data:
