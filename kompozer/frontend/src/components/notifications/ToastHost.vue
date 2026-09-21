@@ -1,8 +1,10 @@
 <script setup lang="ts">
 /** Global toast presenter that renders notification store messages via Teleport. */
+import { useI18n } from 'vue-i18n';
 import { useNotificationStore } from '@/store/notificationStore';
 
 const store = useNotificationStore();
+const { t } = useI18n();
 </script>
 
 <template>
@@ -16,7 +18,7 @@ const store = useNotificationStore();
           role="alert"
         >
           {{ toast.message }}
-          <button class="toast__close" @click="store.removeToast(toast.id)" aria-label="Chiudi">✕</button>
+          <button class="toast__close" @click="store.removeToast(toast.id)" :aria-label="t('notifications.toastHost.close')">✕</button>
         </div>
       </TransitionGroup>
     </div>

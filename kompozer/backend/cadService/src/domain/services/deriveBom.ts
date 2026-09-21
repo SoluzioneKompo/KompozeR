@@ -5,20 +5,28 @@ import { CatalogRules } from '../ports/CatalogRulesProvider';
 import {
   SPINE_COMPONENT_MULTIPLIER,
   buildSpines,
+  composeUprightBreakdown,
   deriveSpineBom,
   resolveFirstLevelHeightsMm,
 } from './SpineModel';
+import { resolveShelfRoles } from './ShelfRoleResolver';
 
 /**
  * Derives the Bill of Materials (BOM) from a finalized CAD configuration.
  *
  * Rules:
  * - RIPIANO:   1 per level per column (from shelfByWidthMm).
+ * - QUADRO:    1 shelf per level per column, but its type (RIPIANO / RIPIANO_BORDO /
+ *              RIPIANO_INTERMEDIO) depends on whether that level is shared with
+ *              index-adjacent columns — see ShelfRoleResolver.resolveShelfRoles.
  * - Spine components are counted per shared spine, not per column.
  * - PIEDINO:   2 per non-empty spine (front + back).
  * - TERMINALE: 2 per non-empty spine (front + back).
- * - MONTANTE:  2 per exact-fit spine segment (front + back).
- * - KUBE:      treated like every other system for now.
+ * - MONTANTE:  2 per exact-fit spine segment (front + back). For KUBE, a
+ *              segment that has no single matching catalog upright is
+ *              decomposed into the minimum-piece stack that sums to it (see
+ *              SpineModel.composeUprightBreakdown), and each piece gets its
+ *              own 2-per-spine count.
  *
  * Aggregation: items with the same SKU are summed before returning.
  */
@@ -48,29 +56,56 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
   }
 
   const sortedColumns = [...columnPlan.columns].sort((a, b) => a.index - b.index);
-  const outerIndices = new Set<number>([
-    sortedColumns[0]?.index ?? -1,
-    sortedColumns[sortedColumns.length - 1]?.index ?? -1,
-  ]);
 
-  for (const column of sortedColumns) {
-    const design = columnDesigns.find((item) => item.columnIndex === column.index);
-    if (!design || design.levelsMm.length === 0) {
-      continue;
-    }
+  if (category === 'QUADRO') {
+    const levelsByPosition = sortedColumns.map((column) => {
+      const design = columnDesigns.find((item) => item.columnIndex === column.index);
+      return { levelsMm: design?.levelsMm ?? [] };
+    });
+    const roles = resolveShelfRoles(levelsByPosition);
 
-    if (category === 'INTELLIGENTE') {
-      const isOuter = outerIndices.has(column.index);
-      const shelfRule = isOuter
-        ? rules.bordoByWidthMm.get(column.shelfWidthMm)
-        : rules.intermezzoByWidthMm.get(column.shelfWidthMm);
-      if (!shelfRule) {
-        throw new ValidationError(
-          `No catalog ${isOuter ? 'BORDO' : 'INTERMEZZO'} shelf found for widthMm=${column.shelfWidthMm} in column ${column.index}`,
-        );
+    sortedColumns.forEach((column, position) => {
+      const design = columnDesigns.find((item) => item.columnIndex === column.index);
+      if (!design || design.levelsMm.length === 0) {
+        return;
       }
-      add(shelfRule.sku, shelfRule.name, design.levelsMm.length, shelfRule.priceCents, isOuter ? 'RIPIANO_BORDO' : 'RIPIANO_INTERMEDIO');
-    } else {
+
+      const rolesForColumn = roles.get(position) ?? new Map();
+      for (const levelMm of design.levelsMm) {
+        const role = rolesForColumn.get(levelMm) ?? 'NORMALE';
+        if (role === 'NORMALE') {
+          const shelfRule = rules.shelfByWidthMm.get(column.shelfWidthMm);
+          if (!shelfRule) {
+            throw new ValidationError(
+              `No catalog shelf found for widthMm=${column.shelfWidthMm} in column ${column.index}`,
+            );
+          }
+          add(shelfRule.sku, shelfRule.name, 1, shelfRule.priceCents, 'RIPIANO');
+        } else {
+          const map = role === 'BORDO' ? rules.bordoByWidthMm : rules.intermezzoByWidthMm;
+          const shelfRule = map.get(column.shelfWidthMm);
+          if (!shelfRule) {
+            throw new ValidationError(
+              `No catalog ${role} shelf found for widthMm=${column.shelfWidthMm} in column ${column.index} at level ${levelMm}mm`,
+            );
+          }
+          add(
+            shelfRule.sku,
+            shelfRule.name,
+            1,
+            shelfRule.priceCents,
+            role === 'BORDO' ? 'RIPIANO_BORDO' : 'RIPIANO_INTERMEDIO',
+          );
+        }
+      }
+    });
+  } else {
+    for (const column of sortedColumns) {
+      const design = columnDesigns.find((item) => item.columnIndex === column.index);
+      if (!design || design.levelsMm.length === 0) {
+        continue;
+      }
+
       const shelfRule = rules.shelfByWidthMm.get(column.shelfWidthMm);
       if (!shelfRule) {
         throw new ValidationError(
@@ -89,6 +124,10 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
     throw new ValidationError('No TERMINALE available in catalog rules for selected category');
   }
 
+  const terminalHeightBySpineIndex = new Map(
+    configuration.terminalSelections.map((selection) => [selection.spineIndex, selection.heightMm]),
+  );
+
   const spines = buildSpines(
     sortedColumns.map((column) => {
       const design = columnDesigns.find((item) => item.columnIndex === column.index);
@@ -98,16 +137,23 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
     }),
   );
 
+  const allowStackedUprights = category === 'KUBE';
+
   for (const spine of spines) {
-    const spineBom = deriveSpineBom(spine.levelsMm, {
-      footHeightsMm: resolveFirstLevelHeightsMm({
-        footHeightsMm: rules.footHeightsMm,
+    const spineBom = deriveSpineBom(
+      spine.levelsMm,
+      {
+        footHeightsMm: resolveFirstLevelHeightsMm({
+          footHeightsMm: rules.footHeightsMm,
+          uprightHeightsMm: rules.uprightHeightsMm,
+        }),
         uprightHeightsMm: rules.uprightHeightsMm,
-      }),
-      uprightHeightsMm: rules.uprightHeightsMm,
-      terminalHeightsMm: rules.terminalHeightsMm,
-      maxHeightMm: configuration.environment?.maxHeightMm ?? Number.MAX_SAFE_INTEGER,
-    });
+        terminalHeightsMm: rules.terminalHeightsMm,
+        maxHeightMm: Number.MAX_SAFE_INTEGER,
+      },
+      terminalHeightBySpineIndex.get(spine.index),
+      { allowStackedUprights },
+    );
 
     if (!spineBom) {
       if (spine.levelsMm.length === 0) {
@@ -122,6 +168,8 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
       throw new ValidationError(`No PIEDINO found for exact height ${spineBom.footHeightMm}mm`);
     }
 
+    const terminalRule = rules.terminalByHeightMm.get(spineBom.terminalHeightMm) ?? rules.defaultTerminal;
+
     add(
       footRule.sku,
       footRule.name,
@@ -130,26 +178,38 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
       'PIEDINO',
     );
     add(
-      rules.defaultTerminal.sku,
-      rules.defaultTerminal.name,
+      terminalRule.sku,
+      terminalRule.name,
       SPINE_COMPONENT_MULTIPLIER,
-      rules.defaultTerminal.priceCents,
+      terminalRule.priceCents,
       'TERMINALE',
     );
 
     for (const gapMm of spineBom.uprightHeightsMm) {
-      const uprightRule = rules.uprightByHeightMm.get(gapMm);
-      if (!uprightRule) {
-        throw new ValidationError(`No MONTANTE found for exact spine segment=${gapMm}mm`);
+      const pieceHeightsMm = allowStackedUprights
+        ? composeUprightBreakdown(gapMm, rules.uprightHeightsMm)
+        : rules.uprightByHeightMm.has(gapMm)
+          ? [gapMm]
+          : null;
+
+      if (!pieceHeightsMm) {
+        throw new ValidationError(`No MONTANTE combination found for spine segment=${gapMm}mm`);
       }
 
-      add(
-        uprightRule.sku,
-        uprightRule.name,
-        SPINE_COMPONENT_MULTIPLIER,
-        uprightRule.priceCents,
-        'MONTANTE',
-      );
+      for (const pieceHeightMm of pieceHeightsMm) {
+        const uprightRule = rules.uprightByHeightMm.get(pieceHeightMm);
+        if (!uprightRule) {
+          throw new ValidationError(`No MONTANTE found for exact height=${pieceHeightMm}mm`);
+        }
+
+        add(
+          uprightRule.sku,
+          uprightRule.name,
+          SPINE_COMPONENT_MULTIPLIER,
+          uprightRule.priceCents,
+          'MONTANTE',
+        );
+      }
     }
   }
 

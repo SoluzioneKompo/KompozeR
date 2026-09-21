@@ -4,7 +4,7 @@
 
 Ogni microservizio backend segue una struttura simile: \emph{adapters}, \emph{domain}, \emph{use cases} e \emph{entrypoint}. Questa impostazione rende chiaro il confine tra logica applicativa, dominio e trasporto HTTP o persistence layer.
 
-I database sono separati per servizio. Nei compose file di sviluppo e di esecuzione sono presenti istanze MongoDB dedicate a auth, catalog, cad, cart, notification, chatbot, order e reporting, oltre a Redis per catalogo e notifiche.
+I database sono separati per servizio. Nei compose file di sviluppo e di esecuzione sono presenti istanze MongoDB dedicate a auth, catalog, cad, cart, notification, chatbot, order, payment e reporting, oltre a Redis per catalogo e notifiche.
 
 \section{Responsabilita' per servizio}
 
@@ -29,6 +29,9 @@ Gestisce le sessioni di chat, la cronologia dei messaggi e la generazione di ris
 \subsection{orderService}
 Riceve gli ordini creati dal checkout e ne gestisce lettura, annullamento e aggiornamento di stato da parte dell'amministratore.
 
+\subsection{paymentService}
+Servizio dedicato al pagamento, introdotto come scheletro architetturale: espone creazione, lettura e conferma di un tentativo di pagamento legato a un ordine (\texttt{orderId}), senza modificare orderService, che resta disaccoppiato. La logica applicativa segue lo stesso pattern hexagonal degli altri servizi (domain/ports, use case, adapter HTTP e persistence) e delega l'interazione con il provider a un port \texttt{PaymentGateway}, con due adapter stub (\texttt{PayPalGateway}, \texttt{CardGateway}) pronti per l'integrazione reale ma che oggi restituiscono subito uno stato \texttt{PENDING} con un riferimento fittizio. Un endpoint di conferma (\texttt{POST /payments/:paymentId/confirm}) simula l'esito che in futuro arriverebbe dal provider (webhook/callback), cosi' l'intero flusso di checkout resta testabile end-to-end senza credenziali reali.
+
 \subsection{reportingService}
 Espone un solo aggregato reale e utile al dominio amministrativo: il trend giornaliero degli ordini. L'implementazione usa una query Mongo di aggregazione e restituisce serie temporali coerenti con l'intervallo richiesto.
 
@@ -39,6 +42,7 @@ Le integrazioni fra servizi seguono un pattern piuttosto pulito:
 \begin{itemize}
 \item il CAD legge dal catalogo le regole dimensionali e, al finalize, scrive sul carrello;
 \item il cart service legge il catalogo per validare prezzi e disponibilita' prima del checkout;
+\item dopo il checkout il frontend avvia un pagamento su payment service passando l'\texttt{orderId} dell'ordine appena creato; il collegamento e' solo per riferimento, nessun servizio esistente viene modificato;
 \item il chatbot legge catalogo e, opzionalmente, CAD per costruire il contesto conversazionale;
 \item il reporting legge gli ordini come base per le metriche amministrative;
 \item il notification service usa Redis e il proprio storage per gestire la parte realtime e le subscription.

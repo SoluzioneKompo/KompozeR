@@ -4,6 +4,7 @@
  */
 import { ValidationError } from '../domain/entities/errors';
 import { OrderRepository } from '../domain/ports/OrderRepository';
+import { expireIfAbandoned } from './expireAbandonedOrder';
 import { ListOrdersInput, OrderDto, toOrderDto } from './types';
 
 export interface ListOrdersOutput {
@@ -20,9 +21,10 @@ export class ListOrders {
 
     const isAdmin = typeof input.role === 'string' && input.role.toUpperCase() === 'ADMIN';
     const orders = isAdmin ? await this.repo.listAll() : await this.repo.listByUserId(input.userId);
+    const current = await Promise.all(orders.map((order) => expireIfAbandoned(order, this.repo)));
 
     return {
-      items: orders.map(toOrderDto),
+      items: current.map(toOrderDto),
     };
   }
 }

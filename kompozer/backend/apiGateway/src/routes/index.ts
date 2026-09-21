@@ -17,8 +17,8 @@ export interface ServiceUrls {
   cad: string;
   cart: string;
   order: string;
+  payment: string;
   notification: string;
-  chatbot: string;
   reporting: string;
 }
 
@@ -87,6 +87,17 @@ export function buildRoutes(services: ServiceUrls): ReturnType<typeof Router> {
     }),
   );
 
+  // ── paymentService ───────────────────────────────────────────────────────────
+  router.use(
+    '/payments',
+    createProxyMiddleware({
+      target: services.payment,
+      changeOrigin: true,
+      pathRewrite: (path: string) => `/payments${path}`,
+      on: { proxyReq: fixRequestBody },
+    }),
+  );
+
   // ── notificationService ──────────────────────────────────────────────────────
   router.use(
     '/notifications',
@@ -94,18 +105,6 @@ export function buildRoutes(services: ServiceUrls): ReturnType<typeof Router> {
       target: services.notification,
       changeOrigin: true,
       pathRewrite: (path: string) => `/notifications${path}`,
-      on: { proxyReq: fixRequestBody },
-    }),
-  );
-
-  // ── chatbotService ───────────────────────────────────────────────────────────
-  router.use(
-    '/chatbot',
-    createProxyMiddleware({
-      target: services.chatbot,
-      changeOrigin: true,
-      ws: true,
-      pathRewrite: (path: string) => `/chatbot${path}`,
       on: { proxyReq: fixRequestBody },
     }),
   );

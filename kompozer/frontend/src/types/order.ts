@@ -1,5 +1,5 @@
 /** Order domain contracts for order listing and status transitions. */
-export type OrderStatus = 'SUBMITTED' | 'DONE' | 'CANCELLED';
+export type OrderStatus = 'AWAITING_PAYMENT' | 'SUBMITTED' | 'DONE' | 'CANCELLED';
 
 export interface OrderItem {
   sku: string;
@@ -30,6 +30,8 @@ export interface Order {
   submittedAt: string;
   doneAt?: string;
   cancelledAt?: string;
+  configId?: string;
+  configName?: string;
 }
 
 export interface OrdersListDto {

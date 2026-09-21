@@ -38,7 +38,7 @@ export class FinalizeConfiguration {
       throw new ResourceConflictError('Configuration is already finalized');
     }
 
-    if (!configuration.environment || !configuration.category || !configuration.columnPlan) {
+    if (!configuration.category || !configuration.columnPlan) {
       throw new ResourceConflictError('Configuration setup is incomplete');
     }
 
@@ -51,7 +51,12 @@ export class FinalizeConfiguration {
       throw new ResourceConflictError('Configuration has no components to finalize');
     }
 
-    await this.cartServiceClient.pushBomToCart(configuration.ownerId, configuration.components);
+    await this.cartServiceClient.pushBomToCart(
+      configuration.ownerId,
+      configuration.components,
+      configuration.id,
+      configuration.name,
+    );
 
     const subscriptionClient = this.notificationSubscriptionClient;
     if (subscriptionClient) {

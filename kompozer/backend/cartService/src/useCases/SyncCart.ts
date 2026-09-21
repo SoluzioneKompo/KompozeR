@@ -73,6 +73,8 @@ export class SyncCart {
         removedUnavailableItems,
         total: 0,
         updatedAt: now,
+        configId: undefined,
+        configName: undefined,
       };
 
       await this.cartRepo.upsert(cleared);

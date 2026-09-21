@@ -60,7 +60,6 @@ export interface GetComponentInput {
 }
 
 export interface CreateComponentInput {
-  sku:            string;
   name:           string;
   description:    string;
   category:       ComponentCategory;

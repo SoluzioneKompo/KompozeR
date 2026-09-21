@@ -7,10 +7,13 @@ import type {
   ColumnDesign,
   ColumnPlan,
   ConfigurationDto,
-  Environment,
   NextOptionsDto,
+  TerminalSelection,
 } from '@/types/cad';
 import { ApiError } from '@/types/api';
+import { i18n } from '@/i18n';
+
+const t = i18n.global.t;
 
 const SHELF_THICKNESS_MM = 20;
 
@@ -25,9 +28,10 @@ export function useCad() {
   const createLoading = ref(false);
   const finalizeLoading = ref(false);
   const categoryLoading = ref(false);
-  const environmentLoading = ref(false);
+  const depthLoading = ref(false);
   const columnPlanLoading = ref(false);
   const designLoading = ref(false);
+  const resetLoading = ref(false);
   const nextOptionsLoading = ref(false);
 
   const error = ref('');
@@ -39,7 +43,7 @@ export function useCad() {
   const statusFilter = ref<ServiceConfigurationStatus | ''>('');
   const nextOptionsByColumn = ref<Record<number, NextOptionsDto['options']>>({});
 
-  const createName = ref('Nuova configurazione');
+  const createName = ref(t('cad.create.namePlaceholder'));
 
   const canPrev = computed(() => page.value > 1);
   const canNext = computed(() => page.value < totalPages.value);
@@ -65,7 +69,7 @@ export function useCad() {
         }
       }
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Errore caricamento configurazioni';
+      error.value = e instanceof ApiError ? e.message : t('cad.toasts.loadListError');
     } finally {
       loading.value = false;
     }
@@ -77,7 +81,7 @@ export function useCad() {
     try {
       selected.value = await cadService.get(id);
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore caricamento dettaglio configurazione';
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.loadDetailError');
       notifications.addToast('error', msg);
     } finally {
       detailLoading.value = false;
@@ -91,11 +95,11 @@ export function useCad() {
       const created = await cadService.create({
         name: createName.value.trim() || undefined,
       });
-      notifications.addToast('success', `Configurazione creata: ${created.name}`);
+      notifications.addToast('success', t('cad.toasts.configurationCreated', { name: created.name }));
       selected.value = created;
       await loadList();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore creazione configurazione';
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.createError');
       notifications.addToast('error', msg);
     } finally {
       createLoading.value = false;
@@ -110,31 +114,31 @@ export function useCad() {
     categoryLoading.value = true;
     try {
       selected.value = await cadService.setCategory(selected.value.id, category);
-      notifications.addToast('success', 'Categoria aggiornata');
+      notifications.addToast('success', t('cad.toasts.categoryUpdated'));
       await loadList();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore aggiornamento categoria';
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.categoryUpdateError');
       notifications.addToast('error', msg);
     } finally {
       categoryLoading.value = false;
     }
   }
 
-  /** Saves environment dimensions on the selected configuration. */
-  async function updateEnvironment(environment: Environment): Promise<void> {
+  /** Sets shelf depth on the selected configuration and refreshes list state. */
+  async function updateDepth(depthMm: number): Promise<void> {
     if (!selected.value) {
       return;
     }
-    environmentLoading.value = true;
+    depthLoading.value = true;
     try {
-      selected.value = await cadService.setEnvironment(selected.value.id, environment);
-      notifications.addToast('success', 'Ambiente aggiornato');
+      selected.value = await cadService.setDepth(selected.value.id, depthMm);
+      notifications.addToast('success', t('cad.toasts.depthUpdated'));
       await loadList();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore aggiornamento ambiente';
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.depthUpdateError');
       notifications.addToast('error', msg);
     } finally {
-      environmentLoading.value = false;
+      depthLoading.value = false;
     }
   }
 
@@ -146,10 +150,10 @@ export function useCad() {
     columnPlanLoading.value = true;
     try {
       selected.value = await cadService.setColumnPlan(selected.value.id, columnPlan);
-      notifications.addToast('success', 'Piano colonne aggiornato');
+      notifications.addToast('success', t('cad.toasts.columnPlanUpdated'));
       await loadList();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore aggiornamento piano colonne';
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.columnPlanUpdateError');
       notifications.addToast('error', msg);
     } finally {
       columnPlanLoading.value = false;
@@ -157,20 +161,38 @@ export function useCad() {
   }
 
   /** Saves full column design array (shelf levels) on the selected configuration. */
-  async function updateDesign(columnDesigns: ColumnDesign[]): Promise<void> {
+  async function updateDesign(columnDesigns: ColumnDesign[], terminalSelections?: TerminalSelection[]): Promise<void> {
     if (!selected.value) {
       return;
     }
     designLoading.value = true;
     try {
-      selected.value = await cadService.updateDesign(selected.value.id, columnDesigns);
-      notifications.addToast('success', 'Design colonne aggiornato');
+      selected.value = await cadService.updateDesign(selected.value.id, columnDesigns, terminalSelections);
+      notifications.addToast('success', t('cad.toasts.designUpdated'));
       await loadList();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore aggiornamento design';
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.designUpdateError');
       notifications.addToast('error', msg);
     } finally {
       designLoading.value = false;
+    }
+  }
+
+  /** Resets column plan and design back to CATEGORY_SELECTED, keeping the category. */
+  async function resetConfiguration(): Promise<void> {
+    if (!selected.value) {
+      return;
+    }
+    resetLoading.value = true;
+    try {
+      selected.value = await cadService.reset(selected.value.id);
+      notifications.addToast('success', t('cad.toasts.resetSuccess'));
+      await loadList();
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.resetError');
+      notifications.addToast('error', msg);
+    } finally {
+      resetLoading.value = false;
     }
   }
 
@@ -190,7 +212,7 @@ export function useCad() {
       return result.options;
     } catch (e) {
       if (!(e instanceof ApiError) || e.status !== 404) {
-        const msg = e instanceof ApiError ? e.message : 'Errore recupero opzioni disponibili';
+        const msg = e instanceof ApiError ? e.message : t('cad.toasts.nextOptionsError');
         notifications.addToast('error', msg);
       }
       return [];
@@ -243,7 +265,7 @@ export function useCad() {
     const draft = createDesignDraft(shelfThicknessMm);
     const target = draft.find((design) => design.columnIndex === columnIndex);
     if (!target) {
-      notifications.addToast('error', `Colonna ${columnIndex + 1} non trovata`);
+      notifications.addToast('error', t('cad.toasts.columnNotFound', { n: columnIndex + 1 }));
       return;
     }
 
@@ -283,10 +305,10 @@ export function useCad() {
     finalizeLoading.value = true;
     try {
       selected.value = await cadService.finalize(selected.value.id);
-      notifications.addToast('success', 'Configurazione finalizzata e inviata al carrello');
+      notifications.addToast('success', t('cad.toasts.finalizeSuccess'));
       await loadList();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore finalizzazione configurazione';
+      const msg = e instanceof ApiError ? e.message : t('cad.toasts.finalizeError');
       notifications.addToast('error', msg);
     } finally {
       finalizeLoading.value = false;
@@ -326,9 +348,10 @@ export function useCad() {
     createLoading,
     finalizeLoading,
     categoryLoading,
-    environmentLoading,
+    depthLoading,
     columnPlanLoading,
     designLoading,
+    resetLoading,
     nextOptionsLoading,
     error,
     page,
@@ -343,9 +366,10 @@ export function useCad() {
     loadDetail,
     createConfiguration,
     updateCategory,
-    updateEnvironment,
+    updateDepth,
     updateColumnPlan,
     updateDesign,
+    resetConfiguration,
     fetchNextOptions,
     setNextOptions,
     addTopShelf,

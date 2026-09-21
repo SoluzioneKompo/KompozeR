@@ -28,6 +28,23 @@ Stack di log aggregation che raccoglie automaticamente i log di tutti i servizi 
 | Log contenti "MongoDB" | `{job="docker"} \|= "MongoDB"` |
 | Seed completati | `{job="docker"} \|= "[seed] completato"` |
 
+### Log strutturati (JSON) — auth-service e api-gateway
+
+`auth-service` e `api-gateway` emettono log JSON strutturati (via [pino](https://getpino.io)), non testo semplice.
+Ogni riga ha almeno `level`, `time`, `service`, `msg`; gli eventi di business hanno anche `event` (e `traceId` per seguire
+una singola richiesta end-to-end attraverso gateway → servizio). Usa `| json` per estrarre i campi in Grafana:
+
+| Descrizione | Query LogQL |
+|---|---|
+| Tutti gli eventi auth (login, logout, register, ...) | `{service="auth-service"} \| json \| event != ""` |
+| Solo login riusciti | `{service="auth-service"} \| json \| event="auth.login.success"` |
+| Login/credenziali rifiutate (business, non bug) | `{service="auth-service"} \| json \| event="auth.request.rejected" \| code="INVALID_CREDENTIALS"` |
+| JWT non validi respinti dal gateway | `{service="api-gateway"} \| json \| code="INVALID_TOKEN"` |
+| Errori inattesi (bug, 500) | `{service=~"auth-service\|api-gateway"} \| json \| level=50` |
+| Segui una richiesta specifica attraverso i servizi | `{service=~"auth-service\|api-gateway"} \| json \| traceId="<id preso da un log o dall'header x-trace-id>"` |
+
+`level` è numerico (pino): 30=info, 40=warn, 50=error, 60=fatal.
+
 ## Configurazione
 
 **File:**

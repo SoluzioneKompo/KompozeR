@@ -1,9 +1,10 @@
 import { CreateConfiguration } from '../../src/useCases/write/CreateConfiguration';
 import { FinalizeConfiguration } from '../../src/useCases/write/FinalizeConfiguration';
 import { ReorderConfiguration } from '../../src/useCases/write/ReorderConfiguration';
+import { ResetConfiguration } from '../../src/useCases/write/ResetConfiguration';
 import { SetCategory } from '../../src/useCases/write/SetCategory';
+import { SetDepth } from '../../src/useCases/write/SetDepth';
 import { SetColumnPlan } from '../../src/useCases/write/SetColumnPlan';
-import { SetEnvironment } from '../../src/useCases/write/SetEnvironment';
 import { ListNextOptions } from '../../src/useCases/read/ListNextOptions';
 import { UpdateDesign } from '../../src/useCases/write/UpdateDesign';
 import { deriveBom } from '../../src/domain/services/deriveBom';
@@ -26,43 +27,9 @@ describe('CAD command use cases', () => {
 
     expect(result.ownerId).toBe('usr_1');
     expect(result.status).toBe('DRAFT');
-    expect(result.environment).toBeNull();
     expect(result.columnPlan).toBeNull();
     expect(result.columnDesigns).toEqual([]);
     expect(result.version).toBe(1);
-  });
-
-  it('SetEnvironment advances configuration to ENVIRONMENT_DEFINED', async () => {
-    const repo = new FakeConfigurationRepository();
-    repo.seed(buildConfiguration());
-
-    const useCase = new SetEnvironment(repo);
-    const result = await useCase.execute({
-      id: 'cfg_test',
-      ownerId: 'usr_1',
-      environment: {
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      },
-    });
-
-    expect(result.status).toBe('ENVIRONMENT_DEFINED');
-    expect(result.environment?.maxWidthMm).toBe(5000);
-    expect(result.version).toBe(2);
-  });
-
-  it('SetCategory requires environment first', async () => {
-    const repo = new FakeConfigurationRepository();
-    repo.seed(buildConfiguration());
-
-    const useCase = new SetCategory(repo);
-
-    await expect(
-      useCase.execute({ id: 'cfg_test', ownerId: 'usr_1', category: 'TONDO' }),
-    ).rejects.toMatchObject({ code: 'RESOURCE_CONFLICT' });
   });
 
   it('FinalizeConfiguration marks configuration as FINALIZED and pushes BOM to cart', async () => {
@@ -73,13 +40,6 @@ describe('CAD command use cases', () => {
       buildConfiguration({
         status: 'DESIGN_IN_PROGRESS',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
         columnPlan: {
           columnCount: 2,
           columns: [
@@ -120,13 +80,6 @@ describe('CAD command use cases', () => {
       buildConfiguration({
         status: 'FINALIZED',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
         columnPlan: {
           columnCount: 1,
           columns: [{ index: 0, shelfWidthMm: 800 }],
@@ -168,13 +121,6 @@ describe('CAD command use cases', () => {
       buildConfiguration({
         status: 'COLUMNS_DEFINED',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
         columnPlan: {
           columnCount: 1,
           columns: [{ index: 0, shelfWidthMm: 800 }],
@@ -199,13 +145,6 @@ describe('CAD command use cases', () => {
       buildConfiguration({
         status: 'CATEGORY_SELECTED',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
       }),
     );
 
@@ -232,13 +171,6 @@ describe('CAD command use cases', () => {
       buildConfiguration({
         status: 'CATEGORY_SELECTED',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
       }),
     );
 
@@ -260,83 +192,12 @@ describe('CAD command use cases', () => {
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
-  it('SetColumnPlan rejects total width above environment maxWidthMm', async () => {
-    const repo = new FakeConfigurationRepository();
-    repo.seed(
-      buildConfiguration({
-        status: 'CATEGORY_SELECTED',
-        category: 'TONDO',
-        environment: {
-          maxWidthMm: 1000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
-      }),
-    );
-
-    const useCase = new SetColumnPlan(repo, new FakeCatalogRulesProvider());
-
-    await expect(
-      useCase.execute({
-        id: 'cfg_test',
-        ownerId: 'usr_1',
-        columnPlan: {
-          columnCount: 2,
-          columns: [
-            { index: 0, shelfWidthMm: 600 },
-            { index: 1, shelfWidthMm: 800 },
-          ],
-        },
-      }),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
-  });
-
-  it('UpdateDesign rejects columns that exceed max height with shelf thickness and terminal', async () => {
-    const repo = new FakeConfigurationRepository();
-    repo.seed(
-      buildConfiguration({
-        status: 'COLUMNS_DEFINED',
-        category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 900,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
-        columnPlan: {
-          columnCount: 1,
-          columns: [{ index: 0, shelfWidthMm: 800 }],
-        },
-      }),
-    );
-
-    const useCase = new UpdateDesign(repo, new FakeCatalogRulesProvider());
-
-    await expect(
-      useCase.execute({
-        id: 'cfg_test',
-        ownerId: 'usr_1',
-        columnDesigns: [{ columnIndex: 0, levelsMm: [860], shelfThicknessMm: 20 }],
-      }),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
-  });
-
   it('UpdateDesign rejects adjacent designs when the shared spine would require an invalid segment', async () => {
     const repo = new FakeConfigurationRepository();
     repo.seed(
       buildConfiguration({
         status: 'COLUMNS_DEFINED',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
         columnPlan: {
           columnCount: 2,
           columns: [
@@ -367,13 +228,6 @@ describe('CAD command use cases', () => {
       buildConfiguration({
         status: 'COLUMNS_DEFINED',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
         columnPlan: {
           columnCount: 2,
           columns: [
@@ -404,13 +258,6 @@ describe('CAD command use cases', () => {
       buildConfiguration({
         status: 'COLUMNS_DEFINED',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
         columnPlan: {
           columnCount: 1,
           columns: [{ index: 0, shelfWidthMm: 800 }],
@@ -429,60 +276,12 @@ describe('CAD command use cases', () => {
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
-  it('UpdateDesign rejects a design when the shared spine has no valid terminal fit', async () => {
-    const repo = new FakeConfigurationRepository();
-    repo.seed(
-      buildConfiguration({
-        status: 'COLUMNS_DEFINED',
-        category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 190,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
-        columnPlan: {
-          columnCount: 2,
-          columns: [
-            { index: 0, shelfWidthMm: 800 },
-            { index: 1, shelfWidthMm: 600 },
-          ],
-        },
-      }),
-    );
-
-    const rules = buildCatalogRules({
-      terminalHeightsMm: [60],
-      footHeightsMm: [120],
-      shelfByWidthMm: new Map([
-        [600, { type: 'RIPIANO', sku: 'RIP-600', name: 'Ripiano 600', priceCents: 2990, widthMm: 600, heightMm: 20, depthMm: 300 }],
-        [800, { type: 'RIPIANO', sku: 'RIP-800', name: 'Ripiano 800', priceCents: 3490, widthMm: 800, heightMm: 20, depthMm: 300 }],
-      ]),
-    });
-    const useCase = new UpdateDesign(repo, new FakeCatalogRulesProvider(rules));
-
-    await expect(
-      useCase.execute({
-        id: 'cfg_test',
-        ownerId: 'usr_1',
-        columnDesigns: [{ columnIndex: 0, levelsMm: [120], shelfThicknessMm: 20 }],
-      }),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });  });
-
   it('UpdateDesign normalizes client shelf thickness to the fixed 20mm value', async () => {
     const repo = new FakeConfigurationRepository();
     repo.seed(
       buildConfiguration({
         status: 'COLUMNS_DEFINED',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
         columnPlan: {
           columnCount: 1,
           columns: [{ index: 0, shelfWidthMm: 800 }],
@@ -500,40 +299,9 @@ describe('CAD command use cases', () => {
     expect(result.columnDesigns[0].shelfThicknessMm).toBe(20);
   });
 
-  it('SetEnvironment initializes components to empty array', async () => {
-    const repo = new FakeConfigurationRepository();
-    repo.seed(buildConfiguration());
-
-    const useCase = new SetEnvironment(repo);
-    const result = await useCase.execute({
-      id: 'cfg_test',
-      ownerId: 'usr_1',
-      environment: {
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      },
-    });
-
-    expect(result.bom).toEqual([]);
-  });
-
   it('SetCategory initializes components to empty array', async () => {
     const repo = new FakeConfigurationRepository();
-    repo.seed(
-      buildConfiguration({
-        status: 'ENVIRONMENT_DEFINED',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
-      }),
-    );
+    repo.seed(buildConfiguration());
 
     const useCase = new SetCategory(repo);
     const result = await useCase.execute({
@@ -551,13 +319,6 @@ describe('CAD command use cases', () => {
       buildConfiguration({
         status: 'CATEGORY_SELECTED',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
       }),
     );
 
@@ -580,13 +341,6 @@ describe('CAD command use cases', () => {
       buildConfiguration({
         status: 'COLUMNS_DEFINED',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
         columnPlan: {
           columnCount: 1,
           columns: [{ index: 0, shelfWidthMm: 800 }],
@@ -615,13 +369,6 @@ describe('CAD command use cases', () => {
       buildConfiguration({
         status: 'DESIGN_IN_PROGRESS',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
         columnPlan: {
           columnCount: 1,
           columns: [{ index: 0, shelfWidthMm: 800 }],
@@ -648,13 +395,6 @@ describe('CAD command use cases', () => {
       buildConfiguration({
         status: 'COLUMNS_DEFINED',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
         columnPlan: {
           columnCount: 1,
           columns: [{ index: 0, shelfWidthMm: 800 }],
@@ -686,13 +426,6 @@ describe('CAD command use cases', () => {
       buildConfiguration({
         status: 'DESIGN_IN_PROGRESS',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
         columnPlan: {
           columnCount: 2,
           columns: [
@@ -717,19 +450,197 @@ describe('CAD command use cases', () => {
     expect(conflicting?.reasonCode).toBe('ADJACENCY_CONFLICT');
   });
 
+  it('ResetConfiguration clears columns/design but keeps the selected category', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(
+      buildConfiguration({
+        status: 'READY_FOR_FINALIZE',
+        category: 'TONDO',
+        columnPlan: {
+          columnCount: 1,
+          columns: [{ index: 0, shelfWidthMm: 800 }],
+        },
+        columnDesigns: [{ columnIndex: 0, levelsMm: [120, 440], shelfThicknessMm: 20 }],
+        terminalSelections: [{ spineIndex: 0, heightMm: 40 }],
+        components: [
+          { sku: 'RIP-800', name: 'Ripiano 800', quantity: 2, unitPriceCents: 3490, componentType: 'RIPIANO' },
+        ],
+      }),
+    );
+
+    const useCase = new ResetConfiguration(repo);
+    const result = await useCase.execute({ id: 'cfg_test', ownerId: 'usr_1' });
+
+    expect(result.category).toBe('TONDO');
+    expect(result.status).toBe('CATEGORY_SELECTED');
+    expect(result.columnPlan).toBeNull();
+    expect(result.columnDesigns).toEqual([]);
+    expect(result.terminalSelections).toEqual([]);
+    expect(result.bom).toEqual([]);
+    expect(result.version).toBe(2);
+  });
+
+  it('ResetConfiguration rejects a finalized configuration', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(buildConfiguration({ status: 'FINALIZED', category: 'TONDO' }));
+
+    const useCase = new ResetConfiguration(repo);
+    await expect(
+      useCase.execute({ id: 'cfg_test', ownerId: 'usr_1' }),
+    ).rejects.toMatchObject({ code: 'RESOURCE_CONFLICT' });
+  });
+
+  it('SetColumnPlan changing columns after a design exists resets design and terminal selections', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(
+      buildConfiguration({
+        status: 'DESIGN_IN_PROGRESS',
+        category: 'TONDO',
+        columnPlan: {
+          columnCount: 1,
+          columns: [{ index: 0, shelfWidthMm: 800 }],
+        },
+        columnDesigns: [{ columnIndex: 0, levelsMm: [120], shelfThicknessMm: 20 }],
+        terminalSelections: [{ spineIndex: 0, heightMm: 40 }],
+      }),
+    );
+
+    const useCase = new SetColumnPlan(repo, new FakeCatalogRulesProvider());
+    const result = await useCase.execute({
+      id: 'cfg_test',
+      ownerId: 'usr_1',
+      columnPlan: {
+        columnCount: 2,
+        columns: [
+          { index: 0, shelfWidthMm: 800 },
+          { index: 1, shelfWidthMm: 600 },
+        ],
+      },
+    });
+
+    expect(result.status).toBe('COLUMNS_DEFINED');
+    expect(result.columnPlan?.columns).toHaveLength(2);
+    expect(result.columnDesigns).toEqual([]);
+    expect(result.terminalSelections).toEqual([]);
+  });
+
+  it('UpdateDesign rejects a terminal selection height not available in the catalog', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(
+      buildConfiguration({
+        status: 'COLUMNS_DEFINED',
+        category: 'TONDO',
+        columnPlan: {
+          columnCount: 1,
+          columns: [{ index: 0, shelfWidthMm: 800 }],
+        },
+      }),
+    );
+
+    const useCase = new UpdateDesign(repo, new FakeCatalogRulesProvider());
+
+    await expect(
+      useCase.execute({
+        id: 'cfg_test',
+        ownerId: 'usr_1',
+        columnDesigns: [{ columnIndex: 0, levelsMm: [120, 440], shelfThicknessMm: 20 }],
+        terminalSelections: [{ spineIndex: 0, heightMm: 999 }],
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('UpdateDesign rejects a terminal selection spineIndex outside the spine range', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(
+      buildConfiguration({
+        status: 'COLUMNS_DEFINED',
+        category: 'TONDO',
+        columnPlan: {
+          columnCount: 1,
+          columns: [{ index: 0, shelfWidthMm: 800 }],
+        },
+      }),
+    );
+
+    const useCase = new UpdateDesign(repo, new FakeCatalogRulesProvider());
+
+    // 1 column => spines 0..1; spineIndex 2 does not exist.
+    await expect(
+      useCase.execute({
+        id: 'cfg_test',
+        ownerId: 'usr_1',
+        columnDesigns: [{ columnIndex: 0, levelsMm: [120, 440], shelfThicknessMm: 20 }],
+        terminalSelections: [{ spineIndex: 2, heightMm: 40 }],
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('UpdateDesign persists a valid terminal selection and deriveBom uses its exact SKU', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(
+      buildConfiguration({
+        status: 'COLUMNS_DEFINED',
+        category: 'TONDO',
+        columnPlan: {
+          columnCount: 1,
+          columns: [{ index: 0, shelfWidthMm: 800 }],
+        },
+      }),
+    );
+
+    const catalog = new FakeCatalogRulesProvider(buildCatalogRules({
+      terminalHeightsMm: [40, 80],
+      terminalByHeightMm: new Map([
+        [40, { type: 'TERMINALE', sku: 'TER-40', name: 'Terminale 40', priceCents: 390, widthMm: 40, heightMm: 40, depthMm: 40 }],
+        [80, { type: 'TERMINALE', sku: 'TER-80', name: 'Terminale 80', priceCents: 590, widthMm: 40, heightMm: 80, depthMm: 40 }],
+      ]),
+    }));
+
+    const useCase = new UpdateDesign(repo, catalog);
+    const result = await useCase.execute({
+      id: 'cfg_test',
+      ownerId: 'usr_1',
+      columnDesigns: [{ columnIndex: 0, levelsMm: [120, 440], shelfThicknessMm: 20 }],
+      terminalSelections: [{ spineIndex: 0, heightMm: 80 }, { spineIndex: 1, heightMm: 80 }],
+    });
+
+    expect(result.terminalSelections).toEqual([{ spineIndex: 0, heightMm: 80 }, { spineIndex: 1, heightMm: 80 }]);
+    const terminalItems = result.bom!.filter((item) => item.componentType === 'TERMINALE');
+    expect(terminalItems).toHaveLength(1);
+    expect(terminalItems[0].sku).toBe('TER-80');
+  });
+
+  it('UpdateDesign omitting terminalSelections keeps the previously persisted selections', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(
+      buildConfiguration({
+        status: 'DESIGN_IN_PROGRESS',
+        category: 'TONDO',
+        columnPlan: {
+          columnCount: 1,
+          columns: [{ index: 0, shelfWidthMm: 800 }],
+        },
+        columnDesigns: [{ columnIndex: 0, levelsMm: [120], shelfThicknessMm: 20 }],
+        terminalSelections: [{ spineIndex: 0, heightMm: 40 }, { spineIndex: 1, heightMm: 40 }],
+      }),
+    );
+
+    const useCase = new UpdateDesign(repo, new FakeCatalogRulesProvider());
+    const result = await useCase.execute({
+      id: 'cfg_test',
+      ownerId: 'usr_1',
+      columnDesigns: [{ columnIndex: 0, levelsMm: [120, 440], shelfThicknessMm: 20 }],
+    });
+
+    expect(result.terminalSelections).toEqual([{ spineIndex: 0, heightMm: 40 }, { spineIndex: 1, heightMm: 40 }]);
+  });
+
   it('ListNextOptions returns empty options for column index outside current plan', async () => {
     const repo = new FakeConfigurationRepository();
     repo.seed(
       buildConfiguration({
         status: 'COLUMNS_DEFINED',
         category: 'TONDO',
-        environment: {
-          maxWidthMm: 5000,
-          maxHeightMm: 3000,
-          minWidthMm: 600,
-          minHeightMm: 220,
-          unit: 'mm',
-        },
         columnPlan: {
           columnCount: 1,
           columns: [{ index: 0, shelfWidthMm: 800 }],
@@ -747,5 +658,87 @@ describe('CAD command use cases', () => {
     expect(result.columnIndex).toBe(1);
     expect(result.options).toEqual([]);
     expect(result.lookAhead.feasible).toBe(false);
+  });
+
+  it('SetDepth stores the selected depth once a category is set', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(buildConfiguration({ status: 'CATEGORY_SELECTED', category: 'TONDO' }));
+
+    const useCase = new SetDepth(repo, new FakeCatalogRulesProvider());
+    const result = await useCase.execute({ id: 'cfg_test', ownerId: 'usr_1', depthMm: 300 });
+
+    expect(result.depthMm).toBe(300);
+    expect(result.status).toBe('CATEGORY_SELECTED');
+  });
+
+  it('SetDepth rejects a depth not available in the catalog for the category', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(buildConfiguration({ status: 'CATEGORY_SELECTED', category: 'TONDO' }));
+
+    const useCase = new SetDepth(repo, new FakeCatalogRulesProvider());
+
+    await expect(
+      useCase.execute({ id: 'cfg_test', ownerId: 'usr_1', depthMm: 999 }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('SetDepth rejects when no category has been selected yet', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(buildConfiguration({ status: 'DRAFT', category: null }));
+
+    const useCase = new SetDepth(repo, new FakeCatalogRulesProvider());
+
+    await expect(
+      useCase.execute({ id: 'cfg_test', ownerId: 'usr_1', depthMm: 300 }),
+    ).rejects.toMatchObject({ code: 'RESOURCE_CONFLICT' });
+  });
+
+  it('SetDepth changing depth after a column plan exists resets plan/design back to CATEGORY_SELECTED', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(
+      buildConfiguration({
+        status: 'DESIGN_IN_PROGRESS',
+        category: 'TONDO',
+        depthMm: 300,
+        columnPlan: { columnCount: 1, columns: [{ index: 0, shelfWidthMm: 800 }] },
+        columnDesigns: [{ columnIndex: 0, levelsMm: [120], shelfThicknessMm: 20 }],
+      }),
+    );
+
+    const catalog = new FakeCatalogRulesProvider(buildCatalogRules({
+      shelfByWidthMm: new Map([
+        [600, { type: 'RIPIANO', sku: 'RIP-600-D200', name: 'Ripiano 600', priceCents: 2990, widthMm: 600, heightMm: 20, depthMm: 200 }],
+      ]),
+    }));
+
+    const useCase = new SetDepth(repo, catalog);
+    const result = await useCase.execute({ id: 'cfg_test', ownerId: 'usr_1', depthMm: 200 });
+
+    expect(result.depthMm).toBe(200);
+    expect(result.status).toBe('CATEGORY_SELECTED');
+    expect(result.columnPlan).toBeNull();
+    expect(result.columnDesigns).toEqual([]);
+  });
+
+  it('SetColumnPlan forwards the configuration depth to the catalog rules provider', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(buildConfiguration({ status: 'CATEGORY_SELECTED', category: 'TONDO', depthMm: 200 }));
+
+    const calls: Array<[string | undefined, number | undefined]> = [];
+    const spyingCatalog = new FakeCatalogRulesProvider();
+    const originalGetRules = spyingCatalog.getRules.bind(spyingCatalog);
+    spyingCatalog.getRules = async (category, depthMm) => {
+      calls.push([category, depthMm]);
+      return originalGetRules(category, depthMm);
+    };
+
+    const useCase = new SetColumnPlan(repo, spyingCatalog);
+    await useCase.execute({
+      id: 'cfg_test',
+      ownerId: 'usr_1',
+      columnPlan: { columnCount: 1, columns: [{ index: 0, shelfWidthMm: 800 }] },
+    });
+
+    expect(calls).toEqual([['TONDO', 200]]);
   });
 });

@@ -1,5 +1,6 @@
 /** Coordinates cart operations and local UI state for cart interactions. */
 import { ref } from 'vue';
+import { i18n } from '@/i18n';
 import { cartService } from '@/services/cartService';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useCartStore } from '@/store/cartStore';
@@ -24,7 +25,7 @@ export function useCart() {
       cart.value = await cartService.get();
       cartStore.setFromCart(cart.value);
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Errore caricamento carrello';
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('cart.errors.load');
     } finally {
       loading.value = false;
     }
@@ -45,21 +46,22 @@ export function useCart() {
       }
       cartStore.setFromCart(cart.value);
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore aggiornamento quantità';
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('cart.errors.updateQuantity');
       notifications.addToast('error', msg);
     }
   }
 
-  /** Submits cart as order, clears badge, and reloads cart state. */
-  async function checkout(expeditionInfo: ExpeditionInfo): Promise<void> {
+  /** Submits cart as order, clears badge, and reloads cart state. Returns the new order id. */
+  async function checkout(expeditionInfo: ExpeditionInfo): Promise<string> {
     checkoutLoading.value = true;
     try {
       const result = await cartService.checkout(expeditionInfo);
       cartStore.clearCount();
-      notifications.addToast('success', `Ordine ${result.orderId} creato con successo`);
+      notifications.addToast('success', i18n.global.t('cart.notifications.orderCreated', { orderId: result.orderId }));
       await load();
+      return result.orderId;
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore durante checkout';
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('cart.errors.checkout');
       notifications.addToast('error', msg);
       throw e;
     } finally {
@@ -73,10 +75,10 @@ export function useCart() {
     try {
       await cartService.clear();
       cartStore.clearCount();
-      notifications.addToast('success', 'Carrello svuotato');
+      notifications.addToast('success', i18n.global.t('cart.notifications.cleared'));
       await load();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore durante svuotamento carrello';
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('cart.errors.clear');
       notifications.addToast('error', msg);
     } finally {
       clearLoading.value = false;

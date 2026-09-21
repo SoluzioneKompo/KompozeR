@@ -1,5 +1,6 @@
 import { ConfigurationRepository } from '../../domain/ports/ConfigurationRepository';
 import { CatalogRulesProvider } from '../../domain/ports/CatalogRulesProvider';
+import { logger } from '../../infrastructure/logger';
 import {
   GetConfigurationInput,
   ConfigurationDto,
@@ -10,7 +11,7 @@ import {
   ValidationError,
 } from '../../domain/entities/errors';
 import { deriveBom } from '../../domain/services/deriveBom';
-import { canAccessConfiguration } from '../access';
+import { canAccessConfiguration, isAdminRole } from '../access';
 
 /** Read use case that returns one owned configuration by id. */
 export class GetConfiguration {
@@ -29,7 +30,9 @@ export class GetConfiguration {
     }
 
     const configuration = await this.configurationRepository.findById(input.id);
-    if (!configuration || !canAccessConfiguration(configuration, input.ownerId)) {
+    const hasAccess =
+      !!configuration && (canAccessConfiguration(configuration, input.ownerId) || isAdminRole(input.actorRole));
+    if (!configuration || !hasAccess) {
       throw new ResourceNotFoundError('Configuration not found');
     }
 
@@ -42,12 +45,18 @@ export class GetConfiguration {
       this.catalogRulesProvider
     ) {
       try {
-        console.log(`[CAD] Lazy migrating components for configuration ${configuration.id}`);
-        const rules = await this.catalogRulesProvider.getRules(configuration.category);
+        logger.info(
+          { event: 'cad.configuration.lazy_migration', configurationId: configuration.id },
+          'Lazy migrating components for configuration',
+        );
+        const rules = await this.catalogRulesProvider.getRules(configuration.category, configuration.depthMm ?? undefined);
         configuration.components = deriveBom(configuration, rules);
       } catch (err) {
         // Log but don't fail — return configuration as-is if deriveBom fails
-        console.error(`[CAD] Lazy migration failed for configuration ${configuration.id}:`, err);
+        logger.error(
+          { err, configurationId: configuration.id },
+          'Lazy migration failed for configuration',
+        );
       }
     }
 

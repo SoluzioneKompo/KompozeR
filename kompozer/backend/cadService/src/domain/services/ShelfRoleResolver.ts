@@ -1,0 +1,72 @@
+export type ShelfRole = 'NORMALE' | 'BORDO' | 'INTERMEDIO';
+
+export interface ColumnLevelsForRole {
+  readonly levelsMm: readonly number[];
+}
+
+/**
+ * Resolves, for every (column, level) pair, whether the shelf at that level
+ * is a plain shelf or an "intelligent" one (BORDO/INTERMEDIO).
+ *
+ * A shelf becomes intelligent when its level is shared with one or more
+ * index-adjacent columns (a "cluster"): a cluster of 2 columns uses BORDO on
+ * both, a cluster of N>=3 uses BORDO on the two ends and INTERMEDIO on every
+ * column in between. A level not shared with any adjacent column stays
+ * NORMALE. Columns that share the same level value but are not adjacent by
+ * index (e.g. separated by a column without that level) form separate
+ * clusters — adjacency is by array position, matching the convention used by
+ * SpineModel.buildSpines.
+ *
+ * Pure geometry: does not know about the catalog. Callers are responsible
+ * for checking that BORDO/INTERMEDIO shelves are actually available for the
+ * widths involved.
+ */
+export function resolveShelfRoles(
+  columnLevels: readonly ColumnLevelsForRole[],
+): Map<number, Map<number, ShelfRole>> {
+  const rolesByColumn = new Map<number, Map<number, ShelfRole>>();
+  columnLevels.forEach((_, position) => rolesByColumn.set(position, new Map()));
+
+  const positionsByLevel = new Map<number, number[]>();
+  columnLevels.forEach((column, position) => {
+    for (const levelMm of column.levelsMm) {
+      const positions = positionsByLevel.get(levelMm) ?? [];
+      positions.push(position);
+      positionsByLevel.set(levelMm, positions);
+    }
+  });
+
+  for (const [levelMm, positions] of positionsByLevel) {
+    const sortedPositions = [...positions].sort((a, b) => a - b);
+
+    let clusterStart = 0;
+    for (let i = 1; i <= sortedPositions.length; i += 1) {
+      const isBoundary = i === sortedPositions.length || sortedPositions[i] !== sortedPositions[i - 1] + 1;
+      if (!isBoundary) {
+        continue;
+      }
+
+      const cluster = sortedPositions.slice(clusterStart, i);
+      assignClusterRoles(cluster, levelMm, rolesByColumn);
+      clusterStart = i;
+    }
+  }
+
+  return rolesByColumn;
+}
+
+function assignClusterRoles(
+  cluster: readonly number[],
+  levelMm: number,
+  rolesByColumn: Map<number, Map<number, ShelfRole>>,
+): void {
+  if (cluster.length === 1) {
+    rolesByColumn.get(cluster[0])?.set(levelMm, 'NORMALE');
+    return;
+  }
+
+  cluster.forEach((position, index) => {
+    const role: ShelfRole = index === 0 || index === cluster.length - 1 ? 'BORDO' : 'INTERMEDIO';
+    rolesByColumn.get(position)?.set(levelMm, role);
+  });
+}

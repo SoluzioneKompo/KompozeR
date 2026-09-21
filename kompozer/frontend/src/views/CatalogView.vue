@@ -1,14 +1,19 @@
 <script setup lang="ts">
-/** Catalog browsing view with filters and add-to-cart interactions. */
-import { onMounted } from 'vue';
+/** Catalog browsing view: components grouped by category and type, with per-type size selection. */
+import { onMounted, reactive, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useCatalog } from '@/composables/useCatalog';
+import type { CatalogItem } from '@/types/catalog';
+import { groupCatalog, dimensionLabel, type TypeGroup, type CategoryGroup } from '@/utils/catalogGrouping';
+import { getIntlLocale } from '@/i18n/format';
+
+const { t } = useI18n();
 
 const {
   items,
   loading,
   error,
   search,
-  category,
   availableOnly,
   load,
   addToCart,
@@ -19,10 +24,27 @@ onMounted(() => {
 });
 
 function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('it-IT', {
+  return new Intl.NumberFormat(getIntlLocale(), {
     style: 'currency',
     currency: 'EUR',
   }).format(cents / 100);
+}
+
+const groupedCatalog = computed<CategoryGroup[]>(() => groupCatalog(items.value));
+
+// Remembers the size chosen by the user for each Type group; without an explicit
+// selection, the first available variant is shown as the default.
+const selectedVariantId = reactive<Record<string, string>>({});
+
+function selectedVariant(group: TypeGroup): CatalogItem {
+  const chosenId = selectedVariantId[group.key];
+  const chosen = chosenId ? group.variants.find((v) => v.id === chosenId) : undefined;
+  if (chosen) return chosen;
+  return group.variants.find((v) => v.isAvailable) ?? group.variants[0];
+}
+
+function onVariantChange(group: TypeGroup, event: Event): void {
+  selectedVariantId[group.key] = (event.target as HTMLSelectElement).value;
 }
 </script>
 
@@ -30,74 +52,82 @@ function formatCurrency(cents: number): string {
   <div class="view-container">
     <header class="catalog-header">
       <div>
-        <h1>Catalogo</h1>
-        <p class="subtitle">Componenti disponibili per il tuo progetto</p>
+        <h1>{{ t('catalog.page.title') }}</h1>
+        <p class="subtitle">{{ t('catalog.page.subtitle') }}</p>
       </div>
-      <button class="btn btn--light" :disabled="loading" @click="load">Aggiorna</button>
+      <button class="btn btn--light" :disabled="loading" @click="load">{{ t('catalog.page.refresh') }}</button>
     </header>
 
     <section class="filters">
       <label class="field">
-        <span class="field__label">Ricerca</span>
+        <span class="field__label">{{ t('catalog.filters.searchLabel') }}</span>
         <input
           v-model="search"
           class="field__input"
           type="text"
-          aria-label="Ricerca nel catalogo"
-          placeholder="Nome o descrizione"
+          :aria-label="t('catalog.filters.searchAriaLabel')"
+          :placeholder="t('catalog.filters.searchPlaceholder')"
           @keyup.enter="load"
         />
       </label>
 
-      <label class="field">
-        <span class="field__label">Categoria</span>
-        <select v-model="category" class="field__input" aria-label="Filtro categoria" @change="load">
-          <option value="">Tutte</option>
-          <option value="TONDO">Tondo</option>
-          <option value="QUADRO">Quadro</option>
-          <option value="KUBE">Kube</option>
-          <option value="INTELLIGENTE">Intelligente</option>
-        </select>
-      </label>
-
       <label class="checkbox">
-        <input v-model="availableOnly" type="checkbox" aria-label="Mostra solo componenti disponibili" @change="load" />
-        Solo disponibili
+        <input v-model="availableOnly" type="checkbox" :aria-label="t('catalog.filters.availableOnlyAriaLabel')" @change="load" />
+        {{ t('catalog.filters.availableOnly') }}
       </label>
 
-      <button class="btn btn--primary" :disabled="loading" aria-label="Applica filtri catalogo" @click="load">
-        Cerca
+      <button class="btn btn--primary" :disabled="loading" :aria-label="t('catalog.filters.applyAriaLabel')" @click="load">
+        {{ t('catalog.filters.search') }}
       </button>
     </section>
 
     <p v-if="error" class="error" role="alert" aria-live="assertive">{{ error }}</p>
-    <p v-if="loading" class="placeholder">Caricamento catalogo...</p>
-    <p v-else-if="items.length === 0" class="placeholder">Nessun componente trovato.</p>
+    <p v-if="loading" class="placeholder">{{ t('catalog.state.loading') }}</p>
+    <p v-else-if="items.length === 0" class="placeholder">{{ t('catalog.state.empty') }}</p>
 
-    <section v-else class="grid">
-      <article v-for="item in items" :key="item.id" class="card">
-        <div class="card__meta">
-          <span class="tag">{{ item.category }}</span>
-          <span :class="['availability', item.isAvailable ? 'ok' : 'no']">
-            {{ item.isAvailable ? 'Disponibile' : 'Non disponibile' }}
-          </span>
+    <template v-else>
+      <section v-for="catGroup in groupedCatalog" :key="catGroup.category" class="category-section">
+        <h2 class="category-section__title">{{ catGroup.label }}</h2>
+
+        <div class="grid">
+          <article v-for="group in catGroup.types" :key="group.key" class="card">
+            <div class="card__meta">
+              <h3 class="card__title">{{ group.label }}</h3>
+              <span :class="['availability', selectedVariant(group).isAvailable ? 'ok' : 'no']">
+                {{ selectedVariant(group).isAvailable ? t('catalog.availability.available') : t('catalog.availability.unavailable') }}
+              </span>
+            </div>
+
+            <p class="card__desc">{{ selectedVariant(group).description }}</p>
+
+            <label class="field">
+              <span class="field__label">{{ t('catalog.card.sizeLabel') }}</span>
+              <select
+                class="field__input"
+                :aria-label="t('catalog.card.sizeAriaLabel', { name: group.label })"
+                :value="selectedVariant(group).id"
+                @change="onVariantChange(group, $event)"
+              >
+                <option v-for="variant in group.variants" :key="variant.id" :value="variant.id">
+                  {{ dimensionLabel(variant) }}
+                </option>
+              </select>
+            </label>
+
+            <div class="card__footer">
+              <span class="price">{{ formatCurrency(selectedVariant(group).price) }}</span>
+              <button
+                class="btn btn--primary"
+                :disabled="!selectedVariant(group).isAvailable"
+                @click="addToCart(selectedVariant(group))"
+              >
+                {{ t('catalog.card.addToCart') }}
+              </button>
+            </div>
+          </article>
         </div>
-
-        <h2 class="card__title">{{ item.name }}</h2>
-        <p class="card__desc">{{ item.description }}</p>
-
-        <div class="card__footer">
-          <span class="price">{{ formatCurrency(item.price) }}</span>
-          <button
-            class="btn btn--primary"
-            :disabled="!item.isAvailable"
-            @click="addToCart(item)"
-          >
-            Aggiungi
-          </button>
-        </div>
-      </article>
-    </section>
+      </section>
+    </template>
   </div>
 </template>
 
@@ -123,7 +153,7 @@ function formatCurrency(cents: number): string {
 .filters {
   margin-top: var(--space-6);
   display: grid;
-  grid-template-columns: 2fr 1fr auto auto;
+  grid-template-columns: 2fr auto auto;
   gap: var(--space-3);
   align-items: end;
 }
@@ -159,8 +189,18 @@ function formatCurrency(cents: number): string {
   margin-top: var(--space-4);
 }
 
+.category-section {
+  margin-top: var(--space-8);
+}
+
+.category-section__title {
+  font-size: var(--font-size-2xl);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
 .grid {
-  margin-top: var(--space-6);
+  margin-top: var(--space-4);
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: var(--space-4);
@@ -181,14 +221,6 @@ function formatCurrency(cents: number): string {
   justify-content: space-between;
   align-items: center;
   gap: var(--space-2);
-}
-
-.tag {
-  font-size: var(--font-size-xs);
-  background: var(--color-accent-subtle);
-  color: var(--color-accent);
-  border-radius: var(--radius-full);
-  padding: 2px 8px;
 }
 
 .availability {

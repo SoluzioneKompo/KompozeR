@@ -1,13 +1,14 @@
 <script setup lang="ts">
-/** CAD configurator view orchestrating environment, design, and BOM workflows. */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+/** CAD configurator view orchestrating category, design, and BOM workflows. */
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import type {
   Category,
   ColumnDesign,
   ColumnPlan,
-  Environment,
   NextOption,
+  TerminalSelection,
 } from '@/types/cad';
 import { useCad } from '@/composables/useCad';
 import { useAuthStore } from '@/store/authStore';
@@ -16,6 +17,12 @@ import { cadCollabSocket, type CollabFieldPath, type CollabPresencePayload } fro
 import { catalogService } from '@/services/catalogService';
 import type { CatalogItem } from '@/types/catalog';
 import type { ConfigurationDto } from '@/types/cad';
+import { typeLabel } from '@/utils/catalogGrouping';
+import { getIntlLocale } from '@/i18n/format';
+import { computeAssemblyGeometry } from '@/utils/cadAssembly';
+import { resolveShelfRoles, type ShelfRole } from '@/utils/shelfRoleResolver';
+
+const { t } = useI18n();
 
 const {
   selected,
@@ -23,52 +30,50 @@ const {
   createLoading,
   finalizeLoading,
   categoryLoading,
-  environmentLoading,
+  depthLoading,
   columnPlanLoading,
   designLoading,
+  resetLoading,
   error,
   nextOptionsByColumn,
   loadDetail,
   updateCategory,
-  updateEnvironment,
+  updateDepth,
   updateColumnPlan,
   fetchNextOptions,
   setNextOptions,
   addTopShelf,
   removeTopShelf,
   updateDesign,
+  resetConfiguration,
   createConfiguration,
   createName,
   finalizeSelected,
 } = useCad();
 
-const categories: Array<Category> = ['TONDO', 'QUADRO', 'KUBE', 'INTELLIGENTE'];
+const categories: Array<Category> = ['TONDO', 'QUADRO', 'KUBE'];
 const route = useRoute();
 const notifications = useNotificationStore();
 const authStore = useAuthStore();
-
-const environmentDraft = ref<Environment>({
-  maxWidthMm: 5000,
-  maxHeightMm: 3000,
-  minWidthMm: 600,
-  minHeightMm: 220,
-  unit: 'mm',
-});
 
 const columnCountDraft = ref(2);
 const shelfWidthsDraft = ref<number[]>([800, 800]);
 const SHELF_THICKNESS_MM = 20;
 const shelfThicknessDraft = ref(SHELF_THICKNESS_MM);
 const categoryDraft = ref('');
+const depthDraft = ref<number | ''>('');
 const selectedGapByColumn = ref<Record<number, number | null>>({});
 const categoryCatalogItems = ref<CatalogItem[]>([]);
 const catalogLoading = ref(false);
 
-const showBomMobile = ref(false);
+const showBomModal = ref(false);
 const showResetConfirm = ref(false);
 const showResetFinalConfirm = ref(false);
+const showResetConfigConfirm = ref(false);
 const pendingCategory = ref<Category | null>(null);
-const pendingEnvironment = ref<Environment | null>(null);
+const pendingDepth = ref<number | null>(null);
+const pendingColumnPlan = ref<ColumnPlan | null>(null);
+const terminalHeightBySpine = ref<Record<number, number | null>>({});
 const joinCodeInput = ref('');
 const joinLoading = ref(false);
 
@@ -163,7 +168,7 @@ async function startCollabSession(): Promise<void> {
         'Authorization': `Bearer ${localStorage.getItem('kompozer_token') ?? ''}`,
       },
     });
-    if (!res.ok) throw new Error(`Errore HTTP ${res.status}`);
+    if (!res.ok) throw new Error(t('cad.toasts.httpError', { status: res.status }));
     const data = await res.json() as { sessionCode: string; configurationId: string; participants: string[]; ownerId: string; lamport: number };
 
     collabSessionCode.value = data.sessionCode;
@@ -180,7 +185,7 @@ async function startCollabSession(): Promise<void> {
 
     showCollabModal.value = true;
   } catch (err) {
-    notifications.addToast('error', err instanceof Error ? err.message : 'Avvio sessione collaborativa fallito');
+    notifications.addToast('error', err instanceof Error ? err.message : t('cad.toasts.startSessionFailed'));
   } finally {
     startCollabLoading.value = false;
   }
@@ -190,7 +195,7 @@ async function startCollabSession(): Promise<void> {
 async function joinByCode(): Promise<void> {
   const code = joinCodeInput.value.trim().toUpperCase();
   if (!code) {
-    notifications.addToast('error', 'Inserisci un codice valido');
+    notifications.addToast('error', t('cad.toasts.invalidCode'));
     return;
   }
 
@@ -206,7 +211,7 @@ async function joinByCode(): Promise<void> {
         'Authorization': `Bearer ${localStorage.getItem('kompozer_token') ?? ''}`,
       },
     });
-    if (!res.ok) throw new Error(`Errore HTTP ${res.status}`);
+    if (!res.ok) throw new Error(t('cad.toasts.httpError', { status: res.status }));
     const data = await res.json() as { sessionCode: string; configurationId: string; participants: string[]; ownerId: string; lamport: number; snapshot: ConfigurationDto };
 
     collabSessionCode.value = data.sessionCode;
@@ -223,9 +228,9 @@ async function joinByCode(): Promise<void> {
 
     await syncFromSessionSnapshot(data.snapshot);
     joinCodeInput.value = '';
-    notifications.addToast('success', `Sessione collaborativa agganciata (${data.sessionCode})`);
+    notifications.addToast('success', t('cad.toasts.sessionJoined', { code: data.sessionCode }));
   } catch (err) {
-    notifications.addToast('error', err instanceof Error ? err.message : 'Join sessione collaborativa fallito');
+    notifications.addToast('error', err instanceof Error ? err.message : t('cad.toasts.joinFailed'));
   } finally {
     joinLoading.value = false;
   }
@@ -236,9 +241,9 @@ async function copySessionCode(): Promise<void> {
   if (!collabSessionCode.value) return;
   try {
     await navigator.clipboard.writeText(collabSessionCode.value);
-    notifications.addToast('success', `Codice ${collabSessionCode.value} copiato`);
+    notifications.addToast('success', t('cad.toasts.codeCopied', { code: collabSessionCode.value }));
   } catch {
-    notifications.addToast('error', 'Impossibile copiare il codice');
+    notifications.addToast('error', t('cad.toasts.copyFailed'));
   }
 }
 
@@ -268,7 +273,7 @@ onMounted(() => {
 
   removeCollabErrorListener = cadCollabSocket.onError((payload) => {
     const code = payload.error?.code || 'COLLAB_ERROR';
-    const message = payload.error?.message || 'Errore realtime CAD';
+    const message = payload.error?.message || t('cad.toasts.realtimeError');
     if (code === 'COLLAB_OPERATION_STALE' && selected.value && collabSessionCode.value) {
       void cadCollabSocket
         .requestSnapshot(selected.value.id, collabSessionCode.value)
@@ -302,7 +307,7 @@ onMounted(() => {
     if (payload.sessionCode !== collabSessionCode.value) return;
     collabOwnerDisconnected.value = true;
     collabConnected.value = false;
-    notifications.addToast('error', 'Il proprietario ha lasciato la sessione collaborativa');
+    notifications.addToast('error', t('cad.toasts.ownerLeft'));
   });
 
   void (async () => {
@@ -354,10 +359,7 @@ watch(selected, (value) => {
   }
 
   categoryDraft.value = value.category ?? '';
-
-  if (value.environment) {
-    environmentDraft.value = { ...value.environment };
-  }
+  depthDraft.value = value.depthMm ?? '';
 
   if (value.columnPlan) {
     columnCountDraft.value = value.columnPlan.columnCount;
@@ -381,46 +383,35 @@ const currentStepIndex = computed(() => {
   switch (selected.value.status) {
     case 'DRAFT':
       return 0;
-    case 'ENVIRONMENT_DEFINED':
-      return 1;
     case 'CATEGORY_SELECTED':
-      return 2;
+      return 1;
     case 'COLUMNS_DEFINED':
-      return 3;
+      return 2;
     case 'DESIGN_IN_PROGRESS':
-      return 3;
+      return 2;
     case 'READY_FOR_FINALIZE':
-      return 4;
+      return 3;
     case 'FINALIZED':
-      return 5;
+      return 4;
     default:
       return 0;
   }
 });
 
-const canSubmitCategory = computed(() => {
-  if (!selected.value) {
-    return false;
-  }
-
-  if (!categoryDraft.value) {
-    return false;
-  }
-
-  return categoryDraft.value !== selected.value.category;
-});
-
 const canFinalize = computed(() => selected.value?.status === 'READY_FOR_FINALIZE');
-const canEditEnvironment = computed(() => selected.value && selected.value.status !== 'FINALIZED');
 const canEditCategory = computed(() => selected.value && selected.value.status !== 'FINALIZED');
+const canEditDepth = computed(() => !!selected.value && !!selected.value.category && selected.value.status !== 'FINALIZED');
 const canEditColumns = computed(() => {
   if (!selected.value) return false;
-  return (
+  const statusOk =
     selected.value.status === 'CATEGORY_SELECTED' ||
     selected.value.status === 'COLUMNS_DEFINED' ||
     selected.value.status === 'DESIGN_IN_PROGRESS' ||
-    selected.value.status === 'READY_FOR_FINALIZE'
-  );
+    selected.value.status === 'READY_FOR_FINALIZE';
+  if (!statusOk) return false;
+  // Depth (when the category offers one) must be picked before column widths.
+  if (depthRequired.value && selected.value.depthMm == null) return false;
+  return true;
 });
 const canEditDesign = computed(() => {
   if (!selected.value) return false;
@@ -433,17 +424,17 @@ const canEditDesign = computed(() => {
 
 const collabStatusLabel = computed(() => {
   if (!selected.value) {
-    return 'Seleziona o crea una configurazione';
+    return t('cad.collab.statusSelectOrCreate');
   }
   if (collabOwnerDisconnected.value) {
-    return 'Il proprietario ha lasciato — sessione terminata';
+    return t('cad.collab.statusOwnerLeftEnded');
   }
   if (collabMode.value === 'shared') {
     return collabConnected.value
-      ? `Collaborazione attiva · ${collabParticipants.value.length} partecipanti · Codice: ${collabSessionCode.value}`
-      : 'Collaborazione — riconnessione in corso...';
+      ? t('cad.collab.statusActive', { count: collabParticipants.value.length, code: collabSessionCode.value })
+      : t('cad.collab.statusReconnecting');
   }
-  return 'Modalità solitaria';
+  return t('cad.collab.statusSolitary');
 });
 
 const isCollabOwner = computed(() =>
@@ -466,17 +457,63 @@ const orderedColumns = computed(() => {
   return plan.columns.slice().sort((a, b) => a.index - b.index);
 });
 
+/** Distinct RIPIANO depths (mm) available for the selected category. */
+const availableDepths = computed(() =>
+  uniqueSortedNumeric(
+    categoryCatalogItems.value
+      .filter((item) => normalizedType(item) === 'RIPIANO')
+      .map((item) => Number(item.dimensions?.depthMm))
+      .filter((value) => Number.isFinite(value) && value > 0),
+  ),
+);
+
+/** True once a depth pick is required before widths/levels can be chosen. */
+const depthRequired = computed(() => availableDepths.value.length > 0);
+
+// Step2 only offers plain RIPIANO widths: BORDO/INTERMEDIO shelves are assigned
+// dynamically per level (based on adjacency), never chosen directly by the user.
+// Once a depth is selected, only shelves matching it are offered — depth acts
+// as a filter, same as category.
 const availableShelfWidths = computed(() =>
   uniqueSortedNumeric(
     categoryCatalogItems.value
+      .filter((item) => normalizedType(item) === 'RIPIANO')
       .filter((item) => {
-        const t = normalizedType(item);
-        return t === 'RIPIANO' || t === 'RIPIANO_BORDO' || t === 'RIPIANO_INTERMEDIO';
+        const depthMm = selected.value?.depthMm;
+        return depthMm == null || Number(item.dimensions?.depthMm) === depthMm;
       })
       .map((item) => Number(item.dimensions?.widthMm))
       .filter((value) => Number.isFinite(value) && value > 0),
   ),
 );
+
+/** Catalog-available TERMINALE heights for the selected category. */
+const availableTerminalHeights = computed(() =>
+  uniqueSortedNumeric(
+    categoryCatalogItems.value
+      .filter((item) => normalizedType(item) === 'TERMINALE')
+      .map((item) => Number(item.dimensions?.heightMm))
+      .filter((value) => Number.isFinite(value) && value > 0),
+  ),
+);
+
+/**
+ * One entry per spine (columnCount + 1): the outer two are owned by a single
+ * outer column, inner ones sit between two adjacent columns and are shared —
+ * mirrors backend `SpineModel.buildSpines` indexing.
+ */
+const spines = computed(() => {
+  const cols = orderedColumns.value;
+  if (cols.length === 0) {
+    return [];
+  }
+
+  return Array.from({ length: cols.length + 1 }, (_, spineIndex) => ({
+    spineIndex,
+    leftColumnNumber: spineIndex > 0 ? spineIndex : null,
+    rightColumnNumber: spineIndex < cols.length ? spineIndex + 1 : null,
+  }));
+});
 
 watch(columnCountDraft, (count) => {
   const safeCount = Math.max(1, Math.min(8, count));
@@ -501,6 +538,30 @@ watch(() => availableShelfWidths.value, (widths) => {
   );
 });
 
+/** Rebuilds the per-spine terminal-height draft from persisted selections + catalog defaults. */
+watch(
+  [() => selected.value?.terminalSelections, () => selected.value?.columnPlan?.columnCount, availableTerminalHeights],
+  () => {
+    const columnCount = selected.value?.columnPlan?.columnCount;
+    if (!columnCount) {
+      terminalHeightBySpine.value = {};
+      return;
+    }
+
+    const selectionsByIndex = new Map(
+      (selected.value?.terminalSelections ?? []).map((selection) => [selection.spineIndex, selection.heightMm]),
+    );
+    const defaultHeight = availableTerminalHeights.value[0] ?? null;
+
+    const next: Record<number, number | null> = {};
+    for (let spineIndex = 0; spineIndex <= columnCount; spineIndex += 1) {
+      next[spineIndex] = selectionsByIndex.get(spineIndex) ?? defaultHeight;
+    }
+    terminalHeightBySpine.value = next;
+  },
+  { immediate: true },
+);
+
 const designByColumn = computed(() => {
   const map = new Map<number, { levelsMm: number[]; shelfThicknessMm: number }>();
   for (const design of selected.value?.columnDesigns ?? []) {
@@ -512,46 +573,76 @@ const designByColumn = computed(() => {
   return map;
 });
 
-const gridMaxHeight = computed(() => Math.max(environmentDraft.value.maxHeightMm || 1, 1));
-
-/** True when the selected configuration uses INTELLIGENTE logic. */
-const isIntelligente = computed(() => selected.value?.category === 'INTELLIGENTE');
+/** True when the selected configuration uses QUADRO logic (BORDO/INTERMEDIO shelves possible). */
+const isQuadro = computed(() => selected.value?.category === 'QUADRO');
 
 /**
- * Maps each column index to its INTELLIGENTE role:
- * outer columns (first and last) are BORDO; inner ones are INTERMEZZO.
+ * QUADRO shelf role per (column, level): a level shared with index-adjacent
+ * columns becomes BORDO (cluster of 2) or BORDO/INTERMEDIO (cluster of 3+); a
+ * level not shared by any neighbor stays NORMALE (plain RIPIANO). The same
+ * column can therefore have different roles on different levels.
  */
-const columnRoles = computed((): Map<number, 'BORDO' | 'INTERMEZZO'> => {
+const shelfRolesByColumn = computed((): Map<number, Map<number, ShelfRole>> => {
   const plan = selected.value?.columnPlan;
-  if (!plan || !isIntelligente.value) return new Map();
+  if (!plan || !isQuadro.value) return new Map();
   const sorted = plan.columns.slice().sort((a, b) => a.index - b.index);
-  const result = new Map<number, 'BORDO' | 'INTERMEZZO'>();
-  sorted.forEach((col, i) => {
-    result.set(col.index, (i === 0 || i === sorted.length - 1) ? 'BORDO' : 'INTERMEZZO');
+  const levelsByPosition = sorted.map((col) => ({
+    levelsMm: designByColumn.value.get(col.index)?.levelsMm ?? [],
+  }));
+  const rolesByPosition = resolveShelfRoles(levelsByPosition);
+  const result = new Map<number, Map<number, ShelfRole>>();
+  sorted.forEach((col, position) => {
+    result.set(col.index, rolesByPosition.get(position) ?? new Map());
   });
   return result;
 });
 
-/** True when all INTELLIGENTE columns share identical levelsMm (alignment satisfied). */
-const columnsAligned = computed((): boolean => {
-  if (!isIntelligente.value || !selected.value) return true;
-  const designs = selected.value.columnDesigns;
-  if (designs.length < 2) return true;
-  const ref = [...designs[0].levelsMm].sort((a, b) => a - b).join(',');
-  return designs.every((d) => [...d.levelsMm].sort((a, b) => a - b).join(',') === ref);
-});
+function shelfRoleFor(columnIndex: number, levelMm: number): ShelfRole {
+  return shelfRolesByColumn.value.get(columnIndex)?.get(levelMm) ?? 'NORMALE';
+}
 
 const canvasColumns = computed(() => {
   return orderedColumns.value.map((column) => {
     const design = designByColumn.value.get(column.index);
-    const levels = design?.levelsMm ?? [];
-    return {
-      ...column,
-      levels,
-      levelPercents: levels.map((level) => Math.min(95, Math.max(2, Math.round((level / gridMaxHeight.value) * 100)))),
-    };
+    return { ...column, levels: design?.levelsMm ?? [] };
   });
 });
+
+/** Realistic 2D assembly geometry (feet/uprights/terminals/shelves) for the schema panel. */
+const assembly = computed(() =>
+  computeAssemblyGeometry(selected.value?.columnPlan, selected.value?.columnDesigns, selected.value?.terminalSelections),
+);
+
+const ASSEMBLY_BASE_SCALE_PX_PER_MM = 0.6;
+const assemblyZoom = ref(1);
+const canvasScrollRef = ref<HTMLElement | null>(null);
+
+/** True-scale width (px) of the assembly drawing at zoom 1. */
+const assemblyBaseWidthPx = computed(() => Math.max(200, assembly.value.totalWidthMm * ASSEMBLY_BASE_SCALE_PX_PER_MM));
+/** Rendered width (px) after applying the current zoom level. */
+const assemblyFrameWidthPx = computed(() => assemblyBaseWidthPx.value * assemblyZoom.value);
+const assemblyZoomPercent = computed(() => Math.round(assemblyZoom.value * 100));
+
+function zoomIn(): void {
+  assemblyZoom.value = Math.min(3, Math.round((assemblyZoom.value + 0.25) * 100) / 100);
+}
+
+function zoomOut(): void {
+  assemblyZoom.value = Math.max(0.1, Math.round((assemblyZoom.value - 0.25) * 100) / 100);
+}
+
+function zoomReset(): void {
+  assemblyZoom.value = 1;
+}
+
+/** Shrinks (or grows) the drawing so the whole width fits the visible panel without horizontal scrolling. */
+function zoomFit(): void {
+  const containerWidth = canvasScrollRef.value?.clientWidth ?? 0;
+  if (containerWidth <= 0) {
+    return;
+  }
+  assemblyZoom.value = Math.max(0.1, Math.round((containerWidth / assemblyBaseWidthPx.value) * 100) / 100);
+}
 
 watch(
   () => [selected.value?.id, selected.value?.status, canvasColumns.value.length] as const,
@@ -568,7 +659,7 @@ watch(
 );
 
 function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('it-IT', {
+  return new Intl.DateTimeFormat(getIntlLocale(), {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(new Date(iso));
@@ -581,7 +672,7 @@ async function joinFromCad(): Promise<void> {
 
 async function broadcastCollabOperation(
   fieldPath: CollabFieldPath,
-  value: string | Category | Environment | ColumnPlan | ColumnDesign[] | null,
+  value: string | Category | ColumnPlan | ColumnDesign[] | null,
   baseVersion: number,
 ): Promise<void> {
   if (!selected.value || !collabSessionCode.value || collabMode.value !== 'shared') {
@@ -606,11 +697,17 @@ async function broadcastCollabOperation(
 
 /** Formats BOM or pricing values using localized euro currency. */
 function formatPrice(value: number): string {
-  return new Intl.NumberFormat('it-IT', {
+  return new Intl.NumberFormat(getIntlLocale(), {
     style: 'currency',
     currency: 'EUR',
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+/** Formats a millimeter measurement as centimeters for display (storage stays in mm). */
+function formatCm(valueMm: number): string {
+  const cm = Math.round((valueMm / 10) * 10) / 10;
+  return `${Number.isInteger(cm) ? cm : cm.toFixed(1)} cm`;
 }
 
 /** Clamps and synchronizes the draft number of columns for plan editing. */
@@ -622,26 +719,6 @@ function syncDraftLengths(nextCount: number): void {
 /** Normalizes catalog component type values for safe comparisons. */
 function normalizedType(item: CatalogItem): string {
   return String(item.Type ?? '').trim().toUpperCase();
-}
-
-/** Maps backend component type identifiers to user-facing labels. */
-function formatComponentTypeLabel(componentType?: string): string {
-  switch (componentType) {
-    case 'RIPIANO':
-      return 'Ripiano';
-    case 'RIPIANO_BORDO':
-      return 'Ripiano Bordo';
-    case 'RIPIANO_INTERMEDIO':
-      return 'Ripiano Intermezzo';
-    case 'PIEDINO':
-      return 'Piedino';
-    case 'MONTANTE':
-      return 'Montante';
-    case 'TERMINALE':
-      return 'Terminale';
-    default:
-      return componentType || 'Componente';
-  }
 }
 
 /** Deduplicates and sorts numeric values in ascending order. */
@@ -682,26 +759,6 @@ async function loadCatalogForCategory(category: Category | null): Promise<void> 
   }
 }
 
-/** Saves environment parameters, with reset confirmation when required. */
-async function saveEnvironment(): Promise<void> {
-  if (!selected.value) return;
-
-  if (selected.value.status === 'FINALIZED') {
-    return;
-  }
-
-  const requiresReset = ['COLUMNS_DEFINED', 'DESIGN_IN_PROGRESS', 'READY_FOR_FINALIZE'].includes(selected.value.status);
-  if (requiresReset) {
-    pendingEnvironment.value = { ...environmentDraft.value };
-    showResetConfirm.value = true;
-    return;
-  }
-
-  const baseVersion = selected.value.version;
-  await updateEnvironment(environmentDraft.value);
-  await broadcastCollabOperation('environment', environmentDraft.value, baseVersion);
-}
-
 /** Saves selected category, with reset confirmation when design already progressed. */
 async function saveCategory(value: string): Promise<void> {
   if (!selected.value || !value) {
@@ -729,7 +786,7 @@ async function saveCategory(value: string): Promise<void> {
   await broadcastCollabOperation('category', nextCategory, baseVersion);
 }
 
-/** Saves currently selected category draft through explicit Step 2 action button. */
+/** Saves currently selected category draft; triggered automatically on select change. */
 async function submitCategory(): Promise<void> {
   if (!categoryDraft.value) {
     return;
@@ -738,28 +795,68 @@ async function submitCategory(): Promise<void> {
   await saveCategory(categoryDraft.value);
 }
 
+/** Saves selected depth, with reset confirmation when design already progressed. */
+async function saveDepth(value: number): Promise<void> {
+  if (!selected.value || !value) {
+    return;
+  }
+
+  if (value === selected.value.depthMm) {
+    return;
+  }
+
+  if (selected.value.status === 'FINALIZED') {
+    return;
+  }
+
+  const requiresReset = selected.value.columnPlan != null || selected.value.columnDesigns.length > 0;
+  if (requiresReset) {
+    pendingDepth.value = value;
+    showResetConfirm.value = true;
+    return;
+  }
+
+  await updateDepth(value);
+}
+
+/** Saves currently selected depth draft; triggered automatically on select change. */
+async function submitDepth(): Promise<void> {
+  if (depthDraft.value === '') {
+    return;
+  }
+
+  await saveDepth(Number(depthDraft.value));
+}
+
 /** Advances reset confirmation flow to final irreversible confirmation. */
 async function confirmResetStepOne(): Promise<void> {
   showResetConfirm.value = false;
   showResetFinalConfirm.value = true;
 }
 
-/** Applies pending reset changes for environment and category updates. */
+/** Applies pending reset changes for category or column-plan updates. */
 async function confirmResetStepTwo(): Promise<void> {
   showResetFinalConfirm.value = false;
-
-  if (pendingEnvironment.value) {
-    const baseVersion = selected.value?.version ?? 1;
-    await updateEnvironment(pendingEnvironment.value);
-    await broadcastCollabOperation('environment', pendingEnvironment.value, baseVersion);
-    pendingEnvironment.value = null;
-  }
 
   if (pendingCategory.value) {
     const baseVersion = selected.value?.version ?? 1;
     await updateCategory(pendingCategory.value);
     await broadcastCollabOperation('category', pendingCategory.value, baseVersion);
     pendingCategory.value = null;
+    return;
+  }
+
+  if (pendingDepth.value != null) {
+    const depth = pendingDepth.value;
+    pendingDepth.value = null;
+    await updateDepth(depth);
+    return;
+  }
+
+  if (pendingColumnPlan.value) {
+    const plan = pendingColumnPlan.value;
+    pendingColumnPlan.value = null;
+    await applyColumnPlan(plan);
   }
 }
 
@@ -768,26 +865,68 @@ function cancelReset(): void {
   showResetConfirm.value = false;
   showResetFinalConfirm.value = false;
   pendingCategory.value = null;
-  pendingEnvironment.value = null;
-
-  if (selected.value?.environment) {
-    environmentDraft.value = { ...selected.value.environment };
-  }
+  pendingDepth.value = null;
+  pendingColumnPlan.value = null;
 }
 
-/** Persists current column count and shelf width draft as column plan. */
-async function saveColumnPlan(): Promise<void> {
+/** Persists a column plan and broadcasts the change to any active collab session. */
+async function applyColumnPlan(columnPlan: ColumnPlan): Promise<void> {
   if (!selected.value) {
     return;
   }
 
   const baseVersion = selected.value.version;
+  await updateColumnPlan(columnPlan);
+  await broadcastCollabOperation('columnPlan', columnPlan, baseVersion);
+}
+
+/**
+ * Saves current column count and shelf width draft as column plan; triggered
+ * automatically on change. Redoing the plan after a design already exists
+ * discards that design, so it goes through the same two-step reset confirm
+ * used for category changes.
+ */
+async function saveColumnPlan(): Promise<void> {
+  if (!selected.value) {
+    return;
+  }
+
   const columnPlan: ColumnPlan = {
     columnCount: columnCountDraft.value,
     columns: shelfWidthsDraft.value.map((shelfWidthMm, index) => ({ index, shelfWidthMm })),
   };
-  await updateColumnPlan(columnPlan);
-  await broadcastCollabOperation('columnPlan', columnPlan, baseVersion);
+
+  if (selected.value.columnDesigns.length > 0) {
+    pendingColumnPlan.value = columnPlan;
+    showResetConfirm.value = true;
+    return;
+  }
+
+  await applyColumnPlan(columnPlan);
+}
+
+/** Adjusts the column-count draft, waits for the width-array resize, then auto-saves. */
+async function onColumnCountChange(value: number): Promise<void> {
+  syncDraftLengths(value);
+  await nextTick();
+  await saveColumnPlan();
+}
+
+/** Explicit "reset configuration" button: clears columns/design, keeps the category. */
+function requestConfigReset(): void {
+  if (!selected.value) {
+    return;
+  }
+  showResetConfigConfirm.value = true;
+}
+
+async function confirmConfigReset(): Promise<void> {
+  showResetConfigConfirm.value = false;
+  await resetConfiguration();
+}
+
+function cancelConfigReset(): void {
+  showResetConfigConfirm.value = false;
 }
 
 /** Returns raw next-step options for a given column index. */
@@ -795,72 +934,14 @@ function getOptions(columnIndex: number): NextOption[] {
   return nextOptionsByColumn.value[columnIndex] ?? [];
 }
 
-/** Returns effective options currently shown to user for a column. */
+/** Returns only the currently usable (allowed) options for a column — blocked choices are hidden, not shown disabled. */
 function effectiveOptions(columnIndex: number): NextOption[] {
-  return getOptions(columnIndex);
+  return getOptions(columnIndex).filter((option) => option.allowed);
 }
 
-/** Maps option reason codes to localized explanatory messages. */
-function optionReason(option: NextOption): string {
-  switch (option.reasonCode) {
-    case 'INVALID_GAP':
-      return 'Altezza pezzo non valida';
-    case 'NON_INCREASING_LEVEL':
-      return 'Il nuovo livello deve essere maggiore del precedente';
-    case 'MAX_HEIGHT_EXCEEDED':
-      return 'Supera l altezza massima configurata';
-    case 'ADJACENCY_CONFLICT':
-      return 'Conflitto con la colonna adiacente (stessa quota)';
-    case 'LOOK_AHEAD_BLOCKED':
-      return 'Questa scelta blocca i passi successivi';
-    case 'INVALID_FIRST_LEVEL':
-      return 'Il primo livello deve corrispondere a un piedino di catalogo';
-    case 'INVALID_SEGMENT':
-      return 'La spina condivisa richiede un montante non disponibile a catalogo';
-    case 'NO_TERMINAL_FIT':
-      return 'Non esiste un terminale compatibile con l altezza residua';
-    case 'SPINE_CONFLICT':
-      return 'Questa scelta viola i vincoli della spina condivisa';
-    default:
-      if (option.reason && option.reason.trim().length > 0) {
-        return option.reason;
-      }
-      return 'Opzione non consentita';
-  }
-}
-
-/** Checks whether at least one currently available option is selectable. */
-function hasAllowedOption(columnIndex: number): boolean {
-  return effectiveOptions(columnIndex).some((option) => option.allowed);
-}
-
-/** True when the column offers at least one allowed neighbor-anchored bridge option. */
+/** True when the column offers at least one neighbor-anchored bridge option. */
 function hasBridgeOption(columnIndex: number): boolean {
-  return effectiveOptions(columnIndex).some((option) => option.allowed && option.kind === 'bridge');
-}
-
-/** Collects distinct blocking reasons for disabled options in a column. */
-function blockedReasons(columnIndex: number): string[] {
-  const reasons = effectiveOptions(columnIndex)
-    .filter((option) => !option.allowed)
-    .map((option) => optionReason(option));
-
-  return Array.from(new Set(reasons));
-}
-
-/** Builds compact UI summary for blocked reasons, truncating long lists. */
-function blockedReasonsSummary(columnIndex: number): string {
-  const reasons = blockedReasons(columnIndex);
-  if (reasons.length === 0) {
-    return 'Nessuna scelta valida';
-  }
-
-  const MAX_REASONS = 3;
-  const visible = reasons.slice(0, MAX_REASONS);
-  const hiddenCount = reasons.length - visible.length;
-  return hiddenCount > 0
-    ? `${visible.join(' · ')} · +${hiddenCount} altre`
-    : visible.join(' · ');
+  return effectiveOptions(columnIndex).some((option) => option.kind === 'bridge');
 }
 
   /** Fetches and stores next options for a column, selecting default allowed gap. */
@@ -901,33 +982,11 @@ async function addShelf(columnIndex: number): Promise<void> {
     [columnIndex]: gap,
   };
 
-  if (isIntelligente.value) {
-    // INTELLIGENTE: add the same gap to ALL columns simultaneously
-    const allDesigns = (selected.value.columnPlan?.columns ?? []).map((col) => {
-      const existing = selected.value!.columnDesigns.find((d) => d.columnIndex === col.index)
-        ?? { columnIndex: col.index, levelsMm: [], shelfThicknessMm: SHELF_THICKNESS_MM };
-      const lastLevel = existing.levelsMm.length > 0 ? existing.levelsMm[existing.levelsMm.length - 1] : 0;
-      const nextLevel = existing.levelsMm.length === 0
-        ? gap
-        : lastLevel + SHELF_THICKNESS_MM + gap;
-      return {
-        ...existing,
-        shelfThicknessMm: SHELF_THICKNESS_MM,
-        levelsMm: [...existing.levelsMm, nextLevel].sort((a, b) => a - b),
-      };
-    });
-    await updateDesign(allDesigns);
-    if (selected.value) {
-      await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
-    }
-    await refreshAllNextOptions();
-  } else {
-    await addTopShelf(columnIndex, gap, shelfThicknessDraft.value);
-    if (selected.value) {
-      await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
-    }
-    await refreshOptionsAround(columnIndex);
+  await addTopShelf(columnIndex, gap, shelfThicknessDraft.value);
+  if (selected.value) {
+    await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
   }
+  await refreshOptionsAround(columnIndex);
 }
 
 /** Removes top shelf from a column and refreshes dependent options. */
@@ -938,28 +997,29 @@ async function removeShelf(columnIndex: number): Promise<void> {
 
   const baseVersion = selected.value.version;
 
-  if (isIntelligente.value) {
-    // INTELLIGENTE: remove top shelf from ALL columns simultaneously
-    const allDesigns = (selected.value.columnPlan?.columns ?? []).map((col) => {
-      const existing = selected.value!.columnDesigns.find((d) => d.columnIndex === col.index)
-        ?? { columnIndex: col.index, levelsMm: [], shelfThicknessMm: SHELF_THICKNESS_MM };
-      return {
-        ...existing,
-        shelfThicknessMm: SHELF_THICKNESS_MM,
-        levelsMm: existing.levelsMm.slice(0, -1),
-      };
-    });
-    await updateDesign(allDesigns);
-    if (selected.value) {
-      await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
-    }
-    await refreshAllNextOptions();
-  } else {
-    await removeTopShelf(columnIndex, shelfThicknessDraft.value);
-    if (selected.value) {
-      await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
-    }
-    await refreshOptionsAround(columnIndex);
+  await removeTopShelf(columnIndex, shelfThicknessDraft.value);
+  if (selected.value) {
+    await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
+  }
+  await refreshOptionsAround(columnIndex);
+}
+
+/** Persists the chosen terminal height for one spine; auto-saves on selection. */
+async function saveTerminalSelection(spineIndex: number, heightMm: number): Promise<void> {
+  if (!selected.value?.columnPlan) {
+    return;
+  }
+
+  terminalHeightBySpine.value = { ...terminalHeightBySpine.value, [spineIndex]: heightMm };
+
+  const baseVersion = selected.value.version;
+  const terminalSelections: TerminalSelection[] = Object.entries(terminalHeightBySpine.value)
+    .filter((entry): entry is [string, number] => entry[1] != null)
+    .map(([index, height]) => ({ spineIndex: Number(index), heightMm: height }));
+
+  await updateDesign(selected.value.columnDesigns, terminalSelections);
+  if (selected.value) {
+    await broadcastCollabOperation('columnDesigns', selected.value.columnDesigns, baseVersion);
   }
 }
 
@@ -992,18 +1052,34 @@ function stepActive(index: number): boolean {
   <div class="cad-workspace">
     <header class="cad-header">
       <div>
-        <h1>Configuratore CAD</h1>
-        <p class="subtitle">Workspace di design con schema grafico indipendente</p>
+        <h1>{{ t('cad.header.title') }}</h1>
+        <p class="subtitle">{{ t('cad.header.subtitle') }}</p>
       </div>
       <div class="header-actions">
-        <button class="btn btn--light" :disabled="detailLoading || !selected" @click="reloadSelected">Aggiorna dettaglio</button>
-        <button class="btn btn--light bom-mobile-btn" @click="showBomMobile = true">Distinta componenti</button>
+        <button class="btn btn--light" :disabled="detailLoading || !selected" @click="reloadSelected">{{ t('cad.header.refreshDetail') }}</button>
+        <button
+          v-if="selected && selected.category && selected.status !== 'FINALIZED'"
+          class="btn btn--light"
+          :disabled="resetLoading"
+          @click="requestConfigReset"
+        >
+          {{ resetLoading ? t('cad.resetConfig.resetting') : t('cad.resetConfig.button') }}
+        </button>
+        <button
+          v-if="selected"
+          class="btn btn--light bom-trigger-btn"
+          :aria-label="t('cad.bom.title')"
+          @click="showBomModal = true"
+        >
+          <span class="bom-trigger-icon" aria-hidden="true">🧾</span>
+          <span class="bom-trigger-total">{{ formatPrice(totalPrice) }}</span>
+        </button>
       </div>
     </header>
 
     <section v-if="selected" class="collab-strip" aria-live="polite">
       <div>
-        <p class="mini muted">Sessione</p>
+        <p class="mini muted">{{ t('cad.collab.sessionLabel') }}</p>
         <strong>{{ collabStatusLabel }}</strong>
       </div>
       <div class="collab-actions">
@@ -1014,26 +1090,26 @@ function stepActive(index: number): boolean {
             :disabled="!selected || startCollabLoading"
             @click="startCollabSession"
           >
-            {{ startCollabLoading ? 'Avvio...' : 'Collabora' }}
+            {{ startCollabLoading ? t('cad.collab.starting') : t('cad.collab.start') }}
           </button>
         </template>
         <!-- Shared: show code + stop -->
         <template v-if="collabMode === 'shared' && !collabOwnerDisconnected">
           <button class="btn btn--light btn--small" @click="showCollabModal = true">
-            Codice: <strong>{{ collabSessionCode }}</strong>
+            {{ t('cad.collab.codePrefix') }} <strong>{{ collabSessionCode }}</strong>
           </button>
           <button
             v-if="isCollabOwner"
             class="btn btn--light btn--small"
             @click="() => { if (selected && collabSessionCode) { void cadCollabSocket.leaveSession(selected.id, collabSessionCode); resetCollabState(); } }"
           >
-            Termina sessione
+            {{ t('cad.collab.endSession') }}
           </button>
         </template>
         <!-- Owner disconnected -->
         <template v-if="collabOwnerDisconnected">
-          <span class="muted mini">⚠️ Sessione terminata</span>
-          <button class="btn btn--light btn--small" @click="resetCollabState">Torna a solitaria</button>
+          <span class="muted mini">{{ t('cad.collab.endedWarning') }}</span>
+          <button class="btn btn--light btn--small" @click="resetCollabState">{{ t('cad.collab.backToSolitary') }}</button>
         </template>
       </div>
     </section>
@@ -1042,34 +1118,34 @@ function stepActive(index: number): boolean {
 
     <div class="cad-layout">
       <main class="center-panel">
-        <p v-if="detailLoading" class="placeholder">Caricamento dettaglio...</p>
+        <p v-if="detailLoading" class="placeholder">{{ t('cad.header.loadingDetail') }}</p>
         <section v-else-if="!selected" class="create-card">
-          <h3>Crea nuova configurazione</h3>
-          <p class="muted">Puoi iniziare da qui o entrare in una sessione collaborativa esistente.</p>
+          <h3>{{ t('cad.create.title') }}</h3>
+          <p class="muted">{{ t('cad.create.hint') }}</p>
           <div class="actions-row">
             <label class="field" style="flex: 1; min-width: 220px;">
-              <span class="field__label">Nome configurazione</span>
-              <input v-model="createName" class="field__input" type="text" placeholder="Nuova configurazione" />
+              <span class="field__label">{{ t('cad.create.nameLabel') }}</span>
+              <input v-model="createName" class="field__input" type="text" :placeholder="t('cad.create.namePlaceholder')" />
             </label>
             <button class="btn btn--primary" :disabled="createLoading" @click="createFromCad">
-              {{ createLoading ? 'Creazione...' : 'Crea e apri configuratore' }}
+              {{ createLoading ? t('cad.create.creating') : t('cad.create.createButton') }}
             </button>
           </div>
 
           <div class="actions-row" style="margin-top: var(--space-3);">
             <label class="field" style="flex: 1; min-width: 220px;">
-              <span class="field__label">Codice sessione collaborativa</span>
+              <span class="field__label">{{ t('cad.create.joinCodeLabel') }}</span>
               <input
                 v-model="joinCodeInput"
                 class="field__input"
                 type="text"
-                placeholder="es. A3KP7X"
+                :placeholder="t('cad.create.joinCodePlaceholder')"
                 maxlength="6"
                 style="text-transform: uppercase;"
               />
             </label>
             <button class="btn btn--light" :disabled="joinLoading" @click="joinFromCad">
-              {{ joinLoading ? 'Accesso...' : 'Entra con codice' }}
+              {{ joinLoading ? t('cad.create.joining') : t('cad.create.joinButton') }}
             </button>
           </div>
         </section>
@@ -1078,84 +1154,68 @@ function stepActive(index: number): boolean {
           <section class="stepper">
             <article class="step" :class="{ 'step--done': stepDone(0), 'step--active': stepActive(0) }">
               <span class="step__index">1</span>
-              <span class="step__label">Ambiente</span>
+              <span class="step__label">{{ t('cad.steps.category') }}</span>
             </article>
             <article class="step" :class="{ 'step--done': stepDone(1), 'step--active': stepActive(1) }">
               <span class="step__index">2</span>
-              <span class="step__label">Categoria</span>
+              <span class="step__label">{{ t('cad.steps.columns') }}</span>
             </article>
             <article class="step" :class="{ 'step--done': stepDone(2), 'step--active': stepActive(2) }">
               <span class="step__index">3</span>
-              <span class="step__label">Colonne</span>
+              <span class="step__label">{{ t('cad.steps.design') }}</span>
             </article>
             <article class="step" :class="{ 'step--done': stepDone(3), 'step--active': stepActive(3) }">
               <span class="step__index">4</span>
-              <span class="step__label">Design</span>
-            </article>
-            <article class="step" :class="{ 'step--done': stepDone(4), 'step--active': stepActive(4) }">
-              <span class="step__index">5</span>
-              <span class="step__label">Finalizza</span>
+              <span class="step__label">{{ t('cad.steps.finalize') }}</span>
             </article>
           </section>
 
           <section class="meta-row">
-            <div><span class="muted">Configurazione</span><strong>{{ selected.name }}</strong></div>
-            <div><span class="muted">Stato</span><strong>{{ selected.status }}</strong></div>
-            <div><span class="muted">Ultimo update</span><strong>{{ formatDate(selected.updatedAt) }}</strong></div>
+            <div><span class="muted">{{ t('cad.meta.configuration') }}</span><strong>{{ selected.name }}</strong></div>
+            <div><span class="muted">{{ t('cad.meta.status') }}</span><strong>{{ selected.status }}</strong></div>
+            <div><span class="muted">{{ t('cad.meta.lastUpdate') }}</span><strong>{{ formatDate(selected.updatedAt) }}</strong></div>
           </section>
 
           <section class="controls-section">
             <article class="control-card">
-              <h3>Step 1 - Ambiente</h3>
-              <div class="two-cols">
-                <label class="field">
-                  <span class="field__label">Larghezza max (mm)</span>
-                  <input v-model.number="environmentDraft.maxWidthMm" class="field__input" type="number" min="1" />
-                </label>
-                <label class="field">
-                  <span class="field__label">Altezza max (mm)</span>
-                  <input v-model.number="environmentDraft.maxHeightMm" class="field__input" type="number" min="1" />
-                </label>
-                <label class="field">
-                  <span class="field__label">Larghezza min (mm)</span>
-                  <input v-model.number="environmentDraft.minWidthMm" class="field__input" type="number" min="1" />
-                </label>
-                <label class="field">
-                  <span class="field__label">Altezza min (mm)</span>
-                  <input v-model.number="environmentDraft.minHeightMm" class="field__input" type="number" min="1" />
-                </label>
-              </div>
-              <button class="btn btn--light" :disabled="!canEditEnvironment || environmentLoading" @click="saveEnvironment">
-                {{ environmentLoading ? 'Salvataggio...' : 'Salva ambiente' }}
-              </button>
-            </article>
-
-            <article class="control-card">
-              <h3>Step 2 - Categoria</h3>
+              <h3>{{ t('cad.categoryStep.title') }}</h3>
               <label class="field">
-                <span class="field__label">Categoria</span>
+                <span class="field__label">{{ t('cad.categoryStep.label') }}</span>
                 <select
                   class="field__input"
                   v-model="categoryDraft"
                   :disabled="!canEditCategory || categoryLoading"
+                  @change="submitCategory"
                 >
-                  <option disabled value="">Seleziona categoria</option>
+                  <option disabled value="">{{ t('cad.categoryStep.placeholder') }}</option>
                   <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
                 </select>
               </label>
-              <button
-                class="btn btn--light"
-                :disabled="!canEditCategory || categoryLoading || !canSubmitCategory"
-                @click="submitCategory"
-              >
-                {{ categoryLoading ? 'Salvataggio...' : 'Salva categoria' }}
-              </button>
+              <p class="mini muted" v-if="categoryLoading">{{ t('cad.categoryStep.saving') }}</p>
+            </article>
+
+            <article class="control-card" v-if="selected.category && depthRequired">
+              <h3>{{ t('cad.depthStep.title') }}</h3>
+              <label class="field">
+                <span class="field__label">{{ t('cad.depthStep.label') }}</span>
+                <select
+                  class="field__input"
+                  v-model.number="depthDraft"
+                  :disabled="!canEditDepth || depthLoading"
+                  @change="submitDepth"
+                >
+                  <option disabled value="">{{ t('cad.depthStep.placeholder') }}</option>
+                  <option v-for="depth in availableDepths" :key="depth" :value="depth">{{ formatCm(depth) }}</option>
+                </select>
+              </label>
+              <p class="mini muted">{{ t('cad.depthStep.hint') }}</p>
+              <p class="mini muted" v-if="depthLoading">{{ t('cad.depthStep.saving') }}</p>
             </article>
 
             <article class="control-card">
-              <h3>Step 3 - Piano colonne</h3>
+              <h3>{{ t('cad.columnsStep.title') }}</h3>
               <label class="field">
-                <span class="field__label">Numero colonne (1-8)</span>
+                <span class="field__label">{{ t('cad.columnsStep.countLabel') }}</span>
                 <input
                   :value="columnCountDraft"
                   class="field__input"
@@ -1163,121 +1223,144 @@ function stepActive(index: number): boolean {
                   min="1"
                   max="8"
                   :disabled="!canEditColumns"
-                  @change="syncDraftLengths(Number(($event.target as HTMLInputElement).value))"
+                  @change="onColumnCountChange(Number(($event.target as HTMLInputElement).value))"
                 />
               </label>
-              <p class="mini muted" v-if="catalogLoading">Caricamento larghezze da catalogo...</p>
+              <p class="mini muted" v-if="catalogLoading">{{ t('cad.columnsStep.loadingWidths') }}</p>
               <p class="mini muted" v-else-if="availableShelfWidths.length === 0">
-                Nessun ripiano disponibile per la categoria selezionata.
+                {{ t('cad.columnsStep.noShelvesAvailable') }}
               </p>
               <div class="column-widths">
                 <label v-for="(_, i) in columnCountDraft" :key="`col-width-${i}`" class="field">
-                  <span class="field__label">Colonna {{ i + 1 }}</span>
+                  <span class="field__label">{{ t('cad.columnsStep.columnLabel', { n: i + 1 }) }}</span>
                   <select
                     v-model.number="shelfWidthsDraft[i]"
                     class="field__input"
                     :disabled="!canEditColumns || availableShelfWidths.length === 0"
+                    @change="saveColumnPlan"
                   >
                     <option v-for="width in availableShelfWidths" :key="`width-${i}-${width}`" :value="width">
-                      {{ width }} mm
+                      {{ formatCm(width) }}
                     </option>
                   </select>
                 </label>
               </div>
-              <button
-                class="btn btn--light"
-                :disabled="!canEditColumns || columnPlanLoading || availableShelfWidths.length === 0"
-                @click="saveColumnPlan"
-              >
-                {{ columnPlanLoading ? 'Salvataggio...' : 'Salva piano colonne' }}
-              </button>
+              <p class="mini muted" v-if="columnPlanLoading">{{ t('cad.columnsStep.saving') }}</p>
             </article>
 
             <article class="control-card">
-              <h3>Step 4 - Costruzione livelli (+ / -)</h3>
-              <p class="mini muted">Spessore ripiano fisso: {{ shelfThicknessDraft }} mm</p>
-
-              <div v-if="isIntelligente" class="intelligente-banner" role="note">
-                <strong>Modalità INTELLIGENTE</strong> — “+ Livello” aggiunge lo stesso ripiano a <em>tutte</em> le colonne simultaneamente. Le colonne esterne usano ripiani <strong>BORDO</strong>, quelle interne <strong>INTERMEZZO</strong>.
-                <span v-if="!columnsAligned" class="alignment-warning" role="alert">
-                  ⚠️ Livelli non allineati tra colonne. Completa il design su tutte le colonne prima di finalizzare.
-                </span>
-              </div>
+              <h3>{{ t('cad.designStep.title') }}</h3>
+              <p class="mini muted">{{ t('cad.designStep.fixedThickness', { cm: formatCm(shelfThicknessDraft) }) }}</p>
 
               <div class="design-columns">
                 <article v-for="column in canvasColumns" :key="`design-col-${column.index}`" class="design-column">
                   <header>
-                    <strong>Colonna {{ column.index + 1 }}</strong>
-                    <span>{{ column.shelfWidthMm }}mm</span>
-                    <span
-                      v-if="isIntelligente"
-                      class="role-badge"
-                      :class="columnRoles.get(column.index) === 'BORDO' ? 'role-badge--bordo' : 'role-badge--intermezzo'"
-                    >{{ columnRoles.get(column.index) ?? '' }}</span>
+                    <strong>{{ t('cad.designStep.columnLabel', { n: column.index + 1 }) }}</strong>
+                    <span>{{ formatCm(column.shelfWidthMm) }}</span>
                   </header>
 
-                  <p class="mini muted">Livelli correnti: {{ column.levels.join(', ') || 'nessuno' }}</p>
+                  <ul v-if="isQuadro && column.levels.length > 0" class="mini muted level-list">
+                    <li v-for="level in column.levels" :key="`lvl-${column.index}-${level}`">
+                      {{ formatCm(level) }}
+                      <span
+                        v-if="shelfRoleFor(column.index, level) !== 'NORMALE'"
+                        class="role-badge"
+                        :class="shelfRoleFor(column.index, level) === 'BORDO' ? 'role-badge--bordo' : 'role-badge--intermezzo'"
+                      >{{ shelfRoleFor(column.index, level) }}</span>
+                    </li>
+                  </ul>
+                  <p v-else class="mini muted">{{ t('cad.designStep.currentLevels', { levels: column.levels.length > 0 ? column.levels.map(formatCm).join(', ') : t('cad.designStep.none') }) }}</p>
                   <p class="mini muted">
-                    {{ column.levels.length === 0 ? 'Primo livello: scegli un PIEDINO o un ponte verso le colonne adiacenti' : 'Livello successivo: scegli un MONTANTE o un ponte' }}
+                    {{
+                      column.levels.length === 0
+                        ? t('cad.designStep.firstLevelHint', { type: typeLabel('PIEDINO') })
+                        : t('cad.designStep.nextLevelHint', { type: typeLabel('MONTANTE') })
+                    }}
                   </p>
-                  <p v-if="!isIntelligente && hasBridgeOption(column.index)" class="mini bridge-hint">
-                    🌉 Puoi creare un <strong>ponte</strong>: unire questa colonna alle adiacenti scavalcando un gap più alto dei montanti singoli.
+                  <p v-if="hasBridgeOption(column.index)" class="mini bridge-hint">
+                    🌉 <span v-html="t('cad.designStep.bridgeHint')"></span>
                   </p>
 
                   <label class="field" v-if="effectiveOptions(column.index).length > 0">
-                    <span class="field__label">Altezza pezzo da aggiungere</span>
+                    <span class="field__label">{{ t('cad.designStep.pieceHeightLabel') }}</span>
                     <select
                       class="field__input field__input--column-select"
-                      :aria-label="`Seleziona altezza da aggiungere per colonna ${column.index + 1}`"
+                      :aria-label="t('cad.designStep.selectHeightAriaLabel', { n: column.index + 1 })"
                       :disabled="!canEditDesign || designLoading"
                       v-model.number="selectedGapByColumn[column.index]"
                     >
                       <option
                         v-for="option in effectiveOptions(column.index)"
                         :key="`opt-${column.index}-${option.heightMm}`"
-                        :value="option.allowed ? option.heightMm : null"
-                        :disabled="!option.allowed"
+                        :value="option.heightMm"
                       >
-                          {{ option.heightMm }}mm{{ option.kind === 'bridge' ? ' · ponte' : '' }}{{ option.allowed ? '' : ` - ${option.reasonCode || 'NON_CONSENTITA'}` }}
+                          {{ formatCm(option.heightMm) }}{{ option.kind === 'bridge' ? t('cad.designStep.bridgeSuffix') : '' }}{{ option.kind === 'stacked' ? t('cad.designStep.stackedSuffix') : '' }}
                       </option>
                     </select>
                   </label>
 
                   <p class="mini muted" v-if="effectiveOptions(column.index).length === 0">
-                    Nessuna opzione disponibile dal backend per questa colonna.
-                  </p>
-                  <p class="mini blocked-reasons" v-else-if="!hasAllowedOption(column.index)">
-                    Nessuna scelta valida: {{ blockedReasonsSummary(column.index) }}
+                    {{ t('cad.designStep.noOptionsAvailable') }}
                   </p>
 
                   <div class="actions-row">
                     <button
                       class="btn btn--primary btn--small"
-                      :aria-label="`Aggiungi livello alla colonna ${column.index + 1}`"
+                      :aria-label="t('cad.designStep.addLevelAriaLabel', { n: column.index + 1 })"
                       :disabled="!canEditDesign || designLoading || !selectedGapByColumn[column.index]"
                       @click="addShelf(column.index)"
                     >
-                      + Livello
+                      {{ t('cad.designStep.addLevel') }}
                     </button>
                     <button
                       class="btn btn--light btn--small"
-                      :aria-label="`Rimuovi ultimo livello dalla colonna ${column.index + 1}`"
+                      :aria-label="t('cad.designStep.removeLastAriaLabel', { n: column.index + 1 })"
                       :disabled="!canEditDesign || designLoading || column.levels.length === 0"
                       @click="removeShelf(column.index)"
                     >
-                      - Ultimo
+                      {{ t('cad.designStep.removeLast') }}
                     </button>
                   </div>
                 </article>
               </div>
             </article>
 
+            <article class="control-card" v-if="spines.length > 0">
+              <h3>{{ t('cad.terminalStep.title') }}</h3>
+              <p class="mini muted">{{ t('cad.terminalStep.hint') }}</p>
+              <p class="mini muted" v-if="availableTerminalHeights.length === 0">
+                {{ t('cad.terminalStep.noHeightsAvailable') }}
+              </p>
+              <div class="column-widths" v-else>
+                <label v-for="spine in spines" :key="`spine-${spine.spineIndex}`" class="field">
+                  <span class="field__label">
+                    {{
+                      spine.leftColumnNumber && spine.rightColumnNumber
+                        ? t('cad.terminalStep.innerLabel', { left: spine.leftColumnNumber, right: spine.rightColumnNumber })
+                        : t('cad.terminalStep.outerLabel', { n: spine.leftColumnNumber ?? spine.rightColumnNumber })
+                    }}
+                  </span>
+                  <select
+                    class="field__input"
+                    :aria-label="t('cad.terminalStep.selectAriaLabel', { spine: spine.spineIndex })"
+                    :disabled="!canEditDesign || designLoading"
+                    :value="terminalHeightBySpine[spine.spineIndex] ?? undefined"
+                    @change="saveTerminalSelection(spine.spineIndex, Number(($event.target as HTMLSelectElement).value))"
+                  >
+                    <option v-for="height in availableTerminalHeights" :key="`term-${spine.spineIndex}-${height}`" :value="height">
+                      {{ formatCm(height) }}
+                    </option>
+                  </select>
+                </label>
+              </div>
+            </article>
+
             <article class="control-card finalize-card">
-              <h3>Step 5 - Finalizzazione</h3>
+              <h3>{{ t('cad.finalizeStep.title') }}</h3>
               <button class="btn btn--primary" :disabled="!canFinalize || finalizeLoading" @click="finalizeSelected">
-                {{ finalizeLoading ? 'Finalizzazione...' : 'Finalizza e invia al carrello' }}
+                {{ finalizeLoading ? t('cad.finalizeStep.finalizing') : t('cad.finalizeStep.finalizeButton') }}
               </button>
-              <p v-if="!canFinalize" class="hint">Finalizzazione disponibile solo in READY_FOR_FINALIZE.</p>
+              <p v-if="!canFinalize" class="hint">{{ t('cad.finalizeStep.hint') }}</p>
             </article>
           </section>
         </template>
@@ -1287,82 +1370,92 @@ function stepActive(index: number): boolean {
         <section class="canvas-section">
           <header class="canvas-section__header">
             <div>
-              <h3>Schema grafico</h3>
-              <p class="mini muted">Vista sempre visibile della struttura corrente</p>
+              <h3>{{ t('cad.schema.title') }}</h3>
+              <p class="mini muted">{{ t('cad.schema.subtitle') }}</p>
             </div>
-            <span class="canvas-size">{{ environmentDraft.maxWidthMm }} x {{ environmentDraft.maxHeightMm }} mm</span>
+            <div class="assembly-zoom-controls">
+              <button
+                type="button"
+                class="btn btn--light btn--small"
+                :aria-label="t('cad.schema.zoomOut')"
+                @click="zoomOut"
+              >&minus;</button>
+              <button
+                type="button"
+                class="btn btn--light btn--small assembly-zoom-percent"
+                :aria-label="t('cad.schema.zoomReset')"
+                @click="zoomReset"
+              >{{ assemblyZoomPercent }}%</button>
+              <button
+                type="button"
+                class="btn btn--light btn--small"
+                :aria-label="t('cad.schema.zoomIn')"
+                @click="zoomIn"
+              >+</button>
+              <button
+                type="button"
+                class="btn btn--light btn--small"
+                @click="zoomFit"
+              >{{ t('cad.schema.zoomFit') }}</button>
+            </div>
           </header>
 
-          <div class="canvas-scroll">
-            <div class="canvas-grid">
-              <article
-                v-for="column in canvasColumns"
-                :key="column.index"
-                class="canvas-column"
-                :style="{
-                  '--column-grow': String(
-                    Number.isFinite(column.shelfWidthMm) && column.shelfWidthMm > 0
-                      ? column.shelfWidthMm
-                      : 1,
-                  ),
-                }"
+          <div class="canvas-scroll" ref="canvasScrollRef">
+            <div class="assembly-frame" :style="{ width: `${assemblyFrameWidthPx}px` }">
+              <svg
+                class="assembly-svg"
+                :viewBox="`0 0 ${assembly.totalWidthMm} ${assembly.totalHeightMm}`"
+                preserveAspectRatio="xMinYMax meet"
+                role="img"
+                :aria-label="t('cad.schema.title')"
               >
-              <div class="canvas-column__scale">Y</div>
-              <div class="canvas-column__body">
-                <div
-                  v-for="(level, idx) in column.levelPercents"
-                  :key="`level-${column.index}-${idx}`"
-                  class="level-line"
-                  :style="{ bottom: `${level}%` }"
+                <rect
+                  v-for="(piece, idx) in assembly.pieces"
+                  :key="`piece-${idx}`"
+                  :class="`assembly-piece assembly-piece--${piece.kind}`"
+                  :x="piece.xMm"
+                  :y="assembly.totalHeightMm - piece.topMm"
+                  :width="piece.widthMm"
+                  :height="piece.topMm - piece.bottomMm"
+                />
+                <text
+                  v-for="piece in assembly.pieces.filter((p) => p.kind === 'shelf')"
+                  :key="`label-${piece.xMm}-${piece.bottomMm}`"
+                  class="assembly-label"
+                  :x="piece.xMm + piece.widthMm / 2"
+                  :y="assembly.totalHeightMm - piece.topMm - 4"
+                  text-anchor="middle"
+                >{{ formatCm(piece.bottomMm) }}</text>
+              </svg>
+
+              <div class="assembly-column-labels">
+                <span
+                  v-for="label in assembly.columnLabels"
+                  :key="`col-label-${label.index}`"
+                  class="assembly-column-label"
+                  :style="{ left: `${(label.centerXMm / assembly.totalWidthMm) * 100}%` }"
                 >
-                  <span>{{ column.levels[idx] }}mm</span>
-                </div>
+                  {{ t('cad.designStep.columnLabel', { n: label.index + 1 }) }} - {{ formatCm(label.shelfWidthMm) }}
+                </span>
               </div>
-              <div class="canvas-column__x">C{{ column.index + 1 }} · {{ column.shelfWidthMm }}mm<span v-if="isIntelligente" class="canvas-role-label"> ({{ columnRoles.get(column.index) ?? '' }})</span></div>
-              </article>
             </div>
           </div>
         </section>
       </aside>
-
-      <aside class="right-panel" v-if="selected">
-        <h2>Distinta componenti</h2>
-        <p class="muted">Anteprima aggiornata in tempo reale dal backend</p>
-
-        <div class="bom-list" v-if="(selected.bom?.length ?? 0) > 0">
-          <article class="bom-row" v-for="item in selected.bom" :key="`${item.sku}-${item.componentType || 'GEN'}`">
-            <div>
-              <strong>{{ item.name }}</strong>
-              <p class="mini">SKU: {{ item.sku }} · {{ formatComponentTypeLabel(item.componentType) }}</p>
-            </div>
-            <div class="bom-row__right">
-              <span>x{{ item.quantity }}</span>
-              <strong>
-                {{ formatPrice((item.unitPrice ?? ((item.unitPriceCents || 0) / 100)) * item.quantity) }}
-              </strong>
-            </div>
-          </article>
-        </div>
-        <p v-else class="placeholder">Nessun componente disponibile: completa i passaggi di design.</p>
-
-        <footer class="total-box">
-          <span>Totale preview</span>
-          <strong>{{ formatPrice(totalPrice) }}</strong>
-        </footer>
-      </aside>
     </div>
 
-    <div v-if="showBomMobile" class="modal-overlay" @click.self="showBomMobile = false">
+    <div v-if="showBomModal" class="modal-overlay" @click.self="showBomModal = false">
       <article class="modal-card">
         <header class="modal-header">
-          <h3>Distinta componenti</h3>
-          <button class="btn btn--light btn--small" @click="showBomMobile = false">Chiudi</button>
+          <h3>{{ t('cad.bom.title') }}</h3>
+          <button class="btn btn--light btn--small" @click="showBomModal = false">{{ t('cad.collab.modal.close') }}</button>
         </header>
+        <p class="muted">{{ t('cad.bom.subtitle') }}</p>
         <div class="bom-list" v-if="(selected?.bom?.length ?? 0) > 0">
-          <article class="bom-row" v-for="item in selected?.bom" :key="`mob-${item.sku}-${item.componentType || 'GEN'}`">
+          <article class="bom-row" v-for="item in selected?.bom" :key="`${item.sku}-${item.componentType || 'GEN'}`">
             <div>
               <strong>{{ item.name }}</strong>
-              <p class="mini">SKU: {{ item.sku }} · {{ formatComponentTypeLabel(item.componentType) }}</p>
+              <p class="mini">{{ t('cad.bom.skuLine', { sku: item.sku, type: item.componentType ? typeLabel(item.componentType) : t('cad.bom.componentFallback') }) }}</p>
             </div>
             <div class="bom-row__right">
               <span>x{{ item.quantity }}</span>
@@ -1372,9 +1465,9 @@ function stepActive(index: number): boolean {
             </div>
           </article>
         </div>
-        <p v-else class="placeholder">Nessun componente disponibile.</p>
+        <p v-else class="placeholder">{{ t('cad.bom.empty') }}</p>
         <footer class="total-box">
-          <span>Totale preview</span>
+          <span>{{ t('cad.bom.totalPreview') }}</span>
           <strong>{{ formatPrice(totalPrice) }}</strong>
         </footer>
       </article>
@@ -1383,38 +1476,49 @@ function stepActive(index: number): boolean {
     <div v-if="showCollabModal" class="modal-overlay" @click.self="showCollabModal = false">
       <article class="modal-card modal-card--narrow">
         <header class="modal-header">
-          <h3>Sessione collaborativa attiva</h3>
-          <button class="btn btn--light btn--small" @click="showCollabModal = false">Chiudi</button>
+          <h3>{{ t('cad.collab.modal.title') }}</h3>
+          <button class="btn btn--light btn--small" @click="showCollabModal = false">{{ t('cad.collab.modal.close') }}</button>
         </header>
-        <p>Condividi questo codice con chi vuoi far partecipare:</p>
+        <p>{{ t('cad.collab.modal.shareInstruction') }}</p>
         <p class="collab-code-display">{{ collabSessionCode }}</p>
-        <p class="mini muted">Sia utenti registrati che ospiti possono usarlo. La sessione termina quando esci dalla configurazione.</p>
+        <p class="mini muted">{{ t('cad.collab.modal.note') }}</p>
         <div class="actions-row">
-          <button class="btn btn--primary" @click="copySessionCode">Copia codice</button>
+          <button class="btn btn--primary" @click="copySessionCode">{{ t('cad.collab.modal.copyCode') }}</button>
         </div>
       </article>
     </div>
 
     <div v-if="showResetConfirm" class="modal-overlay" @click.self="cancelReset">
       <article class="modal-card modal-card--narrow">
-        <h3>Conferma reset progetto</h3>
+        <h3>{{ t('cad.resetConfirm.title') }}</h3>
         <p>
-          Cambiare ambiente o categoria dopo la definizione colonne resetta design e componenti. Vuoi continuare?
+          {{ t('cad.resetConfirm.message') }}
         </p>
         <div class="actions-row">
-          <button class="btn btn--light" @click="cancelReset">Annulla</button>
-          <button class="btn btn--primary" @click="confirmResetStepOne">Continua</button>
+          <button class="btn btn--light" @click="cancelReset">{{ t('cad.resetConfirm.cancel') }}</button>
+          <button class="btn btn--primary" @click="confirmResetStepOne">{{ t('cad.resetConfirm.continue') }}</button>
         </div>
       </article>
     </div>
 
     <div v-if="showResetFinalConfirm" class="modal-overlay" @click.self="cancelReset">
       <article class="modal-card modal-card--narrow">
-        <h3>Seconda conferma richiesta</h3>
-        <p>Confermi definitivamente il reset dei passaggi successivi?</p>
+        <h3>{{ t('cad.resetFinalConfirm.title') }}</h3>
+        <p>{{ t('cad.resetFinalConfirm.message') }}</p>
         <div class="actions-row">
-          <button class="btn btn--light" @click="cancelReset">Annulla</button>
-          <button class="btn btn--primary" @click="confirmResetStepTwo">Conferma reset</button>
+          <button class="btn btn--light" @click="cancelReset">{{ t('cad.resetFinalConfirm.cancel') }}</button>
+          <button class="btn btn--primary" @click="confirmResetStepTwo">{{ t('cad.resetFinalConfirm.confirm') }}</button>
+        </div>
+      </article>
+    </div>
+
+    <div v-if="showResetConfigConfirm" class="modal-overlay" @click.self="cancelConfigReset">
+      <article class="modal-card modal-card--narrow">
+        <h3>{{ t('cad.resetConfig.confirmTitle') }}</h3>
+        <p>{{ t('cad.resetConfig.confirmMessage') }}</p>
+        <div class="actions-row">
+          <button class="btn btn--light" @click="cancelConfigReset">{{ t('cad.resetConfig.cancel') }}</button>
+          <button class="btn btn--primary" @click="confirmConfigReset">{{ t('cad.resetConfig.confirm') }}</button>
         </div>
       </article>
     </div>
@@ -1462,8 +1566,18 @@ function stepActive(index: number): boolean {
   gap: var(--space-2);
 }
 
-.bom-mobile-btn {
-  display: none;
+.bom-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bom-trigger-icon {
+  font-size: var(--font-size-lg);
+}
+
+.bom-trigger-total {
+  font-weight: var(--font-weight-semibold);
 }
 
 .toolbar {
@@ -1529,14 +1643,13 @@ function stepActive(index: number): boolean {
 .cad-layout {
   margin-top: var(--space-5);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px) minmax(280px, 340px);
+  grid-template-columns: minmax(360px, 1fr) minmax(420px, 1.3fr);
   gap: var(--space-4);
   align-items: stretch;
 }
 
 .schema-panel,
-.center-panel,
-.right-panel {
+.center-panel {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   border-radius: var(--radius-lg);
@@ -1544,15 +1657,14 @@ function stepActive(index: number): boolean {
 }
 
 .center-panel,
-.schema-panel,
-.right-panel {
+.schema-panel {
   max-height: calc(100vh - 130px);
   overflow: auto;
 }
 
 .stepper {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-2);
 }
 
@@ -1621,20 +1733,19 @@ function stepActive(index: number): boolean {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: var(--space-3);
-}
-
-.canvas-size {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-.canvas-grid {
-  display: flex;
-  align-items: stretch;
   gap: var(--space-2);
-  min-height: 260px;
-  min-width: 100%;
-  width: max-content;
+  flex-wrap: wrap;
+}
+
+.assembly-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.assembly-zoom-percent {
+  min-width: 52px;
 }
 
 .canvas-scroll {
@@ -1643,45 +1754,57 @@ function stepActive(index: number): boolean {
   padding-bottom: var(--space-1);
 }
 
-.canvas-column {
-  flex: var(--column-grow, 1) 0 0;
-  min-width: 140px;
-  border: 1px dashed var(--color-border);
+.assembly-frame {
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: var(--space-2);
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: var(--space-2);
+  background: var(--color-surface);
+  padding: var(--space-3);
 }
 
-.canvas-column__scale,
-.canvas-column__x {
+.assembly-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 55vh;
+}
+
+.assembly-piece {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.assembly-piece--foot,
+.assembly-piece--upright {
+  fill: var(--color-admin-accent);
+}
+
+.assembly-piece--terminal {
+  fill: var(--color-text-secondary);
+}
+
+.assembly-piece--shelf {
+  fill: var(--color-accent-subtle);
+  stroke: var(--color-text-secondary);
+}
+
+.assembly-label {
+  font-size: 9px;
+  fill: var(--color-text-muted);
+}
+
+.assembly-column-labels {
+  position: relative;
+  height: 1.6em;
+  margin-top: var(--space-2);
+}
+
+.assembly-column-label {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-}
-
-.canvas-column__body {
-  position: relative;
-  background: linear-gradient(to top, #f2f6f8 0%, #ffffff 100%);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-}
-
-.level-line {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  border-top: 2px solid var(--color-accent);
-}
-
-.level-line span {
-  position: absolute;
-  right: 0;
-  top: -14px;
-  background: #fff;
-  font-size: 10px;
-  color: var(--color-text-secondary);
-  padding: 0 4px;
+  white-space: nowrap;
 }
 
 .controls-section {
@@ -1764,21 +1887,18 @@ function stepActive(index: number): boolean {
   line-height: 1.4;
 }
 
-.intelligente-banner {
-  background: color-mix(in srgb, var(--color-primary, #4f46e5) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-primary, #4f46e5) 30%, transparent);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3);
-  margin-bottom: var(--space-3);
-  font-size: 0.85rem;
-  line-height: 1.5;
+.level-list {
+  display: grid;
+  gap: 2px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
-.alignment-warning {
-  display: block;
-  margin-top: var(--space-1);
-  color: var(--color-warning, #b45309);
-  font-weight: 600;
+.level-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .role-badge {
@@ -1902,14 +2022,8 @@ function stepActive(index: number): boolean {
 
 @media (max-width: 1360px) {
   .cad-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
     align-items: start;
-  }
-
-  .right-panel {
-    grid-column: 1 / -1;
-    max-height: none;
-    overflow: visible;
   }
 
   .schema-panel {
@@ -1938,8 +2052,7 @@ function stepActive(index: number): boolean {
   }
 
   .center-panel,
-  .schema-panel,
-  .right-panel {
+  .schema-panel {
     max-height: none;
     overflow: visible;
   }
@@ -1950,14 +2063,6 @@ function stepActive(index: number): boolean {
 
   .schema-panel {
     order: 2;
-  }
-
-  .right-panel {
-    display: none;
-  }
-
-  .bom-mobile-btn {
-    display: inline-flex;
   }
 
   .stepper {

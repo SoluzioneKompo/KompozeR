@@ -1,4 +1,5 @@
 import { Configuration } from '../../src/domain/entities/Configuration';
+import { Category } from '../../src/domain/entities/Category';
 import { BomItem } from '../../src/domain/entities/Bom';
 import {
   CatalogRules,
@@ -61,7 +62,6 @@ export class FakeConfigurationRepository implements ConfigurationRepository {
     return {
       ...configuration,
       collaborators: [...configuration.collaborators],
-      environment: configuration.environment ? { ...configuration.environment } : null,
       columnPlan: configuration.columnPlan
         ? {
             ...configuration.columnPlan,
@@ -72,6 +72,7 @@ export class FakeConfigurationRepository implements ConfigurationRepository {
         ...design,
         levelsMm: [...design.levelsMm],
       })),
+      terminalSelections: configuration.terminalSelections.map((selection) => ({ ...selection })),
       components: configuration.components.map((comp) => ({ ...comp })),
       createdAt: new Date(configuration.createdAt),
       updatedAt: new Date(configuration.updatedAt),
@@ -89,9 +90,10 @@ export function buildConfiguration(overrides: Partial<Configuration> = {}): Conf
     name: 'Configurazione test',
     status: 'DRAFT',
     category: null,
-    environment: null,
+    depthMm: null,
     columnPlan: null,
     columnDesigns: [],
+    terminalSelections: [],
     components: [],
     version: 1,
     createdAt: now,
@@ -104,13 +106,19 @@ export function buildConfiguration(overrides: Partial<Configuration> = {}): Conf
 export class FakeCatalogRulesProvider implements CatalogRulesProvider {
   constructor(private readonly rules: CatalogRules = buildCatalogRules()) {}
 
-  async getRules(): Promise<CatalogRules> {
+  async getAvailableDepthsMm(): Promise<number[]> {
+    const depths = new Set([...this.rules.shelfByWidthMm.values()].map((rule) => rule.depthMm));
+    return [...depths].sort((a, b) => a - b);
+  }
+
+  async getRules(_category?: Category, _depthMm?: number): Promise<CatalogRules> {
     return {
       shelfByWidthMm: new Map(this.rules.shelfByWidthMm),
       bordoByWidthMm: new Map(this.rules.bordoByWidthMm),
       intermezzoByWidthMm: new Map(this.rules.intermezzoByWidthMm),
       uprightByHeightMm: new Map(this.rules.uprightByHeightMm),
       footByHeightMm: new Map(this.rules.footByHeightMm),
+      terminalByHeightMm: new Map(this.rules.terminalByHeightMm),
       terminalHeightsMm: [...this.rules.terminalHeightsMm],
       footHeightsMm: [...this.rules.footHeightsMm],
       uprightHeightsMm: [...this.rules.uprightHeightsMm],
@@ -122,10 +130,10 @@ export class FakeCatalogRulesProvider implements CatalogRulesProvider {
 
 /** Cart client fake collecting push calls for assertions. */
 export class FakeCartServiceClient implements CartServiceClient {
-  readonly calls: Array<{ ownerId: string; items: BomItem[] }> = [];
+  readonly calls: Array<{ ownerId: string; items: BomItem[]; configId: string; configName: string }> = [];
 
-  async pushBomToCart(ownerId: string, items: BomItem[]): Promise<void> {
-    this.calls.push({ ownerId, items: [...items] });
+  async pushBomToCart(ownerId: string, items: BomItem[], configId: string, configName: string): Promise<void> {
+    this.calls.push({ ownerId, items: [...items], configId, configName });
   }
 }
 
@@ -160,6 +168,9 @@ export function buildCatalogRules(overrides: Partial<CatalogRules> = {}): Catalo
     [120, defaultFoot],
     [160, altFoot],
   ]);
+  const terminalMap = new Map([
+    [40, defaultTerminal],
+  ]);
 
   const base: CatalogRules = {
     shelfByWidthMm: shelfMap,
@@ -167,6 +178,7 @@ export function buildCatalogRules(overrides: Partial<CatalogRules> = {}): Catalo
     intermezzoByWidthMm: new Map(),
     uprightByHeightMm: uprightMap,
     footByHeightMm: footMap,
+    terminalByHeightMm: terminalMap,
     terminalHeightsMm: [40],
     footHeightsMm: [120, 160],
     uprightHeightsMm: [120, 300, 400, 500],
@@ -180,6 +192,7 @@ export function buildCatalogRules(overrides: Partial<CatalogRules> = {}): Catalo
     intermezzoByWidthMm: overrides.intermezzoByWidthMm ? new Map(overrides.intermezzoByWidthMm) : base.intermezzoByWidthMm,
     uprightByHeightMm:   overrides.uprightByHeightMm   ? new Map(overrides.uprightByHeightMm)   : base.uprightByHeightMm,
     footByHeightMm:      overrides.footByHeightMm      ? new Map(overrides.footByHeightMm)      : base.footByHeightMm,
+    terminalByHeightMm:  overrides.terminalByHeightMm  ? new Map(overrides.terminalByHeightMm)  : base.terminalByHeightMm,
     terminalHeightsMm:   overrides.terminalHeightsMm   ?? base.terminalHeightsMm,
     footHeightsMm:       overrides.footHeightsMm       ?? base.footHeightsMm,
     uprightHeightsMm:    overrides.uprightHeightsMm    ?? base.uprightHeightsMm,

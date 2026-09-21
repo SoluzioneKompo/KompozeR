@@ -146,7 +146,6 @@ function detectTargetNeeds() {
     reporting: rawArgs.includes('reporting.integration.test'),
     order: rawArgs.includes('order.integration.test'),
     notifications: rawArgs.includes('notifications.integration.test'),
-    chatbot: rawArgs.includes('chatbot.integration.test'),
   };
 
   const hasKnownTarget = Object.values(wants).some(Boolean);
@@ -165,7 +164,7 @@ function detectTargetNeeds() {
   const needsCad = wants.cad;
   const needsReporting = wants.reporting;
   const needsAuth =
-    wants.auth || needsCatalog || wants.notifications || wants.chatbot;
+    wants.auth || needsCatalog || wants.notifications;
   const needsAdminSeed =
     wants.catalog || wants.cart || wants.reporting || wants.order;
 

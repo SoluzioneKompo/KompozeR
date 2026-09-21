@@ -4,6 +4,7 @@ import { notificationService } from '@/services/notificationService';
 import { useNotificationStore } from '@/store/notificationStore';
 import type { Notification } from '@/types/notification';
 import { ApiError } from '@/types/api';
+import { i18n } from '@/i18n';
 
 export function useNotifications() {
   const items = ref<Notification[]>([]);
@@ -36,7 +37,7 @@ export function useNotifications() {
       totalPages.value = response.totalPages ?? Math.max(1, Math.ceil(response.total / response.limit));
       await notifications.refreshUnreadCount();
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Errore caricamento notifiche';
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('notifications.errors.loadFailed');
     } finally {
       loading.value = false;
     }
@@ -51,9 +52,9 @@ export function useNotifications() {
       await notifications.markRead(item);
       item.read = true;
       item.readAt = new Date().toISOString();
-      notifications.addToast('success', 'Notifica segnata come letta');
+      notifications.addToast('success', i18n.global.t('notifications.toast.markedAsRead'));
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore aggiornamento notifica';
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('notifications.errors.updateFailed');
       notifications.addToast('error', msg);
     }
   }

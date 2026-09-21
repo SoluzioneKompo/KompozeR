@@ -6,8 +6,16 @@ import { UpdateOrderStatus } from '../../src/useCases/UpdateOrderStatus';
 import {
   OrderAlreadyCancelledError,
   OrderAlreadyDoneError,
+  OrderStatusTransitionNotAllowedError,
 } from '../../src/domain/entities/errors';
 import { FakeOrderRepository } from '../helpers/fakes';
+
+/** Simulates a completed payment, moving an order past AWAITING_PAYMENT. */
+async function forwardOrder(repo: FakeOrderRepository, orderId: string): Promise<void> {
+  const order = await repo.findById(orderId);
+  if (!order) throw new Error('Order not found in fake repository');
+  await repo.update({ ...order, status: 'SUBMITTED' });
+}
 
 const expeditionInfo = {
   name: 'Mario',
@@ -33,6 +41,7 @@ describe('UpdateOrderStatus', () => {
       items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
       total: 1990,
     });
+    await forwardOrder(repo, created.id);
 
     const updated = await updateOrderStatus.execute({
       orderId: created.id,
@@ -41,6 +50,23 @@ describe('UpdateOrderStatus', () => {
 
     expect(updated.status).toBe('DONE');
     expect(updated.doneAt).toEqual(expect.any(String));
+  });
+
+  it('throws when order is still AWAITING_PAYMENT', async () => {
+    const repo = new FakeOrderRepository();
+    const createOrder = new CreateOrder(repo);
+    const updateOrderStatus = new UpdateOrderStatus(repo);
+
+    const created = await createOrder.execute({
+      userId: 'usr_1',
+      expeditionInfo,
+      items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
+      total: 1990,
+    });
+
+    await expect(
+      updateOrderStatus.execute({ orderId: created.id, status: 'DONE' }),
+    ).rejects.toBeInstanceOf(OrderStatusTransitionNotAllowedError);
   });
 
   it('throws when order is already DONE', async () => {
@@ -54,6 +80,7 @@ describe('UpdateOrderStatus', () => {
       items: [{ sku: 'SKU-001', name: 'Ripiano', unitPrice: 1990, quantity: 1 }],
       total: 1990,
     });
+    await forwardOrder(repo, created.id);
 
     await updateOrderStatus.execute({ orderId: created.id, status: 'DONE' });
 

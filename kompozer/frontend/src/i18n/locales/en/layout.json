@@ -1,0 +1,20 @@
+{
+  "nav": {
+    "catalog": "Catalog",
+    "adminCatalog": "Admin Catalog",
+    "configurations": "Configurations",
+    "cad": "Configurator",
+    "adminOrders": "Orders",
+    "adminReports": "Reports"
+  },
+  "actions": {
+    "cartAriaLabel": "Cart",
+    "notificationsAriaLabel": "Notifications",
+    "guest": "Guest",
+    "logoutAriaLabel": "Sign out of your account",
+    "logout": "Sign out"
+  },
+  "realtime": {
+    "reconnected": "Realtime connection restored"
+  }
+}

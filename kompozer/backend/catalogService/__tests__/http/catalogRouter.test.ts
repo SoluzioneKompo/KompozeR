@@ -49,7 +49,6 @@ function buildApp() {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 const VALID_BODY = {
-  sku:            'KMP-SHELF-001',
   name:           'Ripiano 80cm',
   description:    'Ripiano in legno',
   category:       ComponentCategory.TONDO,
@@ -93,17 +92,17 @@ describe('GET /catalog', () => {
     expect(res.body.items[0].category).toBe('TONDO');
   });
 
-  it('200 — filtra per categoria INTELLIGENTE via query string', async () => {
+  it('200 — filtra per categoria KUBE via query string', async () => {
     const { app, repo } = buildApp();
     await repo.save(
-      makeComponent({ id: 'c1', sku: 'SKU-I', category: ComponentCategory.INTELLIGENTE }),
+      makeComponent({ id: 'c1', sku: 'SKU-I', category: ComponentCategory.KUBE }),
     );
     await repo.save(makeComponent({ id: 'c2', sku: 'SKU-T', category: ComponentCategory.TONDO }));
 
-    const res = await request(app).get('/catalog?category=INTELLIGENTE');
+    const res = await request(app).get('/catalog?category=KUBE');
     expect(res.status).toBe(200);
     expect(res.body.total).toBe(1);
-    expect(res.body.items[0].category).toBe('INTELLIGENTE');
+    expect(res.body.items[0].category).toBe('KUBE');
   });
 
   it('200 — filtra per available=true', async () => {
@@ -152,7 +151,7 @@ describe('POST /catalog — richiede ADMIN', () => {
     expect(res.status).toBe(403);
   });
 
-  it('201 — crea il componente con ruolo ADMIN', async () => {
+  it('201 — crea il componente con ruolo ADMIN e genera lo SKU da category/Type/dimensions', async () => {
     const { app } = buildApp();
     const res = await request(app)
       .post('/catalog')
@@ -160,21 +159,32 @@ describe('POST /catalog — richiede ADMIN', () => {
       .set('x-user-id', 'admin-001')
       .send(VALID_BODY);
     expect(res.status).toBe(201);
-    expect(res.body.sku).toBe('KMP-SHELF-001');
+    expect(res.body.sku).toBe('TONDO-SKU-RIPIANO-800x300');
     expect(res.body.version).toBe(1);
   });
 
-  it('409 — SKU duplicato', async () => {
+  it('201 — SKU con suffisso numerico se le stesse specifiche esistono già', async () => {
     const { app, repo } = buildApp();
-    await repo.save(makeComponent({ id: 'existing', sku: 'KMP-SHELF-001' }));
+    await repo.save(makeComponent({ id: 'existing', sku: 'TONDO-SKU-RIPIANO-800x300' }));
 
     const res = await request(app)
       .post('/catalog')
       .set('x-user-role', 'ADMIN')
       .set('x-user-id', 'admin-001')
       .send(VALID_BODY);
-    expect(res.status).toBe(409);
-    expect(res.body).toHaveProperty('error.code', 'DUPLICATE_SKU');
+    expect(res.status).toBe(201);
+    expect(res.body.sku).toBe('TONDO-SKU-RIPIANO-800x300-2');
+  });
+
+  it('422 — SKU nel body viene rifiutato (campo non piu accettato dal client)', async () => {
+    const { app } = buildApp();
+    const res = await request(app)
+      .post('/catalog')
+      .set('x-user-role', 'ADMIN')
+      .set('x-user-id', 'admin-001')
+      .send({ ...VALID_BODY, sku: 'CLIENT-PROVIDED' });
+    expect(res.status).toBe(422);
+    expect(res.body).toHaveProperty('error.code', 'VALIDATION_ERROR');
   });
 
   it('422 — dati non validi (name vuoto)', async () => {

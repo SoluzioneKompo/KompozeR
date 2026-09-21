@@ -1,0 +1,49 @@
+{
+  "title": "Pagamento",
+  "orderLabel": "Ordine {orderId}",
+  "loadingOrder": "Caricamento ordine...",
+  "summary": {
+    "title": "Riepilogo",
+    "totalDue": "Totale da pagare"
+  },
+  "methods": {
+    "title": "Scegli metodo di pagamento",
+    "paypal": "PayPal",
+    "card": "Carta di credito/debito",
+    "starting": "Avvio pagamento..."
+  },
+  "status": {
+    "title": "Stato pagamento",
+    "methodLabel": "Metodo: {method}",
+    "methodCard": "Carta",
+    "pending": "In attesa di conferma dal provider ({reference}).",
+    "completed": "Pagamento completato.",
+    "failed": "Pagamento fallito"
+  },
+  "dev": {
+    "note": "Integrazione PayPal/Carta non ancora attiva: simula qui l'esito che il provider invierebbe.",
+    "simulateSuccess": "Simula pagamento riuscito",
+    "simulateFailure": "Simula pagamento fallito"
+  },
+  "actions": {
+    "retry": "Riprova pagamento",
+    "cancelOrder": "Annulla ordine",
+    "cancelling": "Annullamento in corso..."
+  },
+  "cancelled": {
+    "title": "Ordine annullato",
+    "message": "Questo ordine non è più disponibile. Per rieffettuare lo stesso ordine vai in Configurazioni e clicca Riordina."
+  },
+  "backToCatalog": "Torna al catalogo",
+  "errors": {
+    "loadOrder": "Errore caricamento ordine",
+    "startPayment": "Errore durante avvio pagamento",
+    "confirmPayment": "Errore durante conferma pagamento",
+    "cancelOrder": "Errore durante annullamento ordine"
+  },
+  "toasts": {
+    "completed": "Pagamento completato",
+    "failed": "Pagamento fallito",
+    "orderCancelled": "Ordine annullato. Per rieffettuare lo stesso ordine vai in Configurazioni e clicca Riordina."
+  }
+}

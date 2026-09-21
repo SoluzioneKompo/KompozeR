@@ -7,5 +7,4 @@ export enum ComponentCategory {
   TONDO = 'TONDO',
   QUADRO = 'QUADRO',
   KUBE = 'KUBE',
-  INTELLIGENTE = 'INTELLIGENTE',
 }

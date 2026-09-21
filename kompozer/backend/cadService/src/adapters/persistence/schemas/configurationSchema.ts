@@ -3,14 +3,6 @@ import { CATEGORIES, Category } from '../../../domain/entities/Category';
 import { ConfigurationStatus } from '../../../domain/entities/ConfigurationStatus';
 import { CatalogComponentType } from '../../../domain/ports/CatalogRulesProvider';
 
-type EnvironmentDoc = {
-  maxWidthMm: number;
-  maxHeightMm: number;
-  minWidthMm: number;
-  minHeightMm: number;
-  unit: 'mm';
-};
-
 type ColumnPlanItemDoc = {
   index: number;
   shelfWidthMm: number;
@@ -25,6 +17,11 @@ type ColumnDesignDoc = {
   columnIndex: number;
   levelsMm: number[];
   shelfThicknessMm: number;
+};
+
+type TerminalSelectionDoc = {
+  spineIndex: number;
+  heightMm: number;
 };
 
 type BomItemDoc = {
@@ -42,26 +39,15 @@ export type ConfigurationDoc = {
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
-  environment: EnvironmentDoc | null;
+  depthMm: number | null;
   columnPlan: ColumnPlanDoc | null;
   columnDesigns: ColumnDesignDoc[];
+  terminalSelections: TerminalSelectionDoc[];
   components: BomItemDoc[];
   version: number;
   createdAt: Date;
   updatedAt: Date;
 };
-
-/** Embedded schema for environment constraints. */
-const environmentSchema = new Schema<EnvironmentDoc>(
-  {
-    maxWidthMm: { type: Number, required: true },
-    maxHeightMm: { type: Number, required: true },
-    minWidthMm: { type: Number, required: true },
-    minHeightMm: { type: Number, required: true },
-    unit: { type: String, enum: ['mm'], required: true },
-  },
-  { _id: false },
-);
 
 /** Embedded schema for a single planned column. */
 const columnPlanItemSchema = new Schema<ColumnPlanItemDoc>(
@@ -91,6 +77,15 @@ const columnDesignSchema = new Schema<ColumnDesignDoc>(
   { _id: false },
 );
 
+/** Embedded schema for a per-spine terminal (cap) height choice. */
+const terminalSelectionSchema = new Schema<TerminalSelectionDoc>(
+  {
+    spineIndex: { type: Number, required: true },
+    heightMm: { type: Number, required: true },
+  },
+  { _id: false },
+);
+
 /** Embedded schema for persisted BOM line items. */
 const bomItemSchema = new Schema<BomItemDoc>(
   {
@@ -115,7 +110,6 @@ const configurationSchema = new Schema<ConfigurationDoc>(
       required: true,
       enum: [
         'DRAFT',
-        'ENVIRONMENT_DEFINED',
         'CATEGORY_SELECTED',
         'COLUMNS_DEFINED',
         'DESIGN_IN_PROGRESS',
@@ -129,8 +123,8 @@ const configurationSchema = new Schema<ConfigurationDoc>(
       required: false,
       default: null,
     },
-    environment: {
-      type: environmentSchema,
+    depthMm: {
+      type: Number,
       required: false,
       default: null,
     },
@@ -141,6 +135,10 @@ const configurationSchema = new Schema<ConfigurationDoc>(
     },
     columnDesigns: {
       type: [columnDesignSchema],
+      default: [],
+    },
+    terminalSelections: {
+      type: [terminalSelectionSchema],
       default: [],
     },
     components: {

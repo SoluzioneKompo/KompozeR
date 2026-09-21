@@ -1,0 +1,179 @@
+{
+  "header": {
+    "title": "CAD Configurator",
+    "subtitle": "Design workspace with an independent graphic schematic",
+    "refreshDetail": "Refresh detail",
+    "loadingDetail": "Loading detail..."
+  },
+  "collab": {
+    "sessionLabel": "Session",
+    "start": "Collaborate",
+    "starting": "Starting...",
+    "codePrefix": "Code:",
+    "endSession": "End session",
+    "endedWarning": "⚠️ Session ended",
+    "backToSolitary": "Back to solo mode",
+    "statusSelectOrCreate": "Select or create a configuration",
+    "statusOwnerLeftEnded": "The owner has left — session ended",
+    "statusActive": "Collaboration active · {count} participants · Code: {code}",
+    "statusReconnecting": "Collaboration — reconnecting...",
+    "statusSolitary": "Solo mode",
+    "modal": {
+      "title": "Active collaborative session",
+      "close": "Close",
+      "shareInstruction": "Share this code with whoever you want to invite:",
+      "note": "Both registered users and guests can use it. The session ends when you leave the configuration.",
+      "copyCode": "Copy code"
+    }
+  },
+  "create": {
+    "title": "Create new configuration",
+    "hint": "You can start here or join an existing collaborative session.",
+    "nameLabel": "Configuration name",
+    "namePlaceholder": "New configuration",
+    "creating": "Creating...",
+    "createButton": "Create and open configurator",
+    "joinCodeLabel": "Collaborative session code",
+    "joinCodePlaceholder": "e.g. A3KP7X",
+    "joining": "Joining...",
+    "joinButton": "Join with code"
+  },
+  "steps": {
+    "category": "Category",
+    "columns": "Columns",
+    "design": "Design",
+    "finalize": "Finalize"
+  },
+  "meta": {
+    "configuration": "Configuration",
+    "status": "Status",
+    "lastUpdate": "Last update"
+  },
+  "categoryStep": {
+    "title": "Step 1 - Category",
+    "label": "Category",
+    "placeholder": "Select category",
+    "saving": "Saving..."
+  },
+  "depthStep": {
+    "title": "Depth",
+    "label": "Shelf depth",
+    "placeholder": "Select depth",
+    "hint": "Filters the sizes offered in the next steps. Changing it after columns or levels are defined resets the configuration.",
+    "saving": "Saving..."
+  },
+  "columnsStep": {
+    "title": "Step 2 - Column plan",
+    "countLabel": "Number of columns (1-8)",
+    "loadingWidths": "Loading widths from catalog...",
+    "noShelvesAvailable": "No shelf available for the selected category.",
+    "columnLabel": "Column {n}",
+    "saving": "Saving..."
+  },
+  "designStep": {
+    "title": "Step 3 - Level construction (+ / -)",
+    "fixedThickness": "Fixed shelf thickness: {cm}",
+    "columnLabel": "Column {n}",
+    "currentLevels": "Current levels: {levels}",
+    "none": "none",
+    "firstLevelHint": "First level: choose a {type} or a bridge to adjacent columns",
+    "nextLevelHint": "Next level: choose a {type} or a bridge",
+    "bridgeHint": "You can create a <strong>bridge</strong>: merge this column with the adjacent ones by spanning a taller gap than single uprights allow.",
+    "pieceHeightLabel": "Piece height to add",
+    "selectHeightAriaLabel": "Select height to add for column {n}",
+    "bridgeSuffix": " · bridge",
+    "stackedSuffix": " · stacked",
+    "noOptionsAvailable": "No option available for this column under the current constraints.",
+    "addLevel": "+ Level",
+    "addLevelAriaLabel": "Add level to column {n}",
+    "removeLast": "- Last",
+    "removeLastAriaLabel": "Remove last level from column {n}"
+  },
+  "terminalStep": {
+    "title": "Terminals",
+    "hint": "Choose the terminal height for each spine (an outer column or the joint between two adjacent columns). Saved automatically.",
+    "noHeightsAvailable": "No terminal available in the catalog for this category.",
+    "outerLabel": "Column {n} terminal",
+    "innerLabel": "Terminal between column {left} and {right}",
+    "selectAriaLabel": "Select terminal height for spine {spine}"
+  },
+  "finalizeStep": {
+    "title": "Step 4 - Finalization",
+    "finalizing": "Finalizing...",
+    "finalizeButton": "Finalize and send to cart",
+    "hint": "Finalization is only available in READY_FOR_FINALIZE."
+  },
+  "schema": {
+    "title": "Graphic schematic",
+    "subtitle": "Real-scale side view of the current structure",
+    "zoomOut": "Zoom out",
+    "zoomIn": "Zoom in",
+    "zoomReset": "Reset zoom to 100%",
+    "zoomFit": "Fit"
+  },
+  "bom": {
+    "title": "Bill of materials",
+    "subtitle": "Preview updated in real time from the backend",
+    "empty": "No component available: complete the design steps.",
+    "totalPreview": "Preview total",
+    "skuLine": "SKU: {sku} · {type}",
+    "componentFallback": "Component"
+  },
+  "resetConfig": {
+    "button": "Reset configuration",
+    "resetting": "Resetting...",
+    "confirmTitle": "Reset this configuration?",
+    "confirmMessage": "The column plan, design and components will be cleared. The selected category stays unchanged. This action cannot be undone.",
+    "cancel": "Cancel",
+    "confirm": "Reset configuration"
+  },
+  "resetConfirm": {
+    "title": "Confirm project reset",
+    "message": "Changing category or column plan after the design has already started resets design and components. Do you want to continue?",
+    "cancel": "Cancel",
+    "continue": "Continue"
+  },
+  "resetFinalConfirm": {
+    "title": "Second confirmation required",
+    "message": "Do you definitively confirm the reset of the following steps?",
+    "cancel": "Cancel",
+    "confirm": "Confirm reset"
+  },
+  "toasts": {
+    "httpError": "HTTP error {status}",
+    "startSessionFailed": "Failed to start collaborative session",
+    "invalidCode": "Enter a valid code",
+    "sessionJoined": "Collaborative session joined ({code})",
+    "joinFailed": "Failed to join collaborative session",
+    "codeCopied": "Code {code} copied",
+    "copyFailed": "Unable to copy the code",
+    "realtimeError": "CAD realtime error",
+    "ownerLeft": "The owner has left the collaborative session",
+    "configurationCreated": "Configuration created: {name}",
+    "loadListError": "Error loading configurations",
+    "loadDetailError": "Error loading configuration detail",
+    "createError": "Error creating configuration",
+    "categoryUpdated": "Category updated",
+    "categoryUpdateError": "Error updating category",
+    "depthUpdated": "Depth updated",
+    "depthUpdateError": "Error updating depth",
+    "columnPlanUpdated": "Column plan updated",
+    "columnPlanUpdateError": "Error updating column plan",
+    "designUpdated": "Column design updated",
+    "designUpdateError": "Error updating design",
+    "nextOptionsError": "Error retrieving available options",
+    "columnNotFound": "Column {n} not found",
+    "finalizeSuccess": "Configuration finalized and sent to cart",
+    "finalizeError": "Error finalizing configuration",
+    "resetSuccess": "Configuration reset",
+    "resetError": "Error resetting configuration",
+    "realtimeUnavailable": "Realtime connection not available",
+    "joinTimeout": "Timeout joining collaborative session",
+    "leaveTimeout": "Timeout leaving collaborative session",
+    "leaveCollabFailed": "Failed to leave collaborative session",
+    "snapshotTimeout": "Timeout requesting collaborative snapshot",
+    "snapshotFailed": "Failed to request collaborative snapshot",
+    "operationTimeout": "Timeout on collaborative operation",
+    "operationFailed": "Collaborative operation failed"
+  }
+}

@@ -3,16 +3,6 @@ import { ConfigurationStatus } from './ConfigurationStatus';
 import { ValidationError } from './errors';
 import { BomItem } from './Bom';
 
-export type Unit = 'mm';
-
-export interface Environment {
-  maxWidthMm: number;
-  maxHeightMm: number;
-  minWidthMm: number;
-  minHeightMm: number;
-  unit: Unit;
-}
-
 export interface ColumnPlanItem {
   index: number;
   shelfWidthMm: number;
@@ -29,6 +19,17 @@ export interface ColumnDesign {
   shelfThicknessMm: number;
 }
 
+/**
+ * User-chosen terminal (cap) height for one spine.
+ * Spines are indexed 0..columnCount (inclusive), matching `SpineModel.buildSpines`:
+ * spine 0 and spine columnCount are owned by a single outer column, inner spines
+ * are shared between two adjacent columns.
+ */
+export interface TerminalSelection {
+  spineIndex: number;
+  heightMm: number;
+}
+
 export interface Configuration {
   id: string;
   ownerId: string;
@@ -36,9 +37,11 @@ export interface Configuration {
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
-  environment: Environment | null;
+  /** Shelf depth (mm) chosen right after category; filters which widths/levels are offered. */
+  depthMm: number | null;
   columnPlan: ColumnPlan | null;
   columnDesigns: ColumnDesign[];
+  terminalSelections: TerminalSelection[];
   components: BomItem[];
   version: number;
   createdAt: Date;
@@ -64,6 +67,10 @@ export function validateConfigurationModel(configuration: Configuration): void {
 
   if (configuration.version < 1) {
     throw new ValidationError('Version must be >= 1');
+  }
+
+  if (configuration.depthMm != null && configuration.depthMm <= 0) {
+    throw new ValidationError('depthMm must be > 0');
   }
 
   if (configuration.columnPlan) {
@@ -94,6 +101,21 @@ export function validateConfigurationModel(configuration: Configuration): void {
       if (design.levelsMm[i] <= design.levelsMm[i - 1]) {
         throw new ValidationError('columnDesign levelsMm must be strictly increasing');
       }
+    }
+  }
+
+  const seenSpineIndexes = new Set<number>();
+  for (const selection of configuration.terminalSelections) {
+    if (selection.spineIndex < 0) {
+      throw new ValidationError('terminalSelection spineIndex must be >= 0');
+    }
+    if (seenSpineIndexes.has(selection.spineIndex)) {
+      throw new ValidationError('terminalSelections must have unique spineIndex values');
+    }
+    seenSpineIndexes.add(selection.spineIndex);
+
+    if (selection.heightMm <= 0) {
+      throw new ValidationError('terminalSelection heightMm must be > 0');
     }
   }
 }

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { createServer } from 'http';
 import { buildApp } from './app';
+import { logger } from './infrastructure/logger';
 import { CollabSocketHub } from './adapters/websocket/CollabSocketHub';
 import { MongoCollabCheckpointStore } from './adapters/persistence/MongoCollabCheckpointStore';
 import { MongoCollabEventLog } from './adapters/persistence/MongoCollabEventLog';
@@ -56,11 +57,14 @@ const socketHub = new CollabSocketHub(server, collabSessionService);
 mongoose
   .connect(MONGO_URI, buildConnectOptions())
   .then(async () => {
-    console.log(`[cad] MongoDB connected: ${MONGO_URI}`);
+    logger.info({ event: 'cad.startup.db_connected' }, `MongoDB connected: ${MONGO_URI}`);
 
     const recovered = await collabSessionService.recoverSessions();
     if (recovered.length > 0) {
-      console.log(`[cad] Recovered ${recovered.length} collaborative session(s): ${recovered.join(', ')}`);
+      logger.info(
+        { event: 'cad.collab.sessions_recovered', sessionCodes: recovered },
+        `Recovered ${recovered.length} collaborative session(s)`,
+      );
       for (const sessionCode of recovered) {
         socketHub.broadcastResync(sessionCode);
       }
@@ -69,15 +73,15 @@ mongoose
     const checkpointTimer = setInterval(() => {
       collabSessionService
         .checkpointAllSessions()
-        .catch((err: unknown) => console.error('[cad] Checkpoint failed', err));
+        .catch((err: unknown) => logger.error({ err }, 'CAD checkpoint failed'));
     }, CHECKPOINT_INTERVAL_MS);
     checkpointTimer.unref();
 
     server.listen(PORT, () => {
-      console.log(`[cad] Listening on port ${PORT}`);
+      logger.info({ event: 'cad.startup.listening', port: PORT }, `Listening on port ${PORT}`);
     });
   })
   .catch((err: unknown) => {
-    console.error('[cad] Failed to connect to MongoDB', err);
+    logger.fatal({ err }, 'Failed to connect to MongoDB');
     process.exit(1);
   });

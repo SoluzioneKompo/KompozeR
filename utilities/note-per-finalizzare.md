@@ -1,0 +1,9 @@
+
+# Aggiunte e richieste dei bosses
+
+1. Aggiunta del Kube: kompo kube ho una logica diversa di montaggio rispetto a tondo e quadro, qui abbiamo poche altezze di montanti, ma tra 2 ripiani si possono mettere anche più montanti, ad esempio se tra il primo e il secondo livello voglio 60 cm di spazio, nel caso in cui non ci sia un montante da 60 cm, posso usarne 2 da 30, uno da 40 e uno da 20 cm, in base a quellipresenti nel catalogo.
+2. Aggiunta della profondità: nel catalogo i ripiani hanno una certa profondità, vorrei tenerla in considerazione nel cad, voglio poter selezionare (all'inizio) la profondità, ovviamente, cambiandola a posteriori mi si resetta la configurazione. Una volta selezionata la profondità, quando vado a selezionare i livelli da aggiungere alle colonne, vedo solo in base alle misure compatibili, quindi la profondità funziona come sorta di filtro.
+3. Pagina per inserire i dettagli di spedizione: fare in modo di fare skip, e inserire in automatico i dati dell'azienda (se mi crei il file li inserisco).
+4. Legenda per lo schema stampato nel PDF: la legenda la creo io, un file png, tu dimmi solo dove la vuoi salvata per inserirla del PDF da stampare, ovviamente la voglio sotto lo schema.
+5. Correggere i terminali nel frontend: mi sono accorto di un piccolo bug, nonostante possa selezionare le altezza dei terminali, e nella lista dei bom e nel dettaglio ordine e distinta componenti vedo i terminali selezionati, nello schema grafico mi vengono rappresentati sempre come da 4 cm, vorrei che anche questi fossero in base alla grandezza selezionata.
+6. Sempre riguardo lo schema grafico stampato in PDF, ho bisogno che le misure scritte sui componenti siano un po' più grandi, ora sono molto piccole, inoltre sui ripiani vorrei che scrivessi (in caso di kompo quadro) se sono standard, bordo o intermezzo, anche solo con una lettera o una sigla, poi ci penso io con la legenda a far capire.

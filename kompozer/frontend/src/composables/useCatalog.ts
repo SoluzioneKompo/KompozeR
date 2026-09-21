@@ -6,6 +6,7 @@ import { useNotificationStore } from '@/store/notificationStore';
 import { useCartStore } from '@/store/cartStore';
 import type { CatalogItem } from '@/types/catalog';
 import { ApiError } from '@/types/api';
+import { i18n } from '@/i18n';
 
 export function useCatalog() {
   const items = ref<CatalogItem[]>([]);
@@ -13,27 +14,25 @@ export function useCatalog() {
   const error = ref('');
 
   const search = ref('');
-  const category = ref('');
   const cart = useCartStore();
   const availableOnly = ref(false);
 
   const notifications = useNotificationStore();
 
-  /** Fetches catalog items applying current search, category, and availability filters. */
+  /** Fetches catalog items applying current search and availability filters. All categories load together for the grouped view. */
   async function load(): Promise<void> {
     loading.value = true;
     error.value = '';
     try {
       const response = await catalogService.list({
         search: search.value || undefined,
-        category: category.value || undefined,
         available: availableOnly.value ? true : undefined,
-        limit: 50,
+        limit: 100,
         page: 1,
       });
       items.value = response.items;
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Errore caricamento catalogo';
+      error.value = e instanceof ApiError ? e.message : i18n.global.t('catalog.errors.loadFailed');
     } finally {
       loading.value = false;
     }
@@ -48,9 +47,9 @@ export function useCatalog() {
         quantity: 1,
       });
       cart.setFromCart(updatedCart);
-      notifications.addToast('success', `Aggiunto al carrello: ${item.name}`);
+      notifications.addToast('success', i18n.global.t('catalog.toast.addedToCart', { name: item.name }));
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Errore aggiunta al carrello';
+      const msg = e instanceof ApiError ? e.message : i18n.global.t('catalog.errors.addToCartFailed');
       notifications.addToast('error', msg);
     }
   }
@@ -60,7 +59,6 @@ export function useCatalog() {
     loading,
     error,
     search,
-    category,
     availableOnly,
     load,
     addToCart,

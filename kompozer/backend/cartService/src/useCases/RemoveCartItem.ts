@@ -30,6 +30,12 @@ export class RemoveCartItem {
     const wasRemoved = cart.items.length < initialLength;
     cart.total = computeCartTotal(cart.items);
     cart.updatedAt = new Date();
+    if (cart.items.length === 0) {
+      // Empty cart holds no configuration reservation — release it so the
+      // next add (catalog or a different configuration) isn't blocked.
+      cart.configId = undefined;
+      cart.configName = undefined;
+    }
     await this.cartRepo.upsert(cart);
 
     if (wasRemoved) {

@@ -17,6 +17,8 @@ export class MongoOrderRepository implements OrderRepository {
       submittedAt: order.submittedAt,
       doneAt: order.doneAt,
       cancelledAt: order.cancelledAt,
+      configId: order.configId,
+      configName: order.configName,
     });
   }
 
@@ -36,6 +38,8 @@ export class MongoOrderRepository implements OrderRepository {
       submittedAt: doc.submittedAt,
       doneAt: doc.doneAt,
       cancelledAt: doc.cancelledAt,
+      configId: doc.configId,
+      configName: doc.configName,
     };
   }
 
@@ -51,6 +55,8 @@ export class MongoOrderRepository implements OrderRepository {
       submittedAt: doc.submittedAt,
       doneAt: doc.doneAt,
       cancelledAt: doc.cancelledAt,
+      configId: doc.configId,
+      configName: doc.configName,
     }));
   }
 
@@ -66,6 +72,8 @@ export class MongoOrderRepository implements OrderRepository {
       submittedAt: doc.submittedAt,
       doneAt: doc.doneAt,
       cancelledAt: doc.cancelledAt,
+      configId: doc.configId,
+      configName: doc.configName,
     }));
   }
 
@@ -79,6 +87,8 @@ export class MongoOrderRepository implements OrderRepository {
       submittedAt: order.submittedAt,
       doneAt: order.doneAt,
       cancelledAt: order.cancelledAt,
+      configId: order.configId,
+      configName: order.configName,
     });
   }
 }

@@ -14,14 +14,16 @@ export interface CatalogComponentRule {
 
 export interface CatalogRules {
   shelfByWidthMm: Map<number, CatalogComponentRule>;
-  /** Outer-column shelf keyed by widthMm (INTELLIGENTE) */
+  /** BORDO shelf (2+ adjacent columns sharing a level, outer position) keyed by widthMm (QUADRO) */
   bordoByWidthMm: Map<number, CatalogComponentRule>;
-  /** Inner-column shelf keyed by widthMm (INTELLIGENTE) */
+  /** INTERMEDIO shelf (3+ adjacent columns sharing a level, inner position) keyed by widthMm (QUADRO) */
   intermezzoByWidthMm: Map<number, CatalogComponentRule>;
   /** Smallest upright whose heightMm >= requested gap; keyed by exact heightMm */
   uprightByHeightMm: Map<number, CatalogComponentRule>;
   /** Foot rule keyed by exact heightMm */
   footByHeightMm: Map<number, CatalogComponentRule>;
+  /** Terminal rule keyed by exact heightMm */
+  terminalByHeightMm: Map<number, CatalogComponentRule>;
   terminalHeightsMm: number[];
   footHeightsMm: number[];
   uprightHeightsMm: number[];
@@ -33,5 +35,13 @@ export interface CatalogRules {
 
 /** Read-only contract for resolving catalog rules required by CAD validation and BOM logic. */
 export interface CatalogRulesProvider {
-  getRules(category: Category): Promise<CatalogRules>;
+  /**
+   * When depthMm is given, shelf-like rules (RIPIANO/BORDO/INTERMEDIO/MENSOLA)
+   * are filtered to that depth only — everything else (feet/uprights/terminals,
+   * which have no meaningful depth) is unaffected.
+   */
+  getRules(category: Category, depthMm?: number): Promise<CatalogRules>;
+
+  /** Distinct depths (mm) available among shelf components for a category. */
+  getAvailableDepthsMm(category: Category): Promise<number[]>;
 }

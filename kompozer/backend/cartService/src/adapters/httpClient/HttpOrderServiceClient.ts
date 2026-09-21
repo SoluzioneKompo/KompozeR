@@ -33,13 +33,14 @@ export class HttpOrderServiceClient implements OrderServiceClient {
         quantity: item.quantity,
       })),
       total: input.total,
+      ...(input.configId ? { configId: input.configId, configName: input.configName } : {}),
     });
 
     const response = await this.postJson<OrderApiResponse>(url, payload, input.userId);
 
     if (
       typeof response.id !== 'string' ||
-      response.status !== 'SUBMITTED' ||
+      response.status !== 'AWAITING_PAYMENT' ||
       typeof response.submittedAt !== 'string'
     ) {
       throw new OrderSubmissionError('Order service returned an invalid payload');
@@ -47,7 +48,7 @@ export class HttpOrderServiceClient implements OrderServiceClient {
 
     return {
       orderId: response.id,
-      status: 'SUBMITTED',
+      status: 'AWAITING_PAYMENT',
       submittedAt: new Date(response.submittedAt),
     };
   }

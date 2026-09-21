@@ -34,7 +34,6 @@ const SEED_DIR = path.resolve(__dirname, '..');
 const SEED_FILE_NAMES = [
   'CATALOG-SEED-TONDO.json',
   'CATALOG-SEED-QUADRO.json',
-  'CATALOG-SEED-INTELLIGENTE.json',
 ];
 const CATEGORY_TOKENS = Object.values(ComponentCategory) as string[];
 const CONNECT_RETRIES = Number(process.env['SEED_CONNECT_RETRIES'] ?? 20);

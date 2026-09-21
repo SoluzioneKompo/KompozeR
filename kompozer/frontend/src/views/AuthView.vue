@@ -2,12 +2,14 @@
 /** Authentication view for login, registration flow, and guest access. */
 import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/store/authStore';
 import { ApiError } from '@/types/api';
 import appLogo from '@/assets/images/kompozer-logo.png';
 
 const router = useRouter();
 const auth = useAuthStore();
+const { t } = useI18n();
 
 type Mode = 'login' | 'register';
 const mode = ref<Mode>('login');
@@ -21,24 +23,24 @@ const register = reactive({ username: '', name: '', surname: '', email: '', pass
 /** Maps login API failures to user-facing localized messages. */
 function mapLoginError(err: unknown): string {
   if (!(err instanceof ApiError)) {
-    return 'Errore di accesso';
+    return t('auth.errors.login');
   }
 
   if (err.code === 'RESOURCE_NOT_FOUND') {
-    return 'Utente Non Trovato';
+    return t('auth.errors.userNotFound');
   }
 
   if (err.code === 'INVALID_PASSWORD') {
-    return 'Password Errata';
+    return t('auth.errors.wrongPassword');
   }
 
-  return 'Credenziali non valide';
+  return t('auth.errors.invalidCredentials');
 }
 
 /** Maps registration failures and surfaces password validation details when available. */
 function mapRegisterError(err: unknown): string {
   if (!(err instanceof ApiError)) {
-    return 'Errore di registrazione';
+    return t('auth.errors.register');
   }
 
   if (err.code === 'VALIDATION_ERROR') {
@@ -50,7 +52,7 @@ function mapRegisterError(err: unknown): string {
       : [];
 
     if (passwordReasons.length > 0) {
-      return `Password non valida, si richiedono 8 caratteri. ${passwordReasons.join(' ')}`;
+      return t('auth.errors.passwordTooShort', { min: 8, detail: passwordReasons.join(' ') });
     }
   }
 
@@ -111,7 +113,7 @@ async function handleGuest(): Promise<void> {
     await auth.loginAsGuest();
     await router.push({ name: auth.homeRouteName });
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Errore accesso ospite';
+    error.value = e instanceof ApiError ? e.message : t('auth.errors.guest');
   } finally {
     loading.value = false;
   }
@@ -122,16 +124,16 @@ async function handleGuest(): Promise<void> {
   <div class="auth-view">
     <div class="auth-card">
       <img :src="appLogo" alt="KompozeR" class="auth-logo" />
-      <p class="auth-subtitle">Configura la tua scaffalatura ideale</p>
+      <p class="auth-subtitle">{{ t('auth.subtitle') }}</p>
 
       <div class="auth-tabs">
-        <button :class="['auth-tab', { 'auth-tab--active': mode === 'login' }]" @click="mode = 'login'">Accedi</button>
-        <button :class="['auth-tab', { 'auth-tab--active': mode === 'register' }]" @click="mode = 'register'">Registrati</button>
+        <button :class="['auth-tab', { 'auth-tab--active': mode === 'login' }]" @click="mode = 'login'">{{ t('auth.tabs.login') }}</button>
+        <button :class="['auth-tab', { 'auth-tab--active': mode === 'register' }]" @click="mode = 'register'">{{ t('auth.tabs.register') }}</button>
       </div>
 
       <form v-if="mode === 'login'" class="auth-form" @submit.prevent="handleLogin">
         <label class="field">
-          <span class="field__label">Username o Email</span>
+          <span class="field__label">{{ t('auth.fields.usernameOrEmail') }}</span>
           <input
             v-model="login.identifier"
             class="field__input"
@@ -141,54 +143,54 @@ async function handleGuest(): Promise<void> {
           />
         </label>
         <label class="field">
-          <span class="field__label">Password</span>
+          <span class="field__label">{{ t('auth.fields.password') }}</span>
           <input v-model="login.password" class="field__input" type="password" required autocomplete="current-password" />
         </label>
         <p v-if="error" class="auth-error" role="alert" aria-live="assertive">{{ error }}</p>
         <button class="btn btn--primary" type="submit" :disabled="loading">
-          {{ loading ? 'Attendere...' : 'Accedi' }}
+          {{ loading ? t('auth.actions.loggingIn') : t('auth.actions.login') }}
         </button>
       </form>
 
       <form v-else class="auth-form" @submit.prevent="handleRegister">
         <label class="field">
-          <span class="field__label">Username</span>
+          <span class="field__label">{{ t('auth.fields.username') }}</span>
           <input v-model="register.username" class="field__input" type="text" required autocomplete="username" />
         </label>
         <label class="field">
-          <span class="field__label">Nome</span>
+          <span class="field__label">{{ t('auth.fields.name') }}</span>
           <input v-model="register.name" class="field__input" type="text" required autocomplete="given-name" />
         </label>
         <label class="field">
-          <span class="field__label">Cognome</span>
+          <span class="field__label">{{ t('auth.fields.surname') }}</span>
           <input v-model="register.surname" class="field__input" type="text" required autocomplete="family-name" />
         </label>
         <label class="field">
-          <span class="field__label">Email</span>
+          <span class="field__label">{{ t('auth.fields.email') }}</span>
           <input v-model="register.email" class="field__input" type="email" required autocomplete="email" />
         </label>
         <label class="field">
-          <span class="field__label">Password</span>
+          <span class="field__label">{{ t('auth.fields.password') }}</span>
           <input v-model="register.password" class="field__input" type="password" required autocomplete="new-password" />
         </label>
         <p v-if="error" class="auth-error" role="alert" aria-live="assertive">{{ error }}</p>
         <button class="btn btn--primary" type="submit" :disabled="loading">
-          {{ loading ? 'Attendere...' : 'Registrati' }}
+          {{ loading ? t('auth.actions.registering') : t('auth.actions.register') }}
         </button>
       </form>
 
-      <div class="auth-divider">oppure</div>
+      <div class="auth-divider">{{ t('auth.divider') }}</div>
 
       <button class="btn btn--secondary" :disabled="loading" @click="handleGuest">
-        Continua come ospite
+        {{ t('auth.actions.guest') }}
       </button>
     </div>
 
     <div v-if="showRegistrationSuccess" class="auth-modal-backdrop" role="presentation">
       <div class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="registration-success-title">
-        <h2 id="registration-success-title" class="auth-modal__title">Registrazione effettuata</h2>
+        <h2 id="registration-success-title" class="auth-modal__title">{{ t('auth.registrationSuccess.title') }}</h2>
         <button class="btn btn--primary" type="button" @click="handleRegistrationSuccessAcknowledge">
-          Accedi
+          {{ t('auth.registrationSuccess.confirm') }}
         </button>
       </div>
     </div>

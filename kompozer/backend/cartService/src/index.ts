@@ -5,6 +5,7 @@
  */
 import mongoose from 'mongoose';
 import { buildApp } from './app';
+import { logger } from './infrastructure/logger';
 
 const PORT = Number(process.env['CART_PORT'] ?? process.env['PORT']) || 3003;
 const MONGO_URI = process.env['CART_MONGO_URI'] ?? process.env['MONGO_URI'] ?? 'mongodb://localhost:27017/kompozer-cart';
@@ -21,12 +22,12 @@ const app = buildApp({
 mongoose
   .connect(MONGO_URI)
   .then(() => {
-    console.log(`[cart] MongoDB connected: ${MONGO_URI}`);
+    logger.info({ event: 'cart.startup.db_connected' }, 'MongoDB connected');
     app.listen(PORT, () => {
-      console.log(`[cart] Listening on port ${PORT}`);
+      logger.info({ event: 'cart.startup.listening', port: PORT }, 'Listening');
     });
   })
   .catch((err: unknown) => {
-    console.error('[cart] Failed to connect to MongoDB', err);
+    logger.error({ err }, 'Failed to connect to MongoDB');
     process.exit(1);
   });

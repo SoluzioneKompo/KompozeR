@@ -78,20 +78,6 @@ describe('cadRouter', () => {
     expect(created.status).toBe(201);
     const configurationId = created.body.id as string;
 
-    const environment = await request(app)
-      .patch(`/cad/configurations/${configurationId}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
-
-    expect(environment.status).toBe(200);
-    expect(environment.body.status).toBe('ENVIRONMENT_DEFINED');
-
     const category = await request(app)
       .patch(`/cad/configurations/${configurationId}/category`)
       .set('x-user-id', 'usr_1')
@@ -137,20 +123,58 @@ describe('cadRouter', () => {
     expect(finalized.body.bom).toBeDefined();
     expect(finalized.body.bom.length).toBeGreaterThan(0);
     expect(cart.calls).toHaveLength(1);
+    expect(cart.calls[0].configId).toBe(configurationId);
+    expect(cart.calls[0].configName).toBe('Scaffale soggiorno');
 
     const fetched = await request(app)
       .get(`/cad/configurations/${configurationId}`)
       .set('x-user-id', 'usr_1');
 
     expect(fetched.status).toBe(200);
-    expect(fetched.body.environment.maxWidthMm).toBe(5000);
     expect(fetched.body.category).toBe('TONDO');
     expect(fetched.body.columnPlan.columns).toHaveLength(2);
     expect(fetched.body.columnDesigns).toHaveLength(2);
     expect(fetched.body.status).toBe('FINALIZED');
   });
 
-  it('PATCH /cad/configurations/:id/category -> 409 when environment is missing', async () => {
+  it('GET /cad/configurations/:id -> 404 for a non-owner without ADMIN role', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(buildConfiguration({ id: 'cfg_1', ownerId: 'usr_1' }));
+
+    const app = buildApp({
+      configurationRepository: repo,
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const res = await request(app)
+      .get('/cad/configurations/cfg_1')
+      .set('x-user-id', 'usr_2');
+
+    expect(res.status).toBe(404);
+  });
+
+  it('GET /cad/configurations/:id -> 200 for a non-owner with ADMIN role (order printing)', async () => {
+    const repo = new FakeConfigurationRepository();
+    repo.seed(buildConfiguration({ id: 'cfg_1', ownerId: 'usr_1', name: 'Scaffale ospite' }));
+
+    const app = buildApp({
+      configurationRepository: repo,
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const res = await request(app)
+      .get('/cad/configurations/cfg_1')
+      .set('x-user-id', 'adm_1')
+      .set('x-user-role', 'ADMIN');
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe('cfg_1');
+    expect(res.body.name).toBe('Scaffale ospite');
+  });
+
+  it('PATCH /cad/configurations/:id/category -> 200 for QUADRO', async () => {
     const app = buildApp({
       configurationRepository: new FakeConfigurationRepository(),
       catalogRulesProvider: new FakeCatalogRulesProvider(),
@@ -160,50 +184,44 @@ describe('cadRouter', () => {
     const created = await request(app)
       .post('/cad/configurations')
       .set('x-user-id', 'usr_1')
-      .send({ name: 'Bozza senza setup' });
+      .send({ name: 'Bozza quadro' });
 
     const res = await request(app)
+      .patch(`/cad/configurations/${created.body.id}/category`)
+      .set('x-user-id', 'usr_1')
+      .send({ category: 'QUADRO' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.category).toBe('QUADRO');
+  });
+
+  it('PATCH /cad/configurations/:id/depth -> 200 and stores the selected depth', async () => {
+    const app = buildApp({
+      configurationRepository: new FakeConfigurationRepository(),
+      catalogRulesProvider: new FakeCatalogRulesProvider(),
+      cartServiceClient: new FakeCartServiceClient(),
+    });
+
+    const created = await request(app)
+      .post('/cad/configurations')
+      .set('x-user-id', 'usr_1')
+      .send({ name: 'Bozza profondita' });
+
+    await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
       .set('x-user-id', 'usr_1')
       .send({ category: 'TONDO' });
 
-    expect(res.status).toBe(409);
-    expect(res.body.error.code).toBe('RESOURCE_CONFLICT');
-  });
-
-  it('PATCH /cad/configurations/:id/category -> 200 for INTELLIGENTE', async () => {
-    const app = buildApp({
-      configurationRepository: new FakeConfigurationRepository(),
-      catalogRulesProvider: new FakeCatalogRulesProvider(),
-      cartServiceClient: new FakeCartServiceClient(),
-    });
-
-    const created = await request(app)
-      .post('/cad/configurations')
-      .set('x-user-id', 'usr_1')
-      .send({ name: 'Bozza intelligente' });
-
-    await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
-
     const res = await request(app)
-      .patch(`/cad/configurations/${created.body.id}/category`)
+      .patch(`/cad/configurations/${created.body.id}/depth`)
       .set('x-user-id', 'usr_1')
-      .send({ category: 'INTELLIGENTE' });
+      .send({ depthMm: 300 });
 
     expect(res.status).toBe(200);
-    expect(res.body.category).toBe('INTELLIGENTE');
+    expect(res.body.depthMm).toBe(300);
   });
 
-  it('PATCH /cad/configurations/:id/environment -> 422 when a dimension is boolean instead of being coerced to 0/1', async () => {
+  it('PATCH /cad/configurations/:id/depth -> 422 for a depth not in the catalog', async () => {
     const app = buildApp({
       configurationRepository: new FakeConfigurationRepository(),
       catalogRulesProvider: new FakeCatalogRulesProvider(),
@@ -213,48 +231,19 @@ describe('cadRouter', () => {
     const created = await request(app)
       .post('/cad/configurations')
       .set('x-user-id', 'usr_1')
-      .send({ name: 'Bozza' });
+      .send({ name: 'Bozza profondita invalida' });
+
+    await request(app)
+      .patch(`/cad/configurations/${created.body.id}/category`)
+      .set('x-user-id', 'usr_1')
+      .send({ category: 'TONDO' });
 
     const res = await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
+      .patch(`/cad/configurations/${created.body.id}/depth`)
       .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: true,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
+      .send({ depthMm: 12345 });
 
     expect(res.status).toBe(422);
-    expect(res.body.error.code).toBe('VALIDATION_ERROR');
-  });
-
-  it('PATCH /cad/configurations/:id/environment -> 422 when a dimension is null instead of being coerced to 0', async () => {
-    const app = buildApp({
-      configurationRepository: new FakeConfigurationRepository(),
-      catalogRulesProvider: new FakeCatalogRulesProvider(),
-      cartServiceClient: new FakeCartServiceClient(),
-    });
-
-    const created = await request(app)
-      .post('/cad/configurations')
-      .set('x-user-id', 'usr_1')
-      .send({ name: 'Bozza' });
-
-    const res = await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: null,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
-
-    expect(res.status).toBe(422);
-    expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
   it('PATCH /cad/configurations/:id/design -> 422 on invalid payload', async () => {
@@ -268,17 +257,6 @@ describe('cadRouter', () => {
       .post('/cad/configurations')
       .set('x-user-id', 'usr_1')
       .send({ name: 'Bozza' });
-
-    await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
 
     await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
@@ -315,17 +293,6 @@ describe('cadRouter', () => {
       .send({ name: 'Bozza' });
 
     await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
-
-    await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
       .set('x-user-id', 'usr_1')
       .send({ category: 'TONDO' });
@@ -350,17 +317,6 @@ describe('cadRouter', () => {
       .post('/cad/configurations')
       .set('x-user-id', 'usr_1')
       .send({ name: 'Bozza' });
-
-    await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
 
     await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
@@ -405,17 +361,6 @@ describe('cadRouter', () => {
       .send({ name: 'Bozza' });
 
     await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
-
-    await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
       .set('x-user-id', 'usr_1')
       .send({ category: 'TONDO' });
@@ -443,7 +388,7 @@ describe('cadRouter', () => {
     expect(typeof res.body.lookAhead?.feasible).toBe('boolean');
   });
 
-  it('GET /cad/configurations/:id/next-options -> 501 for KUBE (logic not implemented yet)', async () => {
+  it('GET /cad/configurations/:id/next-options -> 200 for KUBE, including stacked-upright options', async () => {
     const app = buildApp({
       configurationRepository: new FakeConfigurationRepository(),
       catalogRulesProvider: new FakeCatalogRulesProvider(),
@@ -454,17 +399,6 @@ describe('cadRouter', () => {
       .post('/cad/configurations')
       .set('x-user-id', 'usr_1')
       .send({ name: 'Bozza kube' });
-
-    await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
 
     await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
@@ -479,15 +413,26 @@ describe('cadRouter', () => {
         columns: [{ index: 0, shelfWidthMm: 800 }],
       });
 
+    // Fake catalog uprights are [120, 300, 400, 500]; put a shelf at 120 (a
+    // valid foot) so the next gap is a mid-segment where stacking applies.
+    await request(app)
+      .patch(`/cad/configurations/${created.body.id}/design`)
+      .set('x-user-id', 'usr_1')
+      .send({ columnDesigns: [{ columnIndex: 0, levelsMm: [120], shelfThicknessMm: 20 }] });
+
     const res = await request(app)
       .get(`/cad/configurations/${created.body.id}/next-options?columnIndex=0`)
       .set('x-user-id', 'usr_1');
 
-    expect(res.status).toBe(501);
-    expect(res.body.error.code).toBe('CATEGORY_LOGIC_NOT_IMPLEMENTED');
+    expect(res.status).toBe(200);
+    expect(res.body.options.some((option: { allowed: boolean }) => option.allowed)).toBe(true);
+    // 240mm = 120+120, only reachable by stacking two MON-120 uprights.
+    expect(res.body.options).toContainEqual(
+      expect.objectContaining({ heightMm: 240, allowed: true, kind: 'stacked' }),
+    );
   });
 
-  it('GET /cad/configurations/:id/next-options -> 422 for INTELLIGENTE (BORDO shelf not in fake catalog)', async () => {
+  it('GET /cad/configurations/:id/next-options -> 200 for QUADRO, candidate colliding with a neighbor is disallowed when BORDO is not in the fake catalog', async () => {
     const app = buildApp({
       configurationRepository: new FakeConfigurationRepository(),
       catalogRulesProvider: new FakeCatalogRulesProvider(),
@@ -497,38 +442,44 @@ describe('cadRouter', () => {
     const created = await request(app)
       .post('/cad/configurations')
       .set('x-user-id', 'usr_1')
-      .send({ name: 'Bozza intelligente' });
-
-    await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'usr_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
+      .send({ name: 'Bozza quadro' });
 
     await request(app)
       .patch(`/cad/configurations/${created.body.id}/category`)
       .set('x-user-id', 'usr_1')
-      .send({ category: 'INTELLIGENTE' });
+      .send({ category: 'QUADRO' });
 
     await request(app)
       .patch(`/cad/configurations/${created.body.id}/column-plan`)
       .set('x-user-id', 'usr_1')
       .send({
-        columnCount: 1,
-        columns: [{ index: 0, shelfWidthMm: 800 }],
+        columnCount: 2,
+        columns: [
+          { index: 0, shelfWidthMm: 800 },
+          { index: 1, shelfWidthMm: 800 },
+        ],
+      });
+
+    // Column 1 already has a shelf at 120mm; a candidate that would land
+    // column 0's shelf on the same level forms a BORDO/BORDO cluster, but the
+    // fake catalog has no bordoByWidthMm entry for width 800.
+    await request(app)
+      .patch(`/cad/configurations/${created.body.id}/design`)
+      .set('x-user-id', 'usr_1')
+      .send({
+        columnDesigns: [
+          { columnIndex: 1, levelsMm: [120], shelfThicknessMm: 20 },
+        ],
       });
 
     const res = await request(app)
       .get(`/cad/configurations/${created.body.id}/next-options?columnIndex=0`)
       .set('x-user-id', 'usr_1');
 
-    expect(res.status).toBe(422);
-    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(res.status).toBe(200);
+    const collidingOption = res.body.options.find((option: { heightMm: number }) => option.heightMm === 120);
+    expect(collidingOption.allowed).toBe(false);
+    expect(collidingOption.reasonCode).toBe('INTELLIGENTE_CATALOG_MISSING');
   });
 
   it('POST /cad/configurations/:id/collab/sessions -> 201 and join by code from another user', async () => {
@@ -647,17 +598,6 @@ describe('cadRouter', () => {
       .post('/cad/configurations')
       .set('x-user-id', 'owner_1')
       .send({ name: 'Shared config' });
-
-    await request(app)
-      .patch(`/cad/configurations/${created.body.id}/environment`)
-      .set('x-user-id', 'owner_1')
-      .send({
-        maxWidthMm: 5000,
-        maxHeightMm: 3000,
-        minWidthMm: 600,
-        minHeightMm: 220,
-        unit: 'mm',
-      });
 
     const opened = await request(app)
       .post(`/cad/configurations/${created.body.id}/collab/sessions`)

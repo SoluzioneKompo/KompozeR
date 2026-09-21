@@ -4,7 +4,6 @@ import {
   ColumnDesign,
   ColumnPlan,
   Configuration,
-  Environment,
   validateConfigurationModel,
 } from '../entities/Configuration';
 import {
@@ -18,7 +17,7 @@ import { CollabCheckpoint, CollabCheckpointStore } from '../ports/CollabCheckpoi
 import { CollabEventLog } from '../ports/CollabEventLog';
 import { ConfigurationRepository } from '../ports/ConfigurationRepository';
 
-export type CollabFieldPath = 'name' | 'category' | 'environment' | 'columnPlan' | 'columnDesigns';
+export type CollabFieldPath = 'name' | 'category' | 'columnPlan' | 'columnDesigns';
 
 /** Characters used for session codes — excludes visually confusable glyphs (0/O, 1/I/L). */
 const SESSION_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -104,7 +103,6 @@ type MutationOperation = {
 const SUPPORTED_FIELD_PATHS: CollabFieldPath[] = [
   'name',
   'category',
-  'environment',
   'columnPlan',
   'columnDesigns',
 ];
@@ -537,27 +535,6 @@ export class InMemoryCollabSessionService {
         configuration.category = value as Category | null;
         return;
       }
-      case 'environment': {
-        if (!value || typeof value !== 'object') {
-          throw new ValidationError('environment must be an object');
-        }
-        const typed = value as Partial<Environment>;
-        const env: Environment = {
-          maxWidthMm: Number(typed.maxWidthMm),
-          maxHeightMm: Number(typed.maxHeightMm),
-          minWidthMm: Number(typed.minWidthMm),
-          minHeightMm: Number(typed.minHeightMm),
-          unit: typed.unit ?? 'mm',
-        };
-        if ([env.maxWidthMm, env.maxHeightMm, env.minWidthMm, env.minHeightMm].some((num) => Number.isNaN(num))) {
-          throw new ValidationError('environment values must be numeric');
-        }
-        if (env.unit !== 'mm') {
-          throw new ValidationError('environment unit must be mm');
-        }
-        configuration.environment = env;
-        return;
-      }
       case 'columnPlan': {
         if (!value || typeof value !== 'object') {
           throw new ValidationError('columnPlan must be an object');
@@ -637,12 +614,6 @@ export class InMemoryCollabSessionService {
    */
   private applyStatusTransition(configuration: Configuration, fieldPath: CollabFieldPath): void {
     switch (fieldPath) {
-      case 'environment':
-        configuration.status = configuration.category ? 'CATEGORY_SELECTED' : 'ENVIRONMENT_DEFINED';
-        configuration.columnPlan = null;
-        configuration.columnDesigns = [];
-        configuration.components = [];
-        return;
       case 'category':
         if (configuration.category) {
           configuration.status = 'CATEGORY_SELECTED';
@@ -722,7 +693,6 @@ export class InMemoryCollabSessionService {
     return {
       ...configuration,
       collaborators: [...configuration.collaborators],
-      environment: configuration.environment ? { ...configuration.environment } : null,
       columnPlan: configuration.columnPlan
         ? {
             ...configuration.columnPlan,

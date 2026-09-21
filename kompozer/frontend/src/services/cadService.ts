@@ -5,9 +5,9 @@ import type {
   ConfigurationsListDto,
   NextOptionsDto,
   Category,
-  Environment,
   ColumnPlan,
   ColumnDesign,
+  TerminalSelection,
 } from '@/types/cad';
 
 export type ConfigurationStatus = ConfigurationDto['status'];
@@ -30,20 +30,24 @@ export const cadService = {
     return http.get<ConfigurationDto>(`/cad/configurations/${id}`);
   },
 
-  setEnvironment(id: string, env: Environment): Promise<ConfigurationDto> {
-    return http.patch<ConfigurationDto>(`/cad/configurations/${id}/environment`, env);
-  },
-
   setCategory(id: string, category: Category): Promise<ConfigurationDto> {
     return http.patch<ConfigurationDto>(`/cad/configurations/${id}/category`, { category });
+  },
+
+  setDepth(id: string, depthMm: number): Promise<ConfigurationDto> {
+    return http.patch<ConfigurationDto>(`/cad/configurations/${id}/depth`, { depthMm });
   },
 
   setColumnPlan(id: string, plan: ColumnPlan): Promise<ConfigurationDto> {
     return http.patch<ConfigurationDto>(`/cad/configurations/${id}/column-plan`, plan);
   },
 
-  updateDesign(id: string, columnDesigns: ColumnDesign[]): Promise<ConfigurationDto> {
-    return http.patch<ConfigurationDto>(`/cad/configurations/${id}/design`, { columnDesigns });
+  updateDesign(id: string, columnDesigns: ColumnDesign[], terminalSelections?: TerminalSelection[]): Promise<ConfigurationDto> {
+    return http.patch<ConfigurationDto>(`/cad/configurations/${id}/design`, { columnDesigns, terminalSelections });
+  },
+
+  reset(id: string): Promise<ConfigurationDto> {
+    return http.post<ConfigurationDto>(`/cad/configurations/${id}/reset`);
   },
 
   finalize(id: string): Promise<ConfigurationDto> {

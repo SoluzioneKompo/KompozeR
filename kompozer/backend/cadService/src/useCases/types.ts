@@ -3,7 +3,7 @@ import {
   ColumnDesign,
   ColumnPlan,
   Configuration,
-  Environment,
+  TerminalSelection,
 } from '../domain/entities/Configuration';
 import { ConfigurationStatus } from '../domain/entities/ConfigurationStatus';
 import { BomItem } from '../domain/entities/Bom';
@@ -23,9 +23,10 @@ export interface ConfigurationDto {
   name: string;
   status: ConfigurationStatus;
   category: Category | null;
-  environment: Environment | null;
+  depthMm: number | null;
   columnPlan: ColumnPlan | null;
   columnDesigns: ColumnDesign[];
+  terminalSelections: TerminalSelection[];
   version: number;
   createdAt: Date;
   updatedAt: Date;
@@ -36,6 +37,7 @@ export interface ConfigurationDto {
 export interface GetConfigurationInput {
   id: string;
   ownerId: string;
+  actorRole?: string;
 }
 
 export interface ListConfigurationsInput {
@@ -54,18 +56,18 @@ export interface ListConfigurationsOutput {
   totalPages: number;
 }
 
-/** Input payload for environment update step. */
-export interface SetEnvironmentInput {
-  id: string;
-  ownerId: string;
-  environment: Environment;
-}
-
 /** Input payload for category selection step. */
 export interface SetCategoryInput {
   id: string;
   ownerId: string;
   category: Category;
+}
+
+/** Input payload for depth selection step (right after category, before column plan). */
+export interface SetDepthInput {
+  id: string;
+  ownerId: string;
+  depthMm: number;
 }
 
 /** Input payload for column-plan step. */
@@ -80,10 +82,18 @@ export interface UpdateDesignInput {
   id: string;
   ownerId: string;
   columnDesigns: ColumnDesign[];
+  /** Full snapshot of per-spine terminal choices; omitted keeps existing selections. */
+  terminalSelections?: TerminalSelection[];
 }
 
 /** Input payload for finalize step. */
 export interface FinalizeConfigurationInput {
+  id: string;
+  ownerId: string;
+}
+
+/** Input payload for the configuration reset step (keeps category, clears columns/design). */
+export interface ResetConfigurationInput {
   id: string;
   ownerId: string;
 }
@@ -95,14 +105,17 @@ export interface ListNextOptionsInput {
   columnIndex: number;
 }
 
-export type NextOptionReasonCode = SpineReasonCode | 'INVALID_GAP' | 'SPINE_CONFLICT';
+export type NextOptionReasonCode = SpineReasonCode | 'INVALID_GAP' | 'SPINE_CONFLICT' | 'INTELLIGENTE_CATALOG_MISSING';
 
 /** Candidate gap option returned for one design column. */
 export interface NextOptionDto {
   heightMm: number;
   allowed: boolean;
-  /** 'bridge' when the shelf spans a tall gap anchored to adjacent columns' joints. */
-  kind?: 'standard' | 'bridge';
+  /**
+   * 'bridge' when the shelf spans a tall gap anchored to adjacent columns'
+   * joints; 'stacked' (KUBE only) when the gap is built from 2+ uprights.
+   */
+  kind?: 'standard' | 'bridge' | 'stacked';
   reasonCode?: NextOptionReasonCode;
   reason?: string;
 }
@@ -124,9 +137,10 @@ export function toConfigurationDto(configuration: Configuration): ConfigurationD
     name: configuration.name,
     status: configuration.status,
     category: configuration.category,
-    environment: configuration.environment,
+    depthMm: configuration.depthMm,
     columnPlan: configuration.columnPlan,
     columnDesigns: configuration.columnDesigns,
+    terminalSelections: configuration.terminalSelections,
     version: configuration.version,
     createdAt: configuration.createdAt,
     updatedAt: configuration.updatedAt,

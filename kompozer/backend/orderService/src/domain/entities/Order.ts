@@ -1,7 +1,7 @@
 /**
  * Core order domain model.
  */
-export type OrderStatus = 'SUBMITTED' | 'DONE' | 'CANCELLED';
+export type OrderStatus = 'AWAITING_PAYMENT' | 'SUBMITTED' | 'DONE' | 'CANCELLED';
 
 export interface OrderItem {
   sku: string;
@@ -32,4 +32,7 @@ export interface Order {
   submittedAt: Date;
   doneAt?: Date;
   cancelledAt?: Date;
+  /** CAD configuration this order was created from, if any (an order maps to at most one configuration). */
+  configId?: string;
+  configName?: string;
 }

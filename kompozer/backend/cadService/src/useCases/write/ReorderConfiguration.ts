@@ -44,7 +44,12 @@ export class ReorderConfiguration {
       throw new ValidationError('Configuration has no components to re-order');
     }
 
-    await this.cartServiceClient.pushBomToCart(configuration.ownerId, configuration.components);
+    await this.cartServiceClient.pushBomToCart(
+      configuration.ownerId,
+      configuration.components,
+      configuration.id,
+      configuration.name,
+    );
 
     return toConfigurationDto(configuration);
   }

@@ -84,7 +84,7 @@ export class FakeOrderServiceClient implements OrderServiceClient {
 
     return {
       orderId: 'ord_1',
-      status: 'SUBMITTED',
+      status: 'AWAITING_PAYMENT',
       submittedAt: new Date('2026-01-01T00:00:00.000Z'),
     };
   }

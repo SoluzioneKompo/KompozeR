@@ -37,8 +37,6 @@ spec:
               value: "http://order-service:3008"
             - name: NOTIFICATION_SERVICE_URL
               value: "http://notification-service:3005"
-            - name: CHATBOT_SERVICE_URL
-              value: "http://chatbot-service:3006"
             - name: REPORTING_SERVICE_URL
               value: "http://reporting-service:3007"
             - name: REDIS_URL

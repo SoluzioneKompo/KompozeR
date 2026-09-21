@@ -6,7 +6,7 @@ Il repository include un \texttt{docker-compose.dev.yml} pensato per l'esecuzion
 
 \begin{itemize}
 \item Redis;
-\item un database Mongo dedicato per auth, catalog, cart, CAD, notifications, chatbot, orders;
+\item un database Mongo dedicato per auth, catalog, cart, CAD, notifications, chatbot, orders, payment;
 \item i microservizi backend;
 \item il frontend Vite.
 \end{itemize}
@@ -26,6 +26,10 @@ Nel progetto sono presenti comandi di workspace per eseguire test backend, test 
 \item esecuzione e test dei singoli microservizi;
 \item esecuzione coordinata dell'intero stack con Docker Compose.
 \end{itemize}
+
+\section{Kubernetes (Minikube)}
+
+Oltre a Docker Compose, il repository include manifest Kubernetes in \texttt{k8s/} per un deployment production-oriented su Minikube (namespace dedicato, immagini costruite localmente, probe di readiness/liveness). Ogni microservizio ha un manifest numerato (\texttt{20..27-*.yaml}); \texttt{payment-service} usa \texttt{26-payment-service.yaml} con Mongo dedicato (\texttt{mongo-payment}, database \texttt{paymentdb}) definito in \texttt{11-mongo-databases.yaml}.
 
 \section{Considerazioni operative}
 

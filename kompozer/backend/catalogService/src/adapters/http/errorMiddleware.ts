@@ -5,10 +5,10 @@
  */
 import { Request, Response, NextFunction } from 'express';
 import { CatalogError }                    from '../../domain/entities/errors';
+import { logger }                          from '../../infrastructure/logger';
 
 const CODE_TO_STATUS: Record<string, number> = {
   COMPONENT_NOT_FOUND:  404,
-  DUPLICATE_SKU:        409,
   VERSION_CONFLICT:     409,
   VALIDATION_ERROR:     422,
   INSUFFICIENT_STOCK:   409,
@@ -35,12 +35,15 @@ function isBodyParseError(err: unknown): err is SyntaxError {
 
 export function errorMiddleware(
   err: unknown,
-  _req: Request,
+  req: Request,
   res: Response,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _next: NextFunction,
 ): void {
+  const log = req.log ?? logger; // fallback matters: some test setups mount this middleware without pino-http wired
+
   if (isBodyParseError(err)) {
+    log.warn({ event: 'catalog.request.rejected', code: 'INVALID_REQUEST' }, 'Malformed JSON body');
     res.status(400).json({
       error: {
         code: 'INVALID_REQUEST',
@@ -68,11 +71,18 @@ export function errorMiddleware(
       }
     }
 
+    if (status >= 500) {
+      log.error({ err, code: err.code }, 'Catalog request failed with an unexpected server error');
+    } else {
+      // Expected business rejection (not found, validation, forbidden, duplicate, ...) — not a bug.
+      log.warn({ event: 'catalog.request.rejected', code: err.code, status }, err.message);
+    }
+
     res.status(status).json(body);
     return;
   }
 
-  console.error('[catalog] Unhandled error:', err);
+  log.error({ err }, 'Unhandled error in catalog service');
   res.status(500).json({
     error: {
       code: 'INTERNAL_ERROR',

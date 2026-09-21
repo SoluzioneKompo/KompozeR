@@ -20,13 +20,6 @@ export class ComponentNotFoundError extends CatalogError {
   }
 }
 
-// 409 - duplicate SKU already exists in catalog
-export class DuplicateSkuError extends CatalogError {
-  constructor(sku: string) {
-    super('DUPLICATE_SKU', `SKU "${sku}" is already registered in the catalog`);
-  }
-}
-
 // 422 - invalid input data (missing field, out-of-range value, etc.)
 export class ValidationError extends CatalogError {
   constructor(

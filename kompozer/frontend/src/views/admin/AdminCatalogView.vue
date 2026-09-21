@@ -1,11 +1,17 @@
 <script setup lang="ts">
 /** Admin catalog management view for component CRUD and commercial updates. */
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, reactive, ref, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { catalogService, type CatalogListParams } from '@/services/catalogService';
 import { useNotificationStore } from '@/store/notificationStore';
 import type { CatalogItem } from '@/types/catalog';
 import { ApiError } from '@/types/api';
+import { groupCatalog, dimensionLabel, categoryLabel, typeLabel, type TypeGroup, type CategoryGroup } from '@/utils/catalogGrouping';
+import { formatCurrencyFromCents } from '@/i18n/format';
+import { previewSku } from '@/utils/skuGenerator';
+import { exportCatalogByCategory, type CatalogExportFormat } from '@/utils/catalogExport';
 
+const { t } = useI18n();
 const notifications = useNotificationStore();
 
 const items = ref<CatalogItem[]>([]);
@@ -20,9 +26,10 @@ const categoryFilter = ref('');
 const availableOnly = ref(false);
 
 const isCreateModalOpen = ref(false);
+const exportFormat = ref<CatalogExportFormat>('json');
+const exporting = ref(false);
 
 const createForm = reactive({
-  sku: '',
   name: '',
   description: '',
   category: 'TONDO',
@@ -38,7 +45,7 @@ const createForm = reactive({
 
 const editCommercial = reactive<Record<string, { priceEuro: string; isAvailable: boolean }>>({});
 
-const categories = ['TONDO', 'QUADRO', 'KUBE', 'INTELLIGENTE'] as const;
+const categories = ['TONDO', 'QUADRO', 'KUBE'] as const;
 const componentTypes = ['PIEDINO', 'MONTANTE', 'RIPIANO', 'TERMINALE', 'MENSOLA'] as const;
 
 onMounted(() => {
@@ -47,10 +54,7 @@ onMounted(() => {
 
 /** Formats prices from cents for admin table display. */
 function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('it-IT', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(cents / 100);
+  return formatCurrencyFromCents(cents);
 }
 
 /** Builds catalog query parameters from current admin filters. */
@@ -69,7 +73,7 @@ function parseEuroToCents(value: string): number {
   const normalized = value.replace(',', '.').trim();
   const num = Number(normalized);
   if (!Number.isFinite(num) || num < 0) {
-    throw new Error('Prezzo non valido');
+    throw new Error(t('admin.catalog.errors.invalidPrice'));
   }
   return Math.round(num * 100);
 }
@@ -78,7 +82,7 @@ function parseEuroToCents(value: string): number {
 function parseNonNegativeInt(value: string, fieldLabel: string): number {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
-    throw new Error(`${fieldLabel} non valida`);
+    throw new Error(t('admin.catalog.errors.invalidField', { field: fieldLabel }));
   }
   return n;
 }
@@ -93,6 +97,32 @@ function initCommercialState(list: CatalogItem[]): void {
   }
 }
 
+/** Live preview of the SKU the backend will generate from the form's category/Type/dimensions. */
+const skuPreview = computed<string>(() =>
+  previewSku(createForm.category as CatalogItem['category'], createForm.Type as CatalogItem['Type'], {
+    widthMm: Number(createForm.widthMm) || 0,
+    heightMm: Number(createForm.heightMm) || 0,
+    depthMm: Number(createForm.depthMm) || 0,
+  }),
+);
+
+const groupedCatalog = computed<CategoryGroup[]>(() => groupCatalog(items.value));
+
+// Ricorda la variante (misura) selezionata per ogni gruppo Category/Type;
+// le azioni di modifica/eliminazione agiscono sulla variante corrente.
+const selectedVariantId = reactive<Record<string, string>>({});
+
+function selectedVariant(group: TypeGroup): CatalogItem {
+  const chosenId = selectedVariantId[group.key];
+  const chosen = chosenId ? group.variants.find((v) => v.id === chosenId) : undefined;
+  if (chosen) return chosen;
+  return group.variants[0];
+}
+
+function onVariantChange(group: TypeGroup, event: Event): void {
+  selectedVariantId[group.key] = (event.target as HTMLSelectElement).value;
+}
+
 /** Loads catalog list for admin management and syncs editable state map. */
 async function load(): Promise<void> {
   loading.value = true;
@@ -102,15 +132,28 @@ async function load(): Promise<void> {
     items.value = result.items;
     initCommercialState(result.items);
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Errore caricamento catalogo';
+    error.value = e instanceof ApiError ? e.message : t('admin.catalog.errors.loadFailed');
   } finally {
     loading.value = false;
   }
 }
 
+/** Downloads the full catalog as 3 files (one per category) in the selected format. */
+async function exportCatalog(): Promise<void> {
+  exporting.value = true;
+  try {
+    await exportCatalogByCategory(exportFormat.value);
+    notifications.addToast('success', t('admin.catalog.export.success'));
+  } catch (e) {
+    const msg = e instanceof ApiError ? e.message : t('admin.catalog.export.error');
+    notifications.addToast('error', msg);
+  } finally {
+    exporting.value = false;
+  }
+}
+
 /** Resets the create-component modal form to default values. */
 function resetCreateForm(): void {
-  createForm.sku = '';
   createForm.name = '';
   createForm.description = '';
   createForm.category = 'TONDO';
@@ -142,7 +185,6 @@ async function createComponent(): Promise<void> {
     const compatibleWith = createForm.compatibleCategory ? [createForm.compatibleCategory] : [];
 
     const created = await catalogService.create({
-      sku: createForm.sku.trim(),
       name: createForm.name.trim(),
       description: createForm.description.trim(),
       category: createForm.category,
@@ -151,19 +193,19 @@ async function createComponent(): Promise<void> {
       isAvailable: createForm.isAvailable,
       imageUrl: createForm.imageUrl.trim(),
       dimensions: {
-        widthMm: parseNonNegativeInt(createForm.widthMm, 'Larghezza'),
-        heightMm: parseNonNegativeInt(createForm.heightMm, 'Altezza'),
-        depthMm: parseNonNegativeInt(createForm.depthMm, 'Profondita'),
+        widthMm: parseNonNegativeInt(createForm.widthMm, t('admin.catalog.fields.width')),
+        heightMm: parseNonNegativeInt(createForm.heightMm, t('admin.catalog.fields.height')),
+        depthMm: parseNonNegativeInt(createForm.depthMm, t('admin.catalog.fields.depth')),
       },
       compatibleWith,
     });
 
-    notifications.addToast('success', `Componente creato: ${created.sku}`);
+    notifications.addToast('success', t('admin.catalog.toasts.created', { sku: created.sku }));
     resetCreateForm();
     closeCreateModal();
     await load();
   } catch (e) {
-    const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Errore creazione componente';
+    const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : t('admin.catalog.errors.createFailed');
     notifications.addToast('error', msg);
   } finally {
     creating.value = false;
@@ -188,9 +230,9 @@ async function saveCommercial(item: CatalogItem): Promise<void> {
       priceEuro: (updated.price / 100).toFixed(2).replace('.', ','),
       isAvailable: updated.isAvailable,
     };
-    notifications.addToast('success', `Componente ${updated.sku} aggiornato`);
+    notifications.addToast('success', t('admin.catalog.toasts.updated', { sku: updated.sku }));
   } catch (e) {
-    const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Errore aggiornamento componente';
+    const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : t('admin.catalog.errors.updateFailed');
     notifications.addToast('error', msg);
   } finally {
     updatingId.value = '';
@@ -199,7 +241,7 @@ async function saveCommercial(item: CatalogItem): Promise<void> {
 
 /** Deletes a catalog component after explicit user confirmation. */
 async function deleteComponent(item: CatalogItem): Promise<void> {
-  const confirmDelete = confirm(`Eliminare il componente ${item.sku}?`);
+  const confirmDelete = confirm(t('admin.catalog.deleteConfirm', { sku: item.sku }));
   if (!confirmDelete) return;
 
   deletingId.value = item.id;
@@ -207,9 +249,9 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
     await catalogService.remove(item.id);
     items.value = items.value.filter((current) => current.id !== item.id);
     delete editCommercial[item.id];
-    notifications.addToast('success', `Componente ${item.sku} eliminato`);
+    notifications.addToast('success', t('admin.catalog.toasts.deleted', { sku: item.sku }));
   } catch (e) {
-    const msg = e instanceof ApiError ? e.message : 'Errore eliminazione componente';
+    const msg = e instanceof ApiError ? e.message : t('admin.catalog.errors.deleteFailed');
     notifications.addToast('error', msg);
   } finally {
     deletingId.value = '';
@@ -221,85 +263,95 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
   <div class="view-container">
     <header class="header">
       <div>
-        <h1>Catalogo Admin</h1>
-        <p class="subtitle">Gestisci il catalogo mantenendo separata la vista acquisto.</p>
+        <h1>{{ t('admin.catalog.title') }}</h1>
+        <p class="subtitle">{{ t('admin.catalog.subtitle') }}</p>
       </div>
       <div class="header-actions">
-        <button class="btn btn--add" @click="openCreateModal" aria-label="Aggiungi componente">+</button>
-        <button class="btn btn--light" :disabled="loading" @click="load">Aggiorna</button>
+        <button class="btn btn--add" @click="openCreateModal" :aria-label="t('admin.catalog.addComponentAria')">+</button>
+        <button class="btn btn--light" :disabled="loading" @click="load">{{ t('admin.catalog.refresh') }}</button>
+        <label class="field export-format">
+          <span class="field__label">{{ t('admin.catalog.export.format') }}</span>
+          <select v-model="exportFormat" class="field__input">
+            <option value="json">JSON</option>
+            <option value="csv">CSV</option>
+          </select>
+        </label>
+        <button class="btn btn--light" :disabled="exporting" @click="exportCatalog">
+          {{ exporting ? t('admin.catalog.export.exporting') : t('admin.catalog.export.button') }}
+        </button>
       </div>
     </header>
 
     <div v-if="isCreateModalOpen" class="modal-overlay" @click.self="closeCreateModal">
       <section class="modal-card">
         <div class="modal-header">
-          <h2>Aggiungi componente</h2>
-          <button class="btn btn--light" :disabled="creating" @click="closeCreateModal">Chiudi</button>
+          <h2>{{ t('admin.catalog.modal.addComponent') }}</h2>
+          <button class="btn btn--light" :disabled="creating" @click="closeCreateModal">{{ t('admin.catalog.modal.close') }}</button>
         </div>
-        <p class="required-note"><span class="required-asterisk">*</span> campi obbligatori</p>
+        <p class="required-note"><span class="required-asterisk">*</span> {{ t('admin.catalog.modal.requiredNote') }}</p>
 
         <div class="wizard-grid wizard-grid--modal">
           <label class="field">
-            <span class="field__label">SKU <span class="required-asterisk">*</span></span>
-            <input v-model="createForm.sku" class="field__input" type="text" placeholder="Es. TONDO-SKU-NUOVO-001" />
+            <span class="field__label">{{ t('admin.catalog.fields.sku') }}</span>
+            <input class="field__input" type="text" :value="skuPreview" readonly disabled />
           </label>
           <label class="field">
-            <span class="field__label">Nome <span class="required-asterisk">*</span></span>
-            <input v-model="createForm.name" class="field__input" type="text" placeholder="Nome componente" />
+            <span class="field__label">{{ t('admin.catalog.fields.name') }} <span class="required-asterisk">*</span></span>
+            <input v-model="createForm.name" class="field__input" type="text" :placeholder="t('admin.catalog.placeholders.name')" />
           </label>
           <label class="field">
-            <span class="field__label">Categoria <span class="required-asterisk">*</span></span>
+            <span class="field__label">{{ t('admin.catalog.fields.category') }} <span class="required-asterisk">*</span></span>
             <select v-model="createForm.category" class="field__input">
-              <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+              <option v-for="category in categories" :key="category" :value="category">{{ categoryLabel(category) }}</option>
             </select>
           </label>
           <label class="field">
-            <span class="field__label">Tipo <span class="required-asterisk">*</span></span>
+            <span class="field__label">{{ t('admin.catalog.fields.type') }} <span class="required-asterisk">*</span></span>
             <select v-model="createForm.Type" class="field__input">
-              <option v-for="type in componentTypes" :key="type" :value="type">{{ type }}</option>
+              <option v-for="type in componentTypes" :key="type" :value="type">{{ typeLabel(type) }}</option>
             </select>
           </label>
           <label class="field">
-            <span class="field__label">Prezzo (EUR) <span class="required-asterisk">*</span></span>
-            <input v-model="createForm.priceEuro" class="field__input" type="text" placeholder="0,00" />
+            <span class="field__label">{{ t('admin.catalog.fields.price') }} <span class="required-asterisk">*</span></span>
+            <input v-model="createForm.priceEuro" class="field__input" type="text" :placeholder="t('admin.catalog.placeholders.price')" />
           </label>
           <label class="field checkbox-field">
             <input v-model="createForm.isAvailable" type="checkbox" />
-            <span class="field__label">Disponibile</span>
+            <span class="field__label">{{ t('admin.catalog.fields.available') }}</span>
           </label>
           <label class="field field--full">
-            <span class="field__label">Descrizione <span class="required-asterisk">*</span></span>
-            <textarea v-model="createForm.description" class="field__input" rows="3" placeholder="Descrizione componente" />
+            <span class="field__label">{{ t('admin.catalog.fields.description') }} <span class="required-asterisk">*</span></span>
+            <textarea v-model="createForm.description" class="field__input" rows="3" :placeholder="t('admin.catalog.placeholders.description')" />
           </label>
           <label class="field">
-            <span class="field__label">Larghezza (mm) <span class="required-asterisk">*</span></span>
+            <span class="field__label">{{ t('admin.catalog.fields.width') }} (mm) <span class="required-asterisk">*</span></span>
             <input v-model="createForm.widthMm" class="field__input" type="text" />
           </label>
           <label class="field">
-            <span class="field__label">Altezza (mm) <span class="required-asterisk">*</span></span>
+            <span class="field__label">{{ t('admin.catalog.fields.height') }} (mm) <span class="required-asterisk">*</span></span>
             <input v-model="createForm.heightMm" class="field__input" type="text" />
           </label>
           <label class="field">
-            <span class="field__label">Profondita (mm) <span class="required-asterisk">*</span></span>
+            <span class="field__label">{{ t('admin.catalog.fields.depth') }} (mm) <span class="required-asterisk">*</span></span>
             <input v-model="createForm.depthMm" class="field__input" type="text" />
           </label>
           <label class="field field--full">
-            <span class="field__label">Image URL</span>
-            <input v-model="createForm.imageUrl" class="field__input" type="text" placeholder="https://..." />
+            <span class="field__label">{{ t('admin.catalog.fields.imageUrl') }}</span>
+            <input v-model="createForm.imageUrl" class="field__input" type="text" :placeholder="t('admin.catalog.placeholders.imageUrl')" />
           </label>
           <label class="field field--full">
-            <span class="field__label">Compatibile con categoria</span>
+            <span class="field__label">{{ t('admin.catalog.fields.compatibleCategory') }}</span>
             <select v-model="createForm.compatibleCategory" class="field__input">
-              <option value="">Nessuna</option>
-              <option v-for="category in categories" :key="`compatible-${category}`" :value="category">{{ category }}</option>
+              <option value="">{{ t('admin.catalog.none') }}</option>
+              <option v-for="category in categories" :key="`compatible-${category}`" :value="category">{{ categoryLabel(category) }}</option>
             </select>
           </label>
         </div>
 
         <div class="wizard-actions">
-          <button class="btn btn--light" :disabled="creating" @click="closeCreateModal">Annulla</button>
+          <button class="btn btn--light" :disabled="creating" @click="closeCreateModal">{{ t('admin.catalog.modal.cancel') }}</button>
           <button class="btn btn--primary" :disabled="creating" @click="createComponent">
-            {{ creating ? 'Creazione...' : 'Aggiungi componente' }}
+            {{ creating ? t('admin.catalog.modal.creating') : t('admin.catalog.modal.addComponent') }}
           </button>
         </div>
       </section>
@@ -307,60 +359,89 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
 
     <section class="filters">
       <label class="field">
-        <span class="field__label">Ricerca</span>
+        <span class="field__label">{{ t('admin.catalog.filters.search') }}</span>
         <input v-model="search" class="field__input" type="text" @keyup.enter="load" />
       </label>
       <label class="field">
-        <span class="field__label">Categoria</span>
+        <span class="field__label">{{ t('admin.catalog.filters.category') }}</span>
         <select v-model="categoryFilter" class="field__input" @change="load">
-          <option value="">Tutte</option>
-          <option value="TONDO">TONDO</option>
-          <option value="QUADRO">QUADRO</option>
-          <option value="KUBE">KUBE</option>
-          <option value="INTELLIGENTE">INTELLIGENTE</option>
+          <option value="">{{ t('admin.catalog.filters.all') }}</option>
+          <option v-for="category in categories" :key="`filter-${category}`" :value="category">{{ categoryLabel(category) }}</option>
         </select>
       </label>
       <label class="checkbox-field">
         <input v-model="availableOnly" type="checkbox" @change="load" />
-        <span class="field__label">Solo disponibili</span>
+        <span class="field__label">{{ t('admin.catalog.filters.availableOnly') }}</span>
       </label>
-      <button class="btn btn--primary" :disabled="loading" @click="load">Filtra</button>
+      <button class="btn btn--primary" :disabled="loading" @click="load">{{ t('admin.catalog.filters.filter') }}</button>
     </section>
 
     <p v-if="error" class="error" role="alert" aria-live="assertive">{{ error }}</p>
-    <p v-if="loading" class="placeholder">Caricamento catalogo...</p>
-    <p v-else-if="items.length === 0" class="placeholder">Nessun componente trovato.</p>
+    <p v-if="loading" class="placeholder">{{ t('admin.catalog.loading') }}</p>
+    <p v-else-if="items.length === 0" class="placeholder">{{ t('admin.catalog.empty') }}</p>
 
-    <section v-else class="list">
-      <article v-for="item in items" :key="item.id" class="row">
-        <div class="row__main">
-          <h3>{{ item.name }}</h3>
-          <p class="meta">{{ item.sku }} · {{ item.category }} · {{ item.Type }}</p>
-          <p class="meta">Versione: {{ item.version }}</p>
-        </div>
+    <template v-else>
+      <section v-for="catGroup in groupedCatalog" :key="catGroup.category" class="category-section">
+        <h2 class="category-section__title">{{ catGroup.label }}</h2>
 
-        <div class="row__commercial">
-          <label class="field">
-            <span class="field__label">Prezzo (EUR)</span>
-            <input v-model="editCommercial[item.id].priceEuro" class="field__input field__input--compact" type="text" />
-          </label>
-          <label class="checkbox-field">
-            <input v-model="editCommercial[item.id].isAvailable" type="checkbox" />
-            <span class="field__label">Disponibile</span>
-          </label>
-          <p class="meta">Corrente: {{ formatCurrency(item.price) }}</p>
-        </div>
+        <div class="list">
+          <article v-for="group in catGroup.types" :key="group.key" class="row">
+            <div class="row__main">
+              <h3>{{ group.label }}</h3>
+              <p class="meta">{{ selectedVariant(group).sku }} · {{ catGroup.category }} · {{ group.type }}</p>
+              <p class="meta">{{ t('admin.catalog.row.version', { version: selectedVariant(group).version }) }}</p>
 
-        <div class="row__actions">
-          <button class="btn btn--primary" :disabled="updatingId === item.id" @click="saveCommercial(item)">
-            {{ updatingId === item.id ? 'Salvataggio...' : 'Salva prezzo/disponibilita' }}
-          </button>
-          <button class="btn btn--danger" :disabled="deletingId === item.id" @click="deleteComponent(item)">
-            {{ deletingId === item.id ? 'Eliminazione...' : 'Elimina componente' }}
-          </button>
+              <label class="field">
+                <span class="field__label">{{ t('admin.catalog.row.size') }}</span>
+                <select
+                  class="field__input"
+                  :aria-label="t('admin.catalog.row.sizeAria', { label: group.label })"
+                  :value="selectedVariant(group).id"
+                  @change="onVariantChange(group, $event)"
+                >
+                  <option v-for="variant in group.variants" :key="variant.id" :value="variant.id">
+                    {{ dimensionLabel(variant) }}
+                  </option>
+                </select>
+              </label>
+            </div>
+
+            <div class="row__commercial">
+              <label class="field">
+                <span class="field__label">{{ t('admin.catalog.fields.price') }}</span>
+                <input
+                  v-model="editCommercial[selectedVariant(group).id].priceEuro"
+                  class="field__input field__input--compact"
+                  type="text"
+                />
+              </label>
+              <label class="checkbox-field">
+                <input v-model="editCommercial[selectedVariant(group).id].isAvailable" type="checkbox" />
+                <span class="field__label">{{ t('admin.catalog.fields.available') }}</span>
+              </label>
+              <p class="meta">{{ t('admin.catalog.row.current', { price: formatCurrency(selectedVariant(group).price) }) }}</p>
+            </div>
+
+            <div class="row__actions">
+              <button
+                class="btn btn--primary"
+                :disabled="updatingId === selectedVariant(group).id"
+                @click="saveCommercial(selectedVariant(group))"
+              >
+                {{ updatingId === selectedVariant(group).id ? t('admin.catalog.row.saving') : t('admin.catalog.row.savePrice') }}
+              </button>
+              <button
+                class="btn btn--danger"
+                :disabled="deletingId === selectedVariant(group).id"
+                @click="deleteComponent(selectedVariant(group))"
+              >
+                {{ deletingId === selectedVariant(group).id ? t('admin.catalog.row.deleting') : t('admin.catalog.row.deleteComponent') }}
+              </button>
+            </div>
+          </article>
         </div>
-      </article>
-    </section>
+      </section>
+    </template>
   </div>
 </template>
 
@@ -382,6 +463,11 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.export-format {
+  flex-direction: row;
+  align-items: center;
 }
 
 .subtitle {
@@ -504,7 +590,18 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
   color: var(--color-text-muted);
 }
 
+.category-section {
+  margin-top: var(--space-8);
+}
+
+.category-section__title {
+  font-size: var(--font-size-2xl);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
 .list {
+  margin-top: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -519,6 +616,12 @@ async function deleteComponent(item: CatalogItem): Promise<void> {
   grid-template-columns: 1.2fr 1fr auto;
   gap: var(--space-4);
   align-items: center;
+}
+
+.row__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .row__main h3 {

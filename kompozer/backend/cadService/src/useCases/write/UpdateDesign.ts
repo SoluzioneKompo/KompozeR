@@ -1,4 +1,4 @@
-import { ColumnDesign, ColumnPlan, Configuration } from '../../domain/entities/Configuration';
+import { ColumnDesign, ColumnPlan, Configuration, TerminalSelection } from '../../domain/entities/Configuration';
 import {
   ResourceConflictError,
   ResourceNotFoundError,
@@ -16,8 +16,8 @@ import {
   resolveFirstLevelHeightsMm,
   SHELF_THICKNESS_MM,
   validateColumnDesigns,
-  validateSpine,
 } from '../../domain/services/SpineModel';
+import { resolveShelfRoles } from '../../domain/services/ShelfRoleResolver';
 import { assertStep4LogicImplemented } from '../../domain/services/Step4LogicResolver';
 import { canAccessConfiguration } from '../access';
 
@@ -62,13 +62,13 @@ export class UpdateDesign {
       throw new ResourceConflictError('Cannot change design for a finalized configuration');
     }
 
-    if (!configuration.environment || !configuration.category || !configuration.columnPlan) {
-      throw new ResourceConflictError('Environment, category and column plan must be defined before design');
+    if (!configuration.category || !configuration.columnPlan) {
+      throw new ResourceConflictError('Category and column plan must be defined before design');
     }
 
     assertStep4LogicImplemented(configuration.category);
 
-    const rules = await this.catalogRulesProvider.getRules(configuration.category);
+    const rules = await this.catalogRulesProvider.getRules(configuration.category, configuration.depthMm ?? undefined);
     const normalizedDesigns = input.columnDesigns.map((design) => ({
       ...design,
       shelfThicknessMm: SHELF_THICKNESS_MM,
@@ -95,13 +95,11 @@ export class UpdateDesign {
         throw new ValidationError('columnDesign references an unknown column index');
       }
 
-      if (configuration.category !== 'INTELLIGENTE') {
-        const shelfRule = rules.shelfByWidthMm.get(columnPlanItem.shelfWidthMm);
-        if (!shelfRule) {
-          throw new ValidationError(
-            `No shelf rule found for width ${columnPlanItem.shelfWidthMm} in category ${configuration.category}`,
-          );
-        }
+      const shelfRule = rules.shelfByWidthMm.get(columnPlanItem.shelfWidthMm);
+      if (!shelfRule) {
+        throw new ValidationError(
+          `No shelf rule found for width ${columnPlanItem.shelfWidthMm} in category ${configuration.category}`,
+        );
       }
 
       if (design.shelfThicknessMm !== SHELF_THICKNESS_MM) {
@@ -118,76 +116,56 @@ export class UpdateDesign {
 
     const sortedColumns = [...configuration.columnPlan.columns].sort((left, right) => left.index - right.index);
 
-    if (configuration.category === 'INTELLIGENTE') {
-      const outerIndicesIntelligente = new Set<number>([
-        sortedColumns[0].index,
-        sortedColumns[sortedColumns.length - 1].index,
-      ]);
-      for (const col of sortedColumns) {
-        const isOuter = outerIndicesIntelligente.has(col.index);
-        const shelfMap = isOuter ? rules.bordoByWidthMm : rules.intermezzoByWidthMm;
-        if (!shelfMap.get(col.shelfWidthMm)) {
-          throw new ValidationError(
-            `No ${isOuter ? 'BORDO' : 'INTERMEZZO'} shelf rule found for width ${col.shelfWidthMm}mm in INTELLIGENTE`,
-          );
-        }
-      }
-      const designsWithLevels = sortedColumns
-        .map((col) => byIndex.get(col.index))
-        .filter((d): d is ColumnDesign => d != null && d.levelsMm.length > 0);
-      if (designsWithLevels.length >= 2) {
-        const referenceLevels = designsWithLevels[0].levelsMm;
-        for (const design of designsWithLevels.slice(1)) {
-          if (design.levelsMm.length !== referenceLevels.length) {
+    const spineRules = {
+      footHeightsMm: resolveFirstLevelHeightsMm({
+        footHeightsMm: rules.footHeightsMm,
+        uprightHeightsMm: rules.uprightHeightsMm,
+      }),
+      uprightHeightsMm: rules.uprightHeightsMm,
+      terminalHeightsMm: rules.terminalHeightsMm,
+      maxHeightMm: Number.MAX_SAFE_INTEGER,
+    };
+
+    if (configuration.category === 'QUADRO') {
+      const levelsByPosition = sortedColumns.map((col) => ({
+        levelsMm: byIndex.get(col.index)?.levelsMm ?? [],
+      }));
+      const roles = resolveShelfRoles(levelsByPosition);
+
+      // Verify catalog coverage for every non-NORMALE (column, level) BEFORE
+      // accepting the shared level — an adjacency without catalog coverage is
+      // rejected, it never falls back to a plain RIPIANO on a shared level.
+      sortedColumns.forEach((col, position) => {
+        const rolesForColumn = roles.get(position) ?? new Map();
+        for (const [levelMm, role] of rolesForColumn) {
+          if (role === 'NORMALE') continue;
+          const shelfMap = role === 'BORDO' ? rules.bordoByWidthMm : rules.intermezzoByWidthMm;
+          if (!shelfMap.get(col.shelfWidthMm)) {
             throw new ValidationError(
-              `INTELLIGENTE: column ${design.columnIndex} has ${design.levelsMm.length} levels but column ${designsWithLevels[0].columnIndex} has ${referenceLevels.length} — all columns must be aligned`,
+              `QUADRO: no ${role} shelf rule found for width ${col.shelfWidthMm}mm needed at column ${col.index}, level ${levelMm}mm (shared with an adjacent column)`,
             );
           }
-          for (let i = 0; i < referenceLevels.length; i++) {
-            if (design.levelsMm[i] !== referenceLevels[i]) {
-              throw new ValidationError(
-                `INTELLIGENTE: column ${design.columnIndex} level[${i}]=${design.levelsMm[i]}mm does not match reference level[${i}]=${referenceLevels[i]}mm`,
-              );
-            }
-          }
         }
-      }
-      // INTELLIGENTE: validate each column independently (no shared-spine adjacency check)
-      const spineRulesIntelligente = {
-        footHeightsMm: resolveFirstLevelHeightsMm({
-          footHeightsMm: rules.footHeightsMm,
-          uprightHeightsMm: rules.uprightHeightsMm,
-        }),
-        uprightHeightsMm: rules.uprightHeightsMm,
-        terminalHeightsMm: rules.terminalHeightsMm,
-        maxHeightMm: configuration.environment.maxHeightMm,
-      };
-      for (const col of sortedColumns) {
-        const levelsMm = byIndex.get(col.index)?.levelsMm ?? [];
-        if (levelsMm.length === 0) continue;
-        const spineValidation = validateSpine(levelsMm, spineRulesIntelligente);
-        if (!spineValidation.valid) {
-          throw new ValidationError(
-            spineValidation.reason
-              ? `column ${col.index} is invalid: ${spineValidation.reason}`
-              : `column ${col.index} is invalid`,
-          );
-        }
+      });
+
+      // Geometric validation stays a shared spine (like STANDARD), but a
+      // shared level between adjacent columns is now allowed — catalog
+      // coverage was already verified above.
+      const validation = validateColumnDesigns(levelsByPosition, spineRules, { blockSharedLevel: false });
+      if (!validation.valid) {
+        throw new ValidationError(
+          validation.reason
+            ? `spine ${validation.spineIndex} is invalid: ${validation.reason}`
+            : `spine ${validation.spineIndex} is invalid`,
+        );
       }
     } else {
       const validation = validateColumnDesigns(
         sortedColumns.map((column) => ({
           levelsMm: byIndex.get(column.index)?.levelsMm ?? [],
         })),
-        {
-          footHeightsMm: resolveFirstLevelHeightsMm({
-            footHeightsMm: rules.footHeightsMm,
-            uprightHeightsMm: rules.uprightHeightsMm,
-          }),
-          uprightHeightsMm: rules.uprightHeightsMm,
-          terminalHeightsMm: rules.terminalHeightsMm,
-          maxHeightMm: configuration.environment.maxHeightMm,
-        },
+        spineRules,
+        { allowStackedUprights: configuration.category === 'KUBE' },
       );
       if (!validation.valid) {
         throw new ValidationError(
@@ -198,9 +176,14 @@ export class UpdateDesign {
       }
     }
 
+    const terminalSelections = input.terminalSelections != null
+      ? this.validateTerminalSelections(input.terminalSelections, configuration.columnPlan.columnCount, rules)
+      : configuration.terminalSelections;
+
     const updated: Configuration = {
       ...configuration,
       columnDesigns: normalizedDesigns,
+      terminalSelections,
       status: normalizedDesigns.length > 0 ? 'DESIGN_IN_PROGRESS' : 'COLUMNS_DEFINED',
       version: configuration.version + 1,
       updatedAt: new Date(),
@@ -242,6 +225,36 @@ export class UpdateDesign {
       }
       previous = level;
     }
+  }
+
+  /**
+   * Validates the full terminal-selection snapshot: spine indexes must reference
+   * an existing spine (0..columnCount, inclusive of both outer spines) and heights
+   * must be a catalog-available terminal height.
+   */
+  private validateTerminalSelections(
+    selections: TerminalSelection[],
+    columnCount: number,
+    rules: CatalogRules,
+  ): TerminalSelection[] {
+    const seen = new Set<number>();
+    for (const selection of selections) {
+      if (!Number.isInteger(selection.spineIndex) || selection.spineIndex < 0 || selection.spineIndex > columnCount) {
+        throw new ValidationError(`terminalSelection spineIndex ${selection.spineIndex} is out of range`);
+      }
+      if (seen.has(selection.spineIndex)) {
+        throw new ValidationError('terminalSelections must have unique spineIndex values');
+      }
+      seen.add(selection.spineIndex);
+
+      if (!rules.terminalHeightsMm.includes(selection.heightMm)) {
+        throw new ValidationError(
+          `terminalSelection heightMm ${selection.heightMm} is not an available TERMINALE height`,
+        );
+      }
+    }
+
+    return selections;
   }
 
   private async loadOwnedConfiguration(id: string, ownerId: string): Promise<Configuration> {

@@ -24,10 +24,12 @@ export type OrderDoc = {
     quantity: number;
   }>;
   total: number;
-  status: 'SUBMITTED' | 'DONE' | 'CANCELLED';
+  status: 'AWAITING_PAYMENT' | 'SUBMITTED' | 'DONE' | 'CANCELLED';
   submittedAt: Date;
   doneAt?: Date;
   cancelledAt?: Date;
+  configId?: string;
+  configName?: string;
 };
 
 const orderItemSchema = new Schema(
@@ -62,10 +64,12 @@ const orderSchema = new Schema<OrderDoc>(
     expeditionInfo: { type: expeditionInfoSchema, required: true },
     items: { type: [orderItemSchema], required: true },
     total: { type: Number, required: true },
-    status: { type: String, required: true, enum: ['SUBMITTED', 'DONE', 'CANCELLED'] },
+    status: { type: String, required: true, enum: ['AWAITING_PAYMENT', 'SUBMITTED', 'DONE', 'CANCELLED'] },
     submittedAt: { type: Date, required: true, index: true },
     doneAt: { type: Date, required: false },
     cancelledAt: { type: Date, required: false },
+    configId: { type: String, required: false },
+    configName: { type: String, required: false },
   },
   { _id: false },
 );

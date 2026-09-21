@@ -7,7 +7,7 @@
  * Flusso testato:
  *   1. Seed componenti catalogo (RIPIANO, PIEDINO, TERMINALE, MONTANTE) per categoria TONDO
  *   2. Crea configurazione CAD
- *   3. Setup ambiente → categoria → piano colonne → design
+ *   3. Setup categoria → piano colonne → design
  *   4. Finalizza → verifica BOM nel response + carrello aggiornato
  *
  * Dati persistiti (visibili in Compass):
@@ -155,17 +155,6 @@ describe('[INT] CAD — flusso configurazione completo', () => {
     expect(configurationId).toBeTruthy();
   });
 
-  it('PATCH /cad/configurations/:id/environment → 200, definisce ambiente', async () => {
-    const res = await fetch(`${BASE}/cad/configurations/${configurationId}/environment`, {
-      method:  'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
-      body:    JSON.stringify({ maxWidthMm: 5000, maxHeightMm: 3000, minWidthMm: 600, minHeightMm: 220, unit: 'mm' }),
-    });
-
-    expect(res.status).toBe(200);
-    expect((await json(res))['status']).toBe('ENVIRONMENT_DEFINED');
-  });
-
   it('PATCH /cad/configurations/:id/category → 200, seleziona categoria TONDO', async () => {
     const res = await fetch(`${BASE}/cad/configurations/${configurationId}/category`, {
       method:  'PATCH',
@@ -290,75 +279,76 @@ describe('[INT] CAD — guardie di accesso', () => {
   });
 });
 
-describe('[INT] CAD — categoria INTELLIGENTE flusso completo', () => {
-  let smartConfigId = '';
+describe('[INT] CAD — categoria QUADRO con ripiani intelligenti (adiacenza)', () => {
+  let quadroConfigId = '';
 
-  // Componenti INTELLIGENTE seedati per questo run
-  const bordoSku      = `INT-BORDO-800-${RUN}`;
-  const intermezzoSku = `INT-INT-800-${RUN}`;
-  const intPiedinSku  = `INT-INT-PIE-120-${RUN}`;
-  const intMontSku    = `INT-INT-MON-300-${RUN}`;
-  const intTermSku    = `INT-INT-TER-040-${RUN}`;
+  // Componenti QUADRO seedati per questo run: sia RIPIANO normale sia le
+  // varianti "intelligenti" (RIPIANO_BORDO / RIPIANO_INTERMEDIO), stessa
+  // larghezza — così una colonna può passare dinamicamente dall'uno all'altro.
+  const ripianoSku    = `INT-QRIP-800-${RUN}`;
+  const bordoSku      = `INT-QBORDO-800-${RUN}`;
+  const intermezzoSku = `INT-QINT-800-${RUN}`;
+  const quadroPiedinSku = `INT-QPIE-120-${RUN}`;
+  const quadroMontSku   = `INT-QMON-300-${RUN}`;
+  const quadroTermSku   = `INT-QTER-040-${RUN}`;
 
   beforeAll(async () => {
-    // Seed componenti INTELLIGENTE
     await createComponent(adminToken, {
-      sku: bordoSku, name: 'Ripiano Bordo INT 800mm',
-      description: 'e2e', category: 'INTELLIGENTE', Type: 'RIPIANO_BORDO',
+      sku: ripianoSku, name: 'Ripiano QUADRO 800mm',
+      description: 'e2e', category: 'QUADRO', Type: 'RIPIANO',
+      price: 950, isAvailable: true, imageUrl: '',
+      dimensions: { widthMm: 800, heightMm: 18, depthMm: 200 }, compatibleWith: [],
+    });
+    await createComponent(adminToken, {
+      sku: bordoSku, name: 'Ripiano Bordo QUADRO 800mm',
+      description: 'e2e', category: 'QUADRO', Type: 'RIPIANO_BORDO',
       price: 1000, isAvailable: true, imageUrl: '',
       dimensions: { widthMm: 800, heightMm: 18, depthMm: 200 }, compatibleWith: [],
     });
     await createComponent(adminToken, {
-      sku: intermezzoSku, name: 'Ripiano Intermezzo INT 800mm',
-      description: 'e2e', category: 'INTELLIGENTE', Type: 'RIPIANO_INTERMEDIO',
+      sku: intermezzoSku, name: 'Ripiano Intermezzo QUADRO 800mm',
+      description: 'e2e', category: 'QUADRO', Type: 'RIPIANO_INTERMEDIO',
       price: 900, isAvailable: true, imageUrl: '',
       dimensions: { widthMm: 800, heightMm: 18, depthMm: 200 }, compatibleWith: [],
     });
     await createComponent(adminToken, {
-      sku: intPiedinSku, name: 'Piedino INT 120mm',
-      description: 'e2e', category: 'INTELLIGENTE', Type: 'PIEDINO',
+      sku: quadroPiedinSku, name: 'Piedino QUADRO 120mm',
+      description: 'e2e', category: 'QUADRO', Type: 'PIEDINO',
       price: 490, isAvailable: true, imageUrl: '',
       dimensions: { widthMm: 0, heightMm: 120, depthMm: 0 }, compatibleWith: [],
     });
     await createComponent(adminToken, {
-      sku: intMontSku, name: 'Montante INT 300mm',
-      description: 'e2e', category: 'INTELLIGENTE', Type: 'MONTANTE',
+      sku: quadroMontSku, name: 'Montante QUADRO 300mm',
+      description: 'e2e', category: 'QUADRO', Type: 'MONTANTE',
       price: 1490, isAvailable: true, imageUrl: '',
       dimensions: { widthMm: 0, heightMm: 300, depthMm: 0 }, compatibleWith: [],
     });
     await createComponent(adminToken, {
-      sku: intTermSku, name: 'Terminale INT 40mm',
-      description: 'e2e', category: 'INTELLIGENTE', Type: 'TERMINALE',
+      sku: quadroTermSku, name: 'Terminale QUADRO 40mm',
+      description: 'e2e', category: 'QUADRO', Type: 'TERMINALE',
       price: 390, isAvailable: true, imageUrl: '',
       dimensions: { widthMm: 0, heightMm: 40, depthMm: 0 }, compatibleWith: [],
     });
   }, 30000);
 
-  it('crea configurazione INTELLIGENTE con 3 colonne', async () => {
+  it('crea configurazione QUADRO con 3 colonne', async () => {
     const created = await fetch(`${BASE}/cad/configurations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
-      body: JSON.stringify({ name: `Scaffale Smart ${RUN}` }),
+      body: JSON.stringify({ name: `Scaffale Quadro ${RUN}` }),
     });
     expect(created.status).toBe(201);
-    smartConfigId = ((await json(created))['id'] as string);
+    quadroConfigId = ((await json(created))['id'] as string);
 
-    const env = await fetch(`${BASE}/cad/configurations/${smartConfigId}/environment`, {
+    const category = await fetch(`${BASE}/cad/configurations/${quadroConfigId}/category`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
-      body: JSON.stringify({ maxWidthMm: 5000, maxHeightMm: 3000, minWidthMm: 600, minHeightMm: 220, unit: 'mm' }),
-    });
-    expect(env.status).toBe(200);
-
-    const category = await fetch(`${BASE}/cad/configurations/${smartConfigId}/category`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
-      body: JSON.stringify({ category: 'INTELLIGENTE' }),
+      body: JSON.stringify({ category: 'QUADRO' }),
     });
     expect(category.status).toBe(200);
-    expect((await json(category))['category']).toBe('INTELLIGENTE');
+    expect((await json(category))['category']).toBe('QUADRO');
 
-    const plan = await fetch(`${BASE}/cad/configurations/${smartConfigId}/column-plan`, {
+    const plan = await fetch(`${BASE}/cad/configurations/${quadroConfigId}/column-plan`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
       body: JSON.stringify({
@@ -374,9 +364,9 @@ describe('[INT] CAD — categoria INTELLIGENTE flusso completo', () => {
     expect((await json(plan))['status']).toBe('COLUMNS_DEFINED');
   });
 
-  it('ListNextOptions → 200 con opzioni per colonna esterna (usa BORDO)', async () => {
+  it('ListNextOptions → 200 con opzioni per la prima colonna (nessuna adiacenza ancora)', async () => {
     const res = await fetch(
-      `${BASE}/cad/configurations/${smartConfigId}/next-options?columnIndex=0`,
+      `${BASE}/cad/configurations/${quadroConfigId}/next-options?columnIndex=0`,
       { headers: { Authorization: `Bearer ${userToken}` } },
     );
 
@@ -385,48 +375,21 @@ describe('[INT] CAD — categoria INTELLIGENTE flusso completo', () => {
     const options = body['options'] as Array<Record<string, unknown>>;
     expect(Array.isArray(options)).toBe(true);
     expect(options.length).toBeGreaterThan(0);
-    // almeno un'opzione consentita (piedino 120mm presente nel catalogo)
     expect(options.some((o) => o['allowed'] === true)).toBe(true);
   });
 
-  it('ListNextOptions → 200 con opzioni per colonna interna (usa INTERMEZZO)', async () => {
-    const res = await fetch(
-      `${BASE}/cad/configurations/${smartConfigId}/next-options?columnIndex=1`,
-      { headers: { Authorization: `Bearer ${userToken}` } },
-    );
-
-    expect(res.status).toBe(200);
-    const body = await json(res);
-    const options = body['options'] as Array<Record<string, unknown>>;
-    expect(Array.isArray(options)).toBe(true);
-    expect(options.some((o) => o['allowed'] === true)).toBe(true);
-  });
-
-  it('PATCH /design → 422 per livelli non allineati tra colonne', async () => {
-    const res = await fetch(`${BASE}/cad/configurations/${smartConfigId}/design`, {
+  it('PATCH /design → 200 con livelli non allineati tra colonne (nessun vincolo globale)', async () => {
+    // Livello 120mm condiviso da tutte e 3 le colonne (adiacenti) → BORDO,
+    // INTERMEDIO, BORDO. Livello 440mm presente solo sulle colonne 0 e 2, che
+    // NON sono adiacenti tra loro (la colonna 1 in mezzo non lo ha) → resta
+    // un ripiano RIPIANO normale su entrambe, non un cluster.
+    const res = await fetch(`${BASE}/cad/configurations/${quadroConfigId}/design`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
       body: JSON.stringify({
         columnDesigns: [
           { columnIndex: 0, levelsMm: [120, 440], shelfThicknessMm: 20 },
-          { columnIndex: 1, levelsMm: [120],       shelfThicknessMm: 20 }, // solo 1 livello
-          { columnIndex: 2, levelsMm: [120, 440], shelfThicknessMm: 20 },
-        ],
-      }),
-    });
-    expect(res.status).toBe(422);
-    const body = await json(res);
-    expect((body['error'] as Record<string, unknown>)['code']).toBe('VALIDATION_ERROR');
-  });
-
-  it('PATCH /design → READY_FOR_FINALIZE con livelli allineati su tutte le colonne', async () => {
-    const res = await fetch(`${BASE}/cad/configurations/${smartConfigId}/design`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
-      body: JSON.stringify({
-        columnDesigns: [
-          { columnIndex: 0, levelsMm: [120, 440], shelfThicknessMm: 20 },
-          { columnIndex: 1, levelsMm: [120, 440], shelfThicknessMm: 20 },
+          { columnIndex: 1, levelsMm: [120],       shelfThicknessMm: 20 },
           { columnIndex: 2, levelsMm: [120, 440], shelfThicknessMm: 20 },
         ],
       }),
@@ -435,8 +398,8 @@ describe('[INT] CAD — categoria INTELLIGENTE flusso completo', () => {
     expect((await json(res))['status']).toBe('READY_FOR_FINALIZE');
   });
 
-  it('POST /finalize → FINALIZED con BOM RIPIANO_BORDO + RIPIANO_INTERMEDIO', async () => {
-    const res = await fetch(`${BASE}/cad/configurations/${smartConfigId}/finalize`, {
+  it('POST /finalize → FINALIZED con BOM misto RIPIANO + RIPIANO_BORDO + RIPIANO_INTERMEDIO', async () => {
+    const res = await fetch(`${BASE}/cad/configurations/${quadroConfigId}/finalize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
     });
@@ -450,21 +413,26 @@ describe('[INT] CAD — categoria INTELLIGENTE flusso completo', () => {
     expect(bom.length).toBeGreaterThan(0);
 
     const types = new Set(bom.map((i) => i['componentType']));
+    expect(types.has('RIPIANO')).toBe(true);
     expect(types.has('RIPIANO_BORDO')).toBe(true);
     expect(types.has('RIPIANO_INTERMEDIO')).toBe(true);
     expect(types.has('PIEDINO')).toBe(true);
     expect(types.has('MONTANTE')).toBe(true);
     expect(types.has('TERMINALE')).toBe(true);
 
-    // BOM qty: BORDO × 4 (2 livelli × 2 colonne outer), INTERMEZZO × 2 (2 livelli × 1 colonna inner)
+    // level 120mm (cluster di 3): colonna 0 e 2 = BORDO, colonna 1 = INTERMEDIO
     const bordoItem = bom.find((i) => i['sku'] === bordoSku);
-    expect(bordoItem?.['quantity']).toBe(4);
+    expect(bordoItem?.['quantity']).toBe(2);
 
     const intItem = bom.find((i) => i['sku'] === intermezzoSku);
-    expect(intItem?.['quantity']).toBe(2);
+    expect(intItem?.['quantity']).toBe(1);
+
+    // level 440mm (colonne 0 e 2, non adiacenti tra loro): resta RIPIANO normale
+    const ripianoItem = bom.find((i) => i['sku'] === ripianoSku);
+    expect(ripianoItem?.['quantity']).toBe(2);
   });
 
-  it('GET /cart → carrello contiene i componenti INTELLIGENTE', async () => {
+  it('GET /cart → carrello contiene sia i ripiani normali sia quelli intelligenti', async () => {
     const res = await fetch(`${BASE}/cart`, {
       headers: { Authorization: `Bearer ${userToken}` },
     });
@@ -473,6 +441,7 @@ describe('[INT] CAD — categoria INTELLIGENTE flusso completo', () => {
     const body = await json(res);
     const items = body['items'] as Array<Record<string, unknown>>;
     expect(Array.isArray(items)).toBe(true);
+    expect(items.some((i) => i['sku'] === ripianoSku)).toBe(true);
     expect(items.some((i) => i['sku'] === bordoSku)).toBe(true);
     expect(items.some((i) => i['sku'] === intermezzoSku)).toBe(true);
   });

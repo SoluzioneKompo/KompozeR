@@ -45,7 +45,6 @@ api-gateway (porta 3000)  ←── verifica JWT su ogni richiesta
   ├──► cad-service         (porta 3002)  MongoDB: caddb    + Redis
   ├──► cart-service        (porta 3003)  MongoDB: cartdb   + Redis
   ├──► catalog-service     (porta 3004)  MongoDB: catalogdb + Redis
-  ├──► chatbot-service     (porta 3005)  MongoDB: chatdb
   ├──► notification-service(porta 3006)  MongoDB: notificationdb + Redis
   └──► reporting-service   (porta 3007)  MongoDB: reportingdb
 
@@ -59,7 +58,7 @@ Redis Pub/Sub — canali eventi:
 
 ## Struttura di un microservizio (standard)
 
-Usata da: `authenticationService`, `cartService`, `catalogService`, `chatbotService`, `notificationService`, `reportingService`.
+Usata da: `authenticationService`, `cartService`, `catalogService`, `notificationService`, `reportingService`.
 
 ```
 <servizio>/
@@ -90,7 +89,6 @@ Usata da: `authenticationService`, `cartService`, `catalogService`, `chatbotServ
 | cadService | ✓ | ✓ | | ✓ | | ✓ |
 | cartService | ✓ | ✓ | ✓ | | ✓ | |
 | catalogService | ✓ | ✓ | | ✓ | | |
-| chatbotService | ✓ | ✓ | ✓ | | | ✓ |
 | notificationService | ✓ | ✓ | | | ✓ | ✓ |
 | reportingService | ✓ | ✓ | ✓ | | | |
 
@@ -155,8 +153,7 @@ src/
 ├── components/
 │   ├── configurator/     # Componenti del grid CAD
 │   ├── catalog/          # Browsing prodotti
-│   ├── cart/             # Carrello
-│   └── chat/             # Widget chatbot
+│   └── cart/             # Carrello
 ├── services/             # Client Axios verso l'api-gateway (uno per dominio)
 ├── composables/          # Composables Vue 3 (useSocket, useAuth, useNotifications)
 ├── types/                # Interfacce TypeScript lato frontend

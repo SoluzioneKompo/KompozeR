@@ -2,8 +2,8 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/store/authStore';
 
-const baseAllowedRoutes = new Set(['cad', 'cart', 'configurations', 'chatbot', 'notifications']);
-const guestAllowedRoutes = new Set(['cad', 'cart', 'configurations', 'chatbot', 'notifications']);
+const baseAllowedRoutes = new Set(['cad', 'cart', 'payment', 'configurations', 'notifications']);
+const guestAllowedRoutes = new Set(['cad', 'cart', 'payment', 'configurations', 'notifications']);
 
 function getAuthenticatedFallbackRoute(auth: ReturnType<typeof useAuthStore>): { name: string } {
   return { name: auth.homeRouteName };
@@ -49,15 +49,15 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresToken: true },
   },
   {
-    path: '/cad',
-    name: 'cad',
-    component: () => import('@/views/CadView.vue'),
+    path: '/payment/:orderId',
+    name: 'payment',
+    component: () => import('@/views/PaymentView.vue'),
     meta: { requiresToken: true },
   },
   {
-    path: '/chatbot',
-    name: 'chatbot',
-    component: () => import('@/views/ChatbotView.vue'),
+    path: '/cad',
+    name: 'cad',
+    component: () => import('@/views/CadView.vue'),
     meta: { requiresToken: true },
   },
   {

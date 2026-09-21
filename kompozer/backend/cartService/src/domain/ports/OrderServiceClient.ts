@@ -20,11 +20,13 @@ export interface SubmitOrderInput {
   expeditionInfo: ExpeditionInfo;
   items: CartItem[];
   total: number;
+  configId?: string;
+  configName?: string;
 }
 
 export interface SubmitOrderOutput {
   orderId: string;
-  status: 'SUBMITTED';
+  status: 'AWAITING_PAYMENT';
   submittedAt: Date;
 }
 

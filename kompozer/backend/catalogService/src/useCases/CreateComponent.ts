@@ -2,13 +2,15 @@
  * Use case for adding a new component to the catalog.
  *
  * Requires ADMIN role (enforced at HTTP layer by auth middleware, not here).
- * Throws DuplicateSkuError (409) when SKU is already registered.
+ * SKU is derived from category/Type/dimensions (see generateSku), never
+ * accepted from the client — this keeps it consistent and tamper-proof.
  * Throws ValidationError (422) when required input is invalid.
  */
 import { ComponentRepository }                from '../domain/ports/ComponentRepository';
 import { Clock }                              from '../domain/ports/Clock';
 import { IdGenerator }                        from '../domain/ports/IdGenerator';
-import { DuplicateSkuError, ValidationError } from '../domain/entities/errors';
+import { ValidationError }                    from '../domain/entities/errors';
+import { generateSku }                        from '../domain/services/generateSku';
 import { CreateComponentInput, ComponentDto } from './types';
 import { Component }                          from '../domain/entities/Component';
 
@@ -41,21 +43,25 @@ export class CreateComponent {
   async execute(input: CreateComponentInput): Promise<ComponentDto> {
     // Input validation.
     const errors: { field: string; reason: string }[] = [];
-    if (!input.sku?.trim())  errors.push({ field: 'sku',  reason: 'required' });
     if (!input.name?.trim()) errors.push({ field: 'name', reason: 'required' });
     if (typeof input.price !== 'number' || input.price < 0)
       errors.push({ field: 'price', reason: 'must be a non-negative integer (cents)' });
     if (errors.length > 0)
       throw new ValidationError('Invalid component data', errors);
 
-    // SKU uniqueness.
-    const existing = await this.componentRepo.findBySku(input.sku);
-    if (existing) throw new DuplicateSkuError(input.sku);
+    // SKU is derived from category/Type/dimensions. A numeric suffix
+    // disambiguates the rare case of two components sharing the same specs
+    // (e.g. a promo variant of an existing shelf).
+    const baseSku = generateSku(input.category, input.Type, input.dimensions);
+    let sku = baseSku;
+    for (let suffix = 2; await this.componentRepo.findBySku(sku); suffix += 1) {
+      sku = `${baseSku}-${suffix}`;
+    }
 
     const now: Date = this.clock.now();
     const component: Component = {
       id:             this.idGenerator.generate(),
-      sku:            input.sku.trim(),
+      sku,
       name:           input.name.trim(),
       description:    input.description?.trim() ?? '',
       category:       input.category,

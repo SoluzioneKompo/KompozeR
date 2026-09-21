@@ -2,14 +2,6 @@ import { deriveBom } from '../../src/domain/services/deriveBom';
 import { BomItem } from '../../src/domain/entities/Bom';
 import { buildCatalogRules, buildConfiguration } from '../helpers/fakes';
 
-const env = {
-  maxWidthMm: 5000,
-  maxHeightMm: 3000,
-  minWidthMm: 600,
-  minHeightMm: 220,
-  unit: 'mm' as const,
-};
-
 function sumByType(bom: BomItem[]): Record<string, number> {
   const result: Record<string, number> = {};
   for (const item of bom) {
@@ -24,7 +16,6 @@ describe('deriveBom', () => {
     const cfg = buildConfiguration({
       status: 'DESIGN_IN_PROGRESS',
       category: 'TONDO',
-      environment: env,
       columnPlan: { columnCount: 1, columns: [{ index: 0, shelfWidthMm: 800 }] },
       // Two exterior spines share the same column levels.
       columnDesigns: [{ columnIndex: 0, levelsMm: [120, 440], shelfThicknessMm: 20 }],
@@ -48,7 +39,6 @@ describe('deriveBom', () => {
     const cfg = buildConfiguration({
       status: 'DESIGN_IN_PROGRESS',
       category: 'TONDO',
-      environment: env,
       columnPlan: {
         columnCount: 2,
         columns: [
@@ -80,11 +70,10 @@ describe('deriveBom', () => {
     expect(byType['TERMINALE']).toBe(6);
   });
 
-  it('KUBE: is currently treated like every other system', () => {
+  it('KUBE: a segment that exactly matches one catalog upright behaves like every other system', () => {
     const cfg = buildConfiguration({
       status: 'DESIGN_IN_PROGRESS',
       category: 'KUBE',
-      environment: env,
       columnPlan: { columnCount: 1, columns: [{ index: 0, shelfWidthMm: 800 }] },
       columnDesigns: [{ columnIndex: 0, levelsMm: [120, 440], shelfThicknessMm: 20 }],
     });
@@ -98,12 +87,54 @@ describe('deriveBom', () => {
     expect(byType['TERMINALE']).toBe(4);
   });
 
+  it('KUBE: a segment with no single catalog match is decomposed into stacked pieces (200+300=500)', () => {
+    const kubeCatalogRules = buildCatalogRules({
+      uprightHeightsMm: [120, 200, 300],
+      uprightByHeightMm: new Map([
+        [120, { type: 'MONTANTE' as const, sku: 'MON-120', name: 'Montante 120', priceCents: 990, widthMm: 40, heightMm: 120, depthMm: 40 }],
+        [200, { type: 'MONTANTE' as const, sku: 'MON-200', name: 'Montante 200', priceCents: 1190, widthMm: 40, heightMm: 200, depthMm: 40 }],
+        [300, { type: 'MONTANTE' as const, sku: 'MON-300', name: 'Montante 300', priceCents: 1490, widthMm: 40, heightMm: 300, depthMm: 40 }],
+      ]),
+    });
+
+    const cfg = buildConfiguration({
+      status: 'DESIGN_IN_PROGRESS',
+      category: 'KUBE',
+      columnPlan: { columnCount: 1, columns: [{ index: 0, shelfWidthMm: 800 }] },
+      // Segment = 640 - 120 - 20 = 500mm: no single upright fits, only 200+300 does.
+      columnDesigns: [{ columnIndex: 0, levelsMm: [120, 640], shelfThicknessMm: 20 }],
+    });
+
+    const bom = deriveBom(cfg, kubeCatalogRules);
+
+    const bySku = new Map(bom.map((item) => [item.sku, item.quantity]));
+    // 2 spines (both endpoints of the single column) x 2 (front+back) = 4 of each piece.
+    expect(bySku.get('MON-200')).toBe(4);
+    expect(bySku.get('MON-300')).toBe(4);
+    expect(bySku.has('MON-120')).toBe(false);
+  });
+
+  it('KUBE: throws when a segment cannot be built from any combination of catalog uprights', () => {
+    const kubeCatalogRules = buildCatalogRules({ uprightHeightsMm: [120] });
+
+    const cfg = buildConfiguration({
+      status: 'DESIGN_IN_PROGRESS',
+      category: 'KUBE',
+      columnPlan: { columnCount: 1, columns: [{ index: 0, shelfWidthMm: 800 }] },
+      // Segment = 440 - 120 - 20 = 300mm: unreachable from 120mm pieces alone (120*2=240, 120*3=360).
+      // Caught by the same shared-spine validation deriveSpineBom already runs
+      // (mirroring UpdateDesign, which would have rejected this design earlier).
+      columnDesigns: [{ columnIndex: 0, levelsMm: [120, 440], shelfThicknessMm: 20 }],
+    });
+
+    expect(() => deriveBom(cfg, kubeCatalogRules)).toThrow(/invalid spine/);
+  });
+
   it('aggregates items with same SKU across columns', () => {
     // Both columns have the same shelf width → same SKU for RIPIANO
     const cfg = buildConfiguration({
       status: 'DESIGN_IN_PROGRESS',
       category: 'TONDO',
-      environment: env,
       columnPlan: {
         columnCount: 2,
         columns: [
@@ -147,7 +178,6 @@ describe('deriveBom', () => {
     const cfg = buildConfiguration({
       status: 'DESIGN_IN_PROGRESS',
       category: 'TONDO',
-      environment: env,
       columnPlan: { columnCount: 1, columns: [{ index: 0, shelfWidthMm: 800 }] },
       columnDesigns: [{ columnIndex: 0, levelsMm: [80], shelfThicknessMm: 20 }],
     });

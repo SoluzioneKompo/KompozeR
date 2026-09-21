@@ -1,8 +1,9 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { z } from 'zod';
+import { logger } from '../../infrastructure/logger';
 import { CATEGORIES, Category, isCategory } from '../../domain/entities/Category';
 import { ConfigurationStatus } from '../../domain/entities/ConfigurationStatus';
-import { ColumnDesign, ColumnPlan, Environment } from '../../domain/entities/Configuration';
+import { ColumnDesign, ColumnPlan, TerminalSelection } from '../../domain/entities/Configuration';
 import { ValidationError } from '../../domain/entities/errors';
 import {
   CollabFieldPath,
@@ -14,9 +15,10 @@ import { ListNextOptions } from '../../useCases/read/ListNextOptions';
 import { CreateConfiguration } from '../../useCases/write/CreateConfiguration';
 import { FinalizeConfiguration } from '../../useCases/write/FinalizeConfiguration';
 import { ReorderConfiguration } from '../../useCases/write/ReorderConfiguration';
+import { ResetConfiguration } from '../../useCases/write/ResetConfiguration';
 import { SetCategory } from '../../useCases/write/SetCategory';
+import { SetDepth } from '../../useCases/write/SetDepth';
 import { SetColumnPlan } from '../../useCases/write/SetColumnPlan';
-import { SetEnvironment } from '../../useCases/write/SetEnvironment';
 import { UpdateDesign } from '../../useCases/write/UpdateDesign';
 
 export interface CadRouterDeps {
@@ -24,19 +26,19 @@ export interface CadRouterDeps {
   listConfigurations: ListConfigurations;
   getConfiguration: GetConfiguration;
   listNextOptions: ListNextOptions;
-  setEnvironment: SetEnvironment;
   setCategory: SetCategory;
+  setDepth: SetDepth;
   setColumnPlan: SetColumnPlan;
   updateDesign: UpdateDesign;
   finalizeConfiguration: FinalizeConfiguration;
   reorderConfiguration: ReorderConfiguration;
+  resetConfiguration: ResetConfiguration;
   collabSessionService: InMemoryCollabSessionService;
 }
 
 const COLLAB_FIELD_PATHS: CollabFieldPath[] = [
   'name',
   'category',
-  'environment',
   'columnPlan',
   'columnDesigns',
 ];
@@ -45,6 +47,10 @@ const COLLAB_FIELD_PATHS: CollabFieldPath[] = [
 function wrap(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 }
+
+// pino-http attaches req.log in the real app; fall back to the base logger
+// when the router is mounted without it (e.g. in HTTP tests).
+const logFor = (req: Request) => req.log ?? logger;
 
 /** Enforces gateway-propagated user identity for all protected CAD routes. */
 function requireUserId(req: Request, res: Response, next: NextFunction): void {
@@ -113,32 +119,6 @@ function parseCategory(body: unknown): Category | null | undefined {
   return undefined;
 }
 
-/** Parses and validates environment payload. */
-function parseEnvironment(body: unknown): Environment {
-  if (!body || typeof body !== 'object') {
-    throw new ValidationError('environment payload is required');
-  }
-
-  const typedBody = body as Record<string, unknown>;
-  const maxWidthMm = requireNumber(typedBody['maxWidthMm'], 'maxWidthMm');
-  const maxHeightMm = requireNumber(typedBody['maxHeightMm'], 'maxHeightMm');
-  const minWidthMm = requireNumber(typedBody['minWidthMm'], 'minWidthMm');
-  const minHeightMm = requireNumber(typedBody['minHeightMm'], 'minHeightMm');
-  const unit = typedBody['unit'] ?? 'mm';
-
-  if (unit !== 'mm') {
-    throw new ValidationError('environment unit must be mm');
-  }
-
-  return {
-    maxWidthMm,
-    maxHeightMm,
-    minWidthMm,
-    minHeightMm,
-    unit: 'mm',
-  };
-}
-
 /** Parses and validates column plan payload. */
 function parseColumnPlan(body: unknown): ColumnPlan {
   if (!body || typeof body !== 'object') {
@@ -202,6 +182,34 @@ function parseColumnDesigns(body: unknown): ColumnDesign[] {
       columnIndex,
       shelfThicknessMm,
       levelsMm,
+    };
+  });
+}
+
+/** Parses optional per-spine terminal selection snapshot from the design payload. */
+function parseTerminalSelections(body: unknown): TerminalSelection[] | undefined {
+  if (!body || typeof body !== 'object') {
+    return undefined;
+  }
+
+  const typedBody = body as { terminalSelections?: unknown };
+  if (typedBody.terminalSelections === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(typedBody.terminalSelections)) {
+    throw new ValidationError('terminalSelections must be an array');
+  }
+
+  return typedBody.terminalSelections.map((selection): TerminalSelection => {
+    if (!selection || typeof selection !== 'object') {
+      throw new ValidationError('Each terminalSelection must be an object');
+    }
+
+    const typedSelection = selection as Record<string, unknown>;
+    return {
+      spineIndex: requireNumber(typedSelection['spineIndex'], 'terminalSelection.spineIndex'),
+      heightMm: requireNumber(typedSelection['heightMm'], 'terminalSelection.heightMm'),
     };
   });
 }
@@ -302,6 +310,10 @@ export function buildCadRouter(deps: CadRouterDeps) {
         category,
       });
 
+      logFor(req).info(
+        { event: 'cad.configuration.created', configurationId: configuration.id, ownerId },
+        'CAD configuration created',
+      );
       res.status(201).json(configuration);
     }),
   );
@@ -332,9 +344,11 @@ export function buildCadRouter(deps: CadRouterDeps) {
     wrap(async (req, res) => {
       const userId = req.headers['x-user-id'] as string;
       const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
+      const actorRole = req.headers['x-user-role'];
       const configuration = await deps.getConfiguration.execute({
         id: req.params['id'],
         ownerId,
+        actorRole: typeof actorRole === 'string' ? actorRole : undefined,
       });
       res.json(configuration);
     }),
@@ -368,21 +382,6 @@ export function buildCadRouter(deps: CadRouterDeps) {
   );
 
   router.patch(
-    '/configurations/:id/environment',
-    requireUserId,
-    wrap(async (req, res) => {
-      const userId = req.headers['x-user-id'] as string;
-      const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
-      const configuration = await deps.setEnvironment.execute({
-        id: req.params['id'],
-        ownerId,
-        environment: parseEnvironment(req.body),
-      });
-      res.json(configuration);
-    }),
-  );
-
-  router.patch(
     '/configurations/:id/category',
     requireUserId,
     wrap(async (req, res) => {
@@ -397,6 +396,24 @@ export function buildCadRouter(deps: CadRouterDeps) {
         id: req.params['id'],
         ownerId,
         category,
+      });
+      res.json(configuration);
+    }),
+  );
+
+  router.patch(
+    '/configurations/:id/depth',
+    requireUserId,
+    wrap(async (req, res) => {
+      const userId = req.headers['x-user-id'] as string;
+      const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
+      const body = (req.body ?? {}) as { depthMm?: unknown };
+      const depthMm = requireNumber(body.depthMm, 'depthMm');
+
+      const configuration = await deps.setDepth.execute({
+        id: req.params['id'],
+        ownerId,
+        depthMm,
       });
       res.json(configuration);
     }),
@@ -427,7 +444,26 @@ export function buildCadRouter(deps: CadRouterDeps) {
         id: req.params['id'],
         ownerId,
         columnDesigns: parseColumnDesigns(req.body),
+        terminalSelections: parseTerminalSelections(req.body),
       });
+      res.json(configuration);
+    }),
+  );
+
+  router.post(
+    '/configurations/:id/reset',
+    requireUserId,
+    wrap(async (req, res) => {
+      const userId = req.headers['x-user-id'] as string;
+      const ownerId = resolveEffectiveOwnerId(req, deps, req.params['id'], userId);
+      const configuration = await deps.resetConfiguration.execute({
+        id: req.params['id'],
+        ownerId,
+      });
+      logFor(req).info(
+        { event: 'cad.configuration.reset', configurationId: configuration.id, ownerId },
+        'CAD configuration reset',
+      );
       res.json(configuration);
     }),
   );
@@ -442,6 +478,10 @@ export function buildCadRouter(deps: CadRouterDeps) {
         id: req.params['id'],
         ownerId,
       });
+      logFor(req).info(
+        { event: 'cad.configuration.finalized', configurationId: configuration.id, ownerId },
+        'CAD configuration finalized',
+      );
       res.json(configuration);
     }),
   );
@@ -456,6 +496,10 @@ export function buildCadRouter(deps: CadRouterDeps) {
         id: req.params['id'],
         ownerId,
       });
+      logFor(req).info(
+        { event: 'cad.configuration.reordered', configurationId: configuration.id, ownerId },
+        'CAD configuration reordered',
+      );
       res.json(configuration);
     }),
   );
@@ -471,6 +515,15 @@ export function buildCadRouter(deps: CadRouterDeps) {
         hostUserId,
       });
 
+      logFor(req).info(
+        {
+          event: 'cad.collab.session.created',
+          configurationId: session.configurationId,
+          sessionCode: session.sessionCode,
+          hostUserId,
+        },
+        'CAD collaborative session created',
+      );
       res.status(201).json({
         sessionCode: session.sessionCode,
         configurationId: session.configurationId,
@@ -494,6 +547,15 @@ export function buildCadRouter(deps: CadRouterDeps) {
         userId,
       });
 
+      logFor(req).info(
+        {
+          event: 'cad.collab.session.joined',
+          configurationId: session.configurationId,
+          sessionCode: session.sessionCode,
+          userId,
+        },
+        'CAD collaborative session joined',
+      );
       res.json({
         sessionCode: session.sessionCode,
         configurationId: session.configurationId,

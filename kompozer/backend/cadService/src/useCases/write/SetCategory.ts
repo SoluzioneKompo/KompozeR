@@ -12,7 +12,7 @@ import {
 } from '../types';
 import { canAccessConfiguration } from '../access';
 
-/** Write use case that sets system category after environment selection. */
+/** Write use case that sets the system category (first CAD workflow step). */
 export class SetCategory {
   constructor(private readonly configurationRepository: ConfigurationRepository) {}
 
@@ -30,15 +30,15 @@ export class SetCategory {
       throw new ResourceConflictError('Cannot change category for a finalized configuration');
     }
 
-    if (!configuration.environment) {
-      throw new ResourceConflictError('Environment must be defined before category');
-    }
-
     const updated: Configuration = {
       ...configuration,
       category: input.category,
+      // Depth options are category-specific — a category change must be
+      // re-confirmed with a fresh depth pick, same as columns/design below.
+      depthMm: null,
       columnPlan: null,
       columnDesigns: [],
+      terminalSelections: [],
       components: [],
       status: 'CATEGORY_SELECTED',
       version: configuration.version + 1,

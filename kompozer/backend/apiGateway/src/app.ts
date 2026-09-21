@@ -9,7 +9,10 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import pinoHttp from 'pino-http';
+import { randomUUID } from 'crypto';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import { logger, redactUrl } from './infrastructure/logger';
 import { buildJwtMiddleware } from './middleware/jwtMiddleware';
 import { gatewayErrorMiddleware } from './middleware/gatewayErrorMiddleware';
 import { buildRateLimiters } from './middleware/rateLimiters';
@@ -48,6 +51,28 @@ export function buildApp(config: GatewayConfig) {
 
   app.use(cors());
   app.use(helmet());
+  app.use(
+    pinoHttp({
+      logger,
+      // The gateway is the system's edge: it mints the trace id and forwards it
+      // downstream (as a plain header, so it survives the proxy) so one request
+      // can be followed across every service in Grafana/Loki.
+      genReqId: (req, res) => {
+        const traceId = randomUUID();
+        req.headers['x-trace-id'] = traceId;
+        res.setHeader('x-trace-id', traceId);
+        return traceId;
+      },
+      customProps: (req) => ({ traceId: req.id }),
+      autoLogging: { ignore: (req) => req.url === '/healthz' },
+      // Full header/query dumps are debugging noise for a human scanning
+      // Grafana — keep the per-request line to what matters at a glance.
+      serializers: {
+        req: (req) => ({ method: req.method, url: redactUrl(req.url) }),
+        res: (res) => ({ statusCode: res.statusCode }),
+      },
+    }),
+  );
 
   // Per-IP request cap, applied before body parsing so oversized/abusive
   // traffic is rejected as cheaply as possible.

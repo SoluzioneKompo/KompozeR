@@ -1,0 +1,179 @@
+{
+  "header": {
+    "title": "Configuratore CAD",
+    "subtitle": "Workspace di design con schema grafico indipendente",
+    "refreshDetail": "Aggiorna dettaglio",
+    "loadingDetail": "Caricamento dettaglio..."
+  },
+  "collab": {
+    "sessionLabel": "Sessione",
+    "start": "Collabora",
+    "starting": "Avvio...",
+    "codePrefix": "Codice:",
+    "endSession": "Termina sessione",
+    "endedWarning": "⚠️ Sessione terminata",
+    "backToSolitary": "Torna a solitaria",
+    "statusSelectOrCreate": "Seleziona o crea una configurazione",
+    "statusOwnerLeftEnded": "Il proprietario ha lasciato — sessione terminata",
+    "statusActive": "Collaborazione attiva · {count} partecipanti · Codice: {code}",
+    "statusReconnecting": "Collaborazione — riconnessione in corso...",
+    "statusSolitary": "Modalità solitaria",
+    "modal": {
+      "title": "Sessione collaborativa attiva",
+      "close": "Chiudi",
+      "shareInstruction": "Condividi questo codice con chi vuoi far partecipare:",
+      "note": "Sia utenti registrati che ospiti possono usarlo. La sessione termina quando esci dalla configurazione.",
+      "copyCode": "Copia codice"
+    }
+  },
+  "create": {
+    "title": "Crea nuova configurazione",
+    "hint": "Puoi iniziare da qui o entrare in una sessione collaborativa esistente.",
+    "nameLabel": "Nome configurazione",
+    "namePlaceholder": "Nuova configurazione",
+    "creating": "Creazione...",
+    "createButton": "Crea e apri configuratore",
+    "joinCodeLabel": "Codice sessione collaborativa",
+    "joinCodePlaceholder": "es. A3KP7X",
+    "joining": "Accesso...",
+    "joinButton": "Entra con codice"
+  },
+  "steps": {
+    "category": "Categoria",
+    "columns": "Colonne",
+    "design": "Design",
+    "finalize": "Finalizza"
+  },
+  "meta": {
+    "configuration": "Configurazione",
+    "status": "Stato",
+    "lastUpdate": "Ultimo update"
+  },
+  "categoryStep": {
+    "title": "Step 1 - Categoria",
+    "label": "Categoria",
+    "placeholder": "Seleziona categoria",
+    "saving": "Salvataggio..."
+  },
+  "depthStep": {
+    "title": "Profondità",
+    "label": "Profondità ripiani",
+    "placeholder": "Seleziona profondità",
+    "hint": "Filtra le misure disponibili nei passi successivi. Cambiandola dopo aver definito colonne o livelli, la configurazione viene resettata.",
+    "saving": "Salvataggio..."
+  },
+  "columnsStep": {
+    "title": "Step 2 - Piano colonne",
+    "countLabel": "Numero colonne (1-8)",
+    "loadingWidths": "Caricamento larghezze da catalogo...",
+    "noShelvesAvailable": "Nessun ripiano disponibile per la categoria selezionata.",
+    "columnLabel": "Colonna {n}",
+    "saving": "Salvataggio..."
+  },
+  "designStep": {
+    "title": "Step 3 - Costruzione livelli (+ / -)",
+    "fixedThickness": "Spessore ripiano fisso: {cm}",
+    "columnLabel": "Colonna {n}",
+    "currentLevels": "Livelli correnti: {levels}",
+    "none": "nessuno",
+    "firstLevelHint": "Primo livello: scegli un {type} o un ponte verso le colonne adiacenti",
+    "nextLevelHint": "Livello successivo: scegli un {type} o un ponte",
+    "bridgeHint": "Puoi creare un <strong>ponte</strong>: unire questa colonna alle adiacenti scavalcando un gap più alto dei montanti singoli.",
+    "pieceHeightLabel": "Altezza pezzo da aggiungere",
+    "selectHeightAriaLabel": "Seleziona altezza da aggiungere per colonna {n}",
+    "bridgeSuffix": " · ponte",
+    "stackedSuffix": " · più montanti",
+    "noOptionsAvailable": "Nessuna opzione disponibile per questa colonna con i vincoli attuali.",
+    "addLevel": "+ Livello",
+    "addLevelAriaLabel": "Aggiungi livello alla colonna {n}",
+    "removeLast": "- Ultimo",
+    "removeLastAriaLabel": "Rimuovi ultimo livello dalla colonna {n}"
+  },
+  "terminalStep": {
+    "title": "Terminali",
+    "hint": "Scegli l'altezza del terminale per ogni spina (colonna esterna o giunzione tra colonne adiacenti). Salvataggio automatico.",
+    "noHeightsAvailable": "Nessun terminale disponibile a catalogo per questa categoria.",
+    "outerLabel": "Terminale colonna {n}",
+    "innerLabel": "Terminale tra colonna {left} e {right}",
+    "selectAriaLabel": "Seleziona altezza terminale per la spina {spine}"
+  },
+  "finalizeStep": {
+    "title": "Step 4 - Finalizzazione",
+    "finalizing": "Finalizzazione...",
+    "finalizeButton": "Finalizza e invia al carrello",
+    "hint": "Finalizzazione disponibile solo in READY_FOR_FINALIZE."
+  },
+  "schema": {
+    "title": "Schema grafico",
+    "subtitle": "Vista laterale in scala reale della struttura corrente",
+    "zoomOut": "Riduci zoom",
+    "zoomIn": "Aumenta zoom",
+    "zoomReset": "Ripristina zoom 100%",
+    "zoomFit": "Adatta"
+  },
+  "bom": {
+    "title": "Distinta componenti",
+    "subtitle": "Anteprima aggiornata in tempo reale dal backend",
+    "empty": "Nessun componente disponibile: completa i passaggi di design.",
+    "totalPreview": "Totale preview",
+    "skuLine": "SKU: {sku} · {type}",
+    "componentFallback": "Componente"
+  },
+  "resetConfig": {
+    "button": "Reset configurazione",
+    "resetting": "Reset in corso...",
+    "confirmTitle": "Confermi il reset della configurazione?",
+    "confirmMessage": "Il piano colonne, il design e i componenti verranno azzerati. La categoria selezionata resta invariata. L'azione non è reversibile.",
+    "cancel": "Annulla",
+    "confirm": "Reset configurazione"
+  },
+  "resetConfirm": {
+    "title": "Conferma reset progetto",
+    "message": "Cambiare categoria o piano colonne dopo che il design è già stato avviato resetta design e componenti. Vuoi continuare?",
+    "cancel": "Annulla",
+    "continue": "Continua"
+  },
+  "resetFinalConfirm": {
+    "title": "Seconda conferma richiesta",
+    "message": "Confermi definitivamente il reset dei passaggi successivi?",
+    "cancel": "Annulla",
+    "confirm": "Conferma reset"
+  },
+  "toasts": {
+    "httpError": "Errore HTTP {status}",
+    "startSessionFailed": "Avvio sessione collaborativa fallito",
+    "invalidCode": "Inserisci un codice valido",
+    "sessionJoined": "Sessione collaborativa agganciata ({code})",
+    "joinFailed": "Join sessione collaborativa fallito",
+    "codeCopied": "Codice {code} copiato",
+    "copyFailed": "Impossibile copiare il codice",
+    "realtimeError": "Errore realtime CAD",
+    "ownerLeft": "Il proprietario ha lasciato la sessione collaborativa",
+    "configurationCreated": "Configurazione creata: {name}",
+    "loadListError": "Errore caricamento configurazioni",
+    "loadDetailError": "Errore caricamento dettaglio configurazione",
+    "createError": "Errore creazione configurazione",
+    "categoryUpdated": "Categoria aggiornata",
+    "categoryUpdateError": "Errore aggiornamento categoria",
+    "depthUpdated": "Profondità aggiornata",
+    "depthUpdateError": "Errore aggiornamento profondità",
+    "columnPlanUpdated": "Piano colonne aggiornato",
+    "columnPlanUpdateError": "Errore aggiornamento piano colonne",
+    "designUpdated": "Design colonne aggiornato",
+    "designUpdateError": "Errore aggiornamento design",
+    "nextOptionsError": "Errore recupero opzioni disponibili",
+    "columnNotFound": "Colonna {n} non trovata",
+    "finalizeSuccess": "Configurazione finalizzata e inviata al carrello",
+    "finalizeError": "Errore finalizzazione configurazione",
+    "resetSuccess": "Configurazione resettata",
+    "resetError": "Errore reset configurazione",
+    "realtimeUnavailable": "Connessione realtime non disponibile",
+    "joinTimeout": "Timeout join sessione collaborativa",
+    "leaveTimeout": "Timeout leave sessione collaborativa",
+    "leaveCollabFailed": "Leave sessione collaborativa fallito",
+    "snapshotTimeout": "Timeout richiesta snapshot collaborativo",
+    "snapshotFailed": "Richiesta snapshot collaborativo fallita",
+    "operationTimeout": "Timeout operazione collaborativa",
+    "operationFailed": "Operazione collaborativa fallita"
+  }
+}

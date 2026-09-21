@@ -10,6 +10,9 @@
  */
 import express from 'express';
 import cors from 'cors';
+import pinoHttp from 'pino-http';
+import { randomUUID } from 'crypto';
+import { logger, redactUrl } from './infrastructure/logger';
 import { RegisterUser } from './useCases/RegisterUser';
 import { LoginUser } from './useCases/LoginUser';
 import { GenerateGuestSession } from './useCases/GenerateGuestSession';
@@ -72,6 +75,27 @@ export function buildApp(config: AppConfig) {
 
   const app = express();
   app.use(cors());
+  app.use(
+    pinoHttp({
+      logger,
+      // Reuse the trace id propagated by the gateway when present, so a single
+      // request can be followed across services in Grafana/Loki.
+      genReqId: (req, res) => {
+        const incoming = req.headers['x-trace-id'];
+        const traceId = typeof incoming === 'string' && incoming ? incoming : randomUUID();
+        res.setHeader('x-trace-id', traceId);
+        return traceId;
+      },
+      customProps: (req) => ({ traceId: req.id }),
+      autoLogging: { ignore: (req) => req.url === '/health' },
+      // Full header/query dumps are debugging noise for a human scanning
+      // Grafana — keep the per-request line to what matters at a glance.
+      serializers: {
+        req: (req) => ({ method: req.method, url: redactUrl(req.url) }),
+        res: (res) => ({ statusCode: res.statusCode }),
+      },
+    }),
+  );
   app.use(express.json());
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));

@@ -8,12 +8,13 @@
  * The process terminates at startup if JWT_SECRET is missing.
  */
 import { buildApp } from './app';
+import { logger } from './infrastructure/logger';
 
 const PORT = Number(process.env.PORT) || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
 
 if (!JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET environment variable is not set');
+  logger.fatal('JWT_SECRET environment variable is not set');
   process.exit(1);
 }
 
@@ -26,14 +27,14 @@ const app = buildApp({
     cad:          process.env.CAD_SERVICE_URL          || 'http://cad-service:3003',
     cart:         process.env.CART_SERVICE_URL         || 'http://cart-service:3004',
     order:        process.env.ORDER_SERVICE_URL        || 'http://order-service:3008',
+    payment:      process.env.PAYMENT_SERVICE_URL      || 'http://payment-service:3009',
     notification: process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3005',
-    chatbot:      process.env.CHATBOT_SERVICE_URL      || 'http://chatbot-service:3006',
     reporting:    process.env.REPORTING_SERVICE_URL    || 'http://reporting-service:3007',
   },
 });
 
 const server = app.listen(PORT, () => {
-  console.log(`[gateway] Listening on port ${PORT}`);
+  logger.info({ event: 'gateway.startup.listening', port: PORT }, `Listening on port ${PORT}`);
 });
 
 const notificationsWsProxy = app.locals['notificationsWsProxy'] as

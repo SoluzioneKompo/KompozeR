@@ -1,10 +1,13 @@
 <script setup lang="ts">
 /** Admin reporting view for date-range trends, KPIs, and daily order analytics. */
 import { computed, onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { reportingService } from '@/services/reportingService';
 import type { OrderTrendDto } from '@/types/reporting';
 import { ApiError } from '@/types/api';
+import { formatCurrencyFromCents, getIntlLocale } from '@/i18n/format';
 
+const { t } = useI18n();
 const loading = ref(false);
 const error = ref('');
 
@@ -54,15 +57,12 @@ onMounted(() => {
 
 /** Formats monetary KPI values from cents to localized euro string. */
 function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('it-IT', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(cents / 100);
+  return formatCurrencyFromCents(cents);
 }
 
 /** Formats reporting date keys as local calendar dates. */
 function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('it-IT', {
+  return new Intl.DateTimeFormat(getIntlLocale(), {
     dateStyle: 'short',
   }).format(new Date(`${iso}T00:00:00.000Z`));
 }
@@ -77,7 +77,7 @@ async function load(): Promise<void> {
       to: to.value || undefined,
     });
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Errore caricamento report ordini';
+    error.value = e instanceof ApiError ? e.message : t('admin.reports.errors.loadFailed');
   } finally {
     loading.value = false;
   }
@@ -95,48 +95,48 @@ async function setAllTime(): Promise<void> {
   <div class="view-container">
     <header class="header">
       <div>
-        <h1>Report ordini</h1>
+        <h1>{{ t('admin.reports.title') }}</h1>
       </div>
-      <button class="btn btn--light" :disabled="loading" @click="load">Aggiorna</button>
+      <button class="btn btn--light" :disabled="loading" @click="load">{{ t('admin.reports.refresh') }}</button>
     </header>
 
     <section class="filters">
       <label class="field">
-        <span class="field__label">Dal</span>
+        <span class="field__label">{{ t('admin.reports.filters.from') }}</span>
         <input v-model="from" class="field__input" type="date" />
       </label>
       <label class="field">
-        <span class="field__label">Al</span>
+        <span class="field__label">{{ t('admin.reports.filters.to') }}</span>
         <input v-model="to" class="field__input" type="date" />
       </label>
-      <button class="btn btn--primary" :disabled="loading" @click="load">Applica range</button>
-      <button class="btn btn--light" :disabled="loading" @click="setAllTime">Di Sempre</button>
+      <button class="btn btn--primary" :disabled="loading" @click="load">{{ t('admin.reports.filters.apply') }}</button>
+      <button class="btn btn--light" :disabled="loading" @click="setAllTime">{{ t('admin.reports.filters.allTime') }}</button>
     </section>
 
     <p v-if="error" class="error" role="alert" aria-live="assertive">{{ error }}</p>
-    <p v-if="loading" class="placeholder">Caricamento report...</p>
-    <p v-else-if="!trend" class="placeholder">Nessun dato disponibile.</p>
+    <p v-if="loading" class="placeholder">{{ t('admin.reports.loading') }}</p>
+    <p v-else-if="!trend" class="placeholder">{{ t('admin.reports.empty') }}</p>
 
     <template v-else>
       <section class="kpis">
         <article class="kpi-card">
-          <span class="kpi-label">Periodo</span>
+          <span class="kpi-label">{{ t('admin.reports.kpis.period') }}</span>
           <strong class="kpi-value">{{ formatDate(trend.from) }} - {{ formatDate(trend.to) }}</strong>
         </article>
         <article class="kpi-card">
-          <span class="kpi-label">Ordini totali</span>
+          <span class="kpi-label">{{ t('admin.reports.kpis.totalOrders') }}</span>
           <strong class="kpi-value">{{ trend.totals.totalOrders }}</strong>
         </article>
         <article class="kpi-card">
-          <span class="kpi-label">Fatturato totale</span>
+          <span class="kpi-label">{{ t('admin.reports.kpis.totalRevenue') }}</span>
           <strong class="kpi-value">{{ formatCurrency(trend.totals.totalRevenue) }}</strong>
         </article>
       </section>
 
       <section class="chart-card" v-if="bars.length > 0">
-        <h2>Ordini per giorno</h2>
+        <h2>{{ t('admin.reports.chart.title') }}</h2>
         <div class="chart-scroll">
-          <svg :viewBox="`0 0 ${chartWidth} ${chartHeight + 26}`" :width="chartWidth" :height="chartHeight + 26" role="img" aria-label="Grafico trend ordini giornalieri">
+          <svg :viewBox="`0 0 ${chartWidth} ${chartHeight + 26}`" :width="chartWidth" :height="chartHeight + 26" role="img" :aria-label="t('admin.reports.chart.ariaLabel')">
             <line x1="0" :y1="chartHeight" :x2="chartWidth" :y2="chartHeight" stroke="#d9d4cf" stroke-width="1" />
 
             <g v-for="bar in bars" :key="bar.label">
@@ -157,24 +157,24 @@ async function setAllTime(): Promise<void> {
               >
                 {{ bar.label }}
               </text>
-              <title>{{ bar.totalOrders }} ordini · {{ formatCurrency(bar.revenue) }}</title>
+              <title>{{ t('admin.reports.chart.tooltip', { count: bar.totalOrders, revenue: formatCurrency(bar.revenue) }) }}</title>
             </g>
           </svg>
         </div>
       </section>
 
       <section class="table-card">
-        <h2>Dettaglio giornaliero</h2>
+        <h2>{{ t('admin.reports.table.title') }}</h2>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Data</th>
-                <th>Totale ordini</th>
-                <th>Submitted</th>
-                <th>Done</th>
-                <th>Cancelled</th>
-                <th>Fatturato</th>
+                <th>{{ t('admin.reports.table.headers.date') }}</th>
+                <th>{{ t('admin.reports.table.headers.totalOrders') }}</th>
+                <th>{{ t('admin.reports.table.headers.submitted') }}</th>
+                <th>{{ t('admin.reports.table.headers.done') }}</th>
+                <th>{{ t('admin.reports.table.headers.cancelled') }}</th>
+                <th>{{ t('admin.reports.table.headers.revenue') }}</th>
               </tr>
             </thead>
             <tbody>
