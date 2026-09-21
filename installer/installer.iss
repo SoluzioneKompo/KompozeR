@@ -28,7 +28,8 @@ Compression=lzma
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
-UninstallDisplayIcon={app}\start.bat
+SetupIconFile=kompozer.ico
+UninstallDisplayIcon={app}\kompozer.ico
 
 [Languages]
 Name: "italian"; MessagesFile: "compiler:Languages\Italian.isl"
@@ -38,6 +39,7 @@ Name: "autostart"; Description: "Avvia KompozeR automaticamente all'accesso a Wi
 Name: "desktopicon"; Description: "Crea icona sul Desktop"; GroupDescription: "Icone aggiuntive:"; Flags: unchecked
 
 [Files]
+Source: "kompozer.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\docker-compose.prod.yml"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\.env"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\start.bat"; DestDir: "{app}"; Flags: ignoreversion
@@ -45,10 +47,10 @@ Source: "dist\stop.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\autostart.bat"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\KompozeR"; Filename: "{app}\start.bat"; WorkingDir: "{app}"; IconFilename: "{sys}\shell32.dll"; IconIndex: 13
+Name: "{group}\KompozeR"; Filename: "{app}\start.bat"; WorkingDir: "{app}"; IconFilename: "{app}\kompozer.ico"
 Name: "{group}\Stop KompozeR"; Filename: "{app}\stop.bat"; WorkingDir: "{app}"; IconFilename: "{sys}\shell32.dll"; IconIndex: 28
 Name: "{group}\Disinstalla KompozeR"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\KompozeR"; Filename: "{app}\start.bat"; WorkingDir: "{app}"; IconFilename: "{sys}\shell32.dll"; IconIndex: 13; Tasks: desktopicon
+Name: "{autodesktop}\KompozeR"; Filename: "{app}\start.bat"; WorkingDir: "{app}"; IconFilename: "{app}\kompozer.ico"; Tasks: desktopicon
 Name: "{userstartup}\KompozeR (autostart)"; Filename: "{app}\autostart.bat"; WorkingDir: "{app}"; Tasks: autostart
 
 [Code]
