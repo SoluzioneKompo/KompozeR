@@ -176,6 +176,7 @@ services:
 
   auth-service:
     image: ghcr.io/soluzionekompo/kompozer-auth-service:latest
+    command: sh -c "node dist/seed.js && node dist/index.js"
     env_file: .env
     environment:
       MONGO_URI: ${AUTH_MONGO_URI}

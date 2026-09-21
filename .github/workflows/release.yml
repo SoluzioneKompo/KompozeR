@@ -44,7 +44,10 @@ jobs:
       - name: Scrivi DEVUSER.json (auth-service)
         if: matrix.name == 'auth-service'
         shell: bash
-        run: echo "${{ secrets.DEVUSER_JSON }}" > kompozer/backend/authenticationService/DEVUSER.json
+        run: |
+          cat > kompozer/backend/authenticationService/DEVUSER.json <<'EOF'
+          ${{ secrets.DEVUSER_JSON }}
+          EOF
 
       - uses: docker/setup-buildx-action@v3
 
