@@ -244,7 +244,15 @@ services:
   notification-service:
     image: ghcr.io/soluzionekompo/kompozer-notification-service:latest
     env_file: .env
-    depends_on: [mongo-notification, redis]
+    environment:
+      CAD_MONGO_URI: "mongodb://mongo-cad-1:27017,mongo-cad-2:27017/caddb?replicaSet=cadrs"
+    depends_on:
+      mongo-notification:
+        condition: service_started
+      mongo-cad-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
     restart: unless-stopped
 
   reporting-service:
