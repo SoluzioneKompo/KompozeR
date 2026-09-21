@@ -6,6 +6,3 @@ dist/
 
 # Variabili d'ambiente
 .env
-
-# Dati sviluppatore (mai committare in produzione)
-DEVUSER.json
