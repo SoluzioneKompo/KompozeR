@@ -422,6 +422,14 @@ const canEditDesign = computed(() => {
   );
 });
 
+/** True once category (and depth, when the category requires one) is picked — mirrors depthRequired's "appear only when reachable" pattern for the columns step. */
+const columnsReachable = computed(() => {
+  if (!selected.value?.category) return false;
+  return !depthRequired.value || selected.value.depthMm != null;
+});
+/** True once a column plan is actually saved — the design and terminal steps only make sense against real spines, not the pre-save draft widths. */
+const designReachable = computed(() => !!selected.value?.columnPlan);
+
 const collabStatusLabel = computed(() => {
   if (!selected.value) {
     return t('cad.collab.statusSelectOrCreate');
@@ -610,7 +618,12 @@ const canvasColumns = computed(() => {
 
 /** Realistic 2D assembly geometry (feet/uprights/terminals/shelves) for the schema panel. */
 const assembly = computed(() =>
-  computeAssemblyGeometry(selected.value?.columnPlan, selected.value?.columnDesigns, selected.value?.terminalSelections),
+  computeAssemblyGeometry(
+    selected.value?.columnPlan,
+    selected.value?.columnDesigns,
+    selected.value?.terminalSelections,
+    availableTerminalHeights.value[0] ?? null,
+  ),
 );
 
 const ASSEMBLY_BASE_SCALE_PX_PER_MM = 0.6;
@@ -1212,7 +1225,7 @@ function stepActive(index: number): boolean {
               <p class="mini muted" v-if="depthLoading">{{ t('cad.depthStep.saving') }}</p>
             </article>
 
-            <article class="control-card">
+            <article class="control-card" v-if="columnsReachable">
               <h3>{{ t('cad.columnsStep.title') }}</h3>
               <label class="field">
                 <span class="field__label">{{ t('cad.columnsStep.countLabel') }}</span>
@@ -1248,7 +1261,7 @@ function stepActive(index: number): boolean {
               <p class="mini muted" v-if="columnPlanLoading">{{ t('cad.columnsStep.saving') }}</p>
             </article>
 
-            <article class="control-card">
+            <article class="control-card" v-if="designReachable">
               <h3>{{ t('cad.designStep.title') }}</h3>
               <p class="mini muted">{{ t('cad.designStep.fixedThickness', { cm: formatCm(shelfThicknessDraft) }) }}</p>
 
@@ -1325,7 +1338,7 @@ function stepActive(index: number): boolean {
               </div>
             </article>
 
-            <article class="control-card" v-if="spines.length > 0">
+            <article class="control-card" v-if="designReachable">
               <h3>{{ t('cad.terminalStep.title') }}</h3>
               <p class="mini muted">{{ t('cad.terminalStep.hint') }}</p>
               <p class="mini muted" v-if="availableTerminalHeights.length === 0">
