@@ -14,8 +14,6 @@ import { resolveShelfRoles, type ShelfRole } from '@/utils/shelfRoleResolver';
 
 export const SHELF_THICKNESS_MM = 20;
 export const POST_WIDTH_MM = 40;
-/** Fallback cap height when a spine has no terminal selection yet. */
-export const TERMINAL_HEIGHT_MM = 40;
 
 export type AssemblyPieceKind = 'foot' | 'upright' | 'terminal' | 'shelf';
 
@@ -46,7 +44,7 @@ function resolveAdjacentPositions(spineIndex: number, columnCount: number): numb
 
 function buildPostSegments(
   levelsMm: number[],
-  terminalHeightMm: number,
+  terminalHeightMm: number | null,
 ): Array<{ kind: AssemblyPieceKind; bottomMm: number; topMm: number }> {
   if (levelsMm.length === 0) return [];
 
@@ -62,8 +60,12 @@ function buildPostSegments(
     });
   }
 
-  const capBottom = levelsMm[levelsMm.length - 1] + SHELF_THICKNESS_MM;
-  segments.push({ kind: 'terminal', bottomMm: capBottom, topMm: capBottom + terminalHeightMm });
+  // No persisted selection and no catalog height to fall back to (e.g. category
+  // has no TERMINALE items yet): draw no terminal cap rather than a fake size.
+  if (terminalHeightMm != null) {
+    const capBottom = levelsMm[levelsMm.length - 1] + SHELF_THICKNESS_MM;
+    segments.push({ kind: 'terminal', bottomMm: capBottom, topMm: capBottom + terminalHeightMm });
+  }
 
   return segments;
 }
@@ -72,6 +74,8 @@ export function computeAssemblyGeometry(
   columnPlan: ColumnPlan | null | undefined,
   columnDesigns: ColumnDesign[] | undefined,
   terminalSelections: TerminalSelection[] | undefined = [],
+  /** Height (mm) drawn for a spine with no persisted selection — the smallest TERMINALE actually in the catalog for this category, or null if none exists. */
+  fallbackTerminalHeightMm: number | null = null,
 ): AssemblyGeometry {
   const terminalHeightBySpineIndex = new Map(
     terminalSelections.map((selection) => [selection.spineIndex, selection.heightMm]),
@@ -114,7 +118,7 @@ export function computeAssemblyGeometry(
     const merged = Array.from(new Set(positions.flatMap((position) => columnLevelsByPosition[position]))).sort(
       (a, b) => a - b,
     );
-    const terminalHeightMm = terminalHeightBySpineIndex.get(spineIndex) ?? TERMINAL_HEIGHT_MM;
+    const terminalHeightMm = terminalHeightBySpineIndex.get(spineIndex) ?? fallbackTerminalHeightMm;
     const segments = buildPostSegments(merged, terminalHeightMm);
     const xLeft = spineLeftX[spineIndex];
     for (const segment of segments) {
