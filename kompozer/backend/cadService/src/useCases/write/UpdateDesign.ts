@@ -11,7 +11,7 @@ import {
   toConfigurationDto,
 } from '../types';
 import { CatalogRules, CatalogRulesProvider } from '../../domain/ports/CatalogRulesProvider';
-import { deriveBom } from '../../domain/services/deriveBom';
+import { deriveBom, resolveTerminalHeightBySpineIndex } from '../../domain/services/deriveBom';
 import {
   resolveFirstLevelHeightsMm,
   SHELF_THICKNESS_MM,
@@ -201,6 +201,16 @@ export class UpdateDesign {
 
       if (updated.components.length > 0) {
         updated.status = 'READY_FOR_FINALIZE';
+
+        // Persist the resolved terminal height for every non-empty spine, not just
+        // the ones the user explicitly picked — otherwise a spine left on the
+        // catalog default has no terminalSelections entry at all, even though the
+        // BOM above already priced a real TERMINALE for it.
+        const resolvedTerminals = resolveTerminalHeightBySpineIndex(updated, rules);
+        updated.terminalSelections = [...resolvedTerminals.entries()].map(([spineIndex, heightMm]) => ({
+          spineIndex,
+          heightMm,
+        }));
       }
     }
 

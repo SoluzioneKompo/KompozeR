@@ -12,6 +12,64 @@ import {
 import { resolveShelfRoles } from './ShelfRoleResolver';
 
 /**
+ * Resolves the actual TERMINALE height per non-empty spine — the user's explicit
+ * pick when they set one via `terminalSelections`, otherwise the same catalog
+ * default `deriveBom` would silently fall back to for pricing. Lets callers
+ * (UpdateDesign) persist that resolved value back onto the configuration, so a
+ * spine the user never touched isn't left with no terminal selection at all
+ * once something downstream (e.g. the printed order schema) needs the real
+ * per-spine height instead of just an aggregated BOM line.
+ */
+export function resolveTerminalHeightBySpineIndex(
+  configuration: Pick<Configuration, 'category' | 'columnPlan' | 'columnDesigns' | 'terminalSelections'>,
+  rules: CatalogRules,
+): Map<number, number> {
+  const { columnPlan, columnDesigns } = configuration;
+  const resolved = new Map<number, number>();
+  if (!columnPlan) {
+    return resolved;
+  }
+
+  const preferredBySpineIndex = new Map(
+    configuration.terminalSelections.map((selection) => [selection.spineIndex, selection.heightMm]),
+  );
+
+  const sortedColumns = [...columnPlan.columns].sort((a, b) => a.index - b.index);
+  const spines = buildSpines(
+    sortedColumns.map((column) => {
+      const design = columnDesigns.find((item) => item.columnIndex === column.index);
+      return { levelsMm: design?.levelsMm ?? [] };
+    }),
+  );
+
+  const allowStackedUprights = configuration.category === 'KUBE';
+  const spineRules = {
+    footHeightsMm: resolveFirstLevelHeightsMm({
+      footHeightsMm: rules.footHeightsMm,
+      uprightHeightsMm: rules.uprightHeightsMm,
+    }),
+    uprightHeightsMm: rules.uprightHeightsMm,
+    terminalHeightsMm: rules.terminalHeightsMm,
+    maxHeightMm: Number.MAX_SAFE_INTEGER,
+  };
+
+  for (const spine of spines) {
+    if (spine.levelsMm.length === 0) continue;
+    const spineBom = deriveSpineBom(
+      spine.levelsMm,
+      spineRules,
+      preferredBySpineIndex.get(spine.index),
+      { allowStackedUprights },
+    );
+    if (spineBom) {
+      resolved.set(spine.index, spineBom.terminalHeightMm);
+    }
+  }
+
+  return resolved;
+}
+
+/**
  * Derives the Bill of Materials (BOM) from a finalized CAD configuration.
  *
  * Rules:
