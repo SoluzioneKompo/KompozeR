@@ -78,13 +78,14 @@ export function resolveTerminalHeightBySpineIndex(
  *              RIPIANO_INTERMEDIO) depends on whether that level is shared with
  *              index-adjacent columns — see ShelfRoleResolver.resolveShelfRoles.
  * - Spine components are counted per shared spine, not per column.
- * - PIEDINO:   2 per non-empty spine (front + back).
- * - TERMINALE: 2 per non-empty spine (front + back).
- * - MONTANTE:  2 per exact-fit spine segment (front + back). For KUBE, a
- *              segment that has no single matching catalog upright is
+ * - PIEDINO:   2 per non-empty spine (front + back) for TONDO/QUADRO; 1 for KUBE
+ *              (single component, no front/back pair).
+ * - TERMINALE: same front+back rule as PIEDINO.
+ * - MONTANTE:  same front+back rule as PIEDINO, per exact-fit spine segment. For
+ *              KUBE, a segment that has no single matching catalog upright is
  *              decomposed into the minimum-piece stack that sums to it (see
  *              SpineModel.composeUprightBreakdown), and each piece gets its
- *              own 2-per-spine count.
+ *              own per-spine count.
  *
  * Aggregation: items with the same SKU are summed before returning.
  */
@@ -196,6 +197,8 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
   );
 
   const allowStackedUprights = category === 'KUBE';
+  // KUBE uses a single PIEDINO/MONTANTE/TERMINALE per spine segment, not a front+back pair.
+  const spineComponentMultiplier = category === 'KUBE' ? 1 : SPINE_COMPONENT_MULTIPLIER;
 
   for (const spine of spines) {
     const spineBom = deriveSpineBom(
@@ -231,14 +234,14 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
     add(
       footRule.sku,
       footRule.name,
-      SPINE_COMPONENT_MULTIPLIER,
+      spineComponentMultiplier,
       footRule.priceCents,
       'PIEDINO',
     );
     add(
       terminalRule.sku,
       terminalRule.name,
-      SPINE_COMPONENT_MULTIPLIER,
+      spineComponentMultiplier,
       terminalRule.priceCents,
       'TERMINALE',
     );
@@ -263,7 +266,7 @@ export function deriveBom(configuration: Configuration, rules: CatalogRules): Bo
         add(
           uprightRule.sku,
           uprightRule.name,
-          SPINE_COMPONENT_MULTIPLIER,
+          spineComponentMultiplier,
           uprightRule.priceCents,
           'MONTANTE',
         );
