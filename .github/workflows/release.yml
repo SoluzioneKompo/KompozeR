@@ -72,7 +72,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path installer\dist | Out-Null
           Copy-Item kompozer\docker-compose.prod.yml installer\dist\docker-compose.prod.yml
-          Copy-Item kompozer\.env.example installer\dist\.env
+          Copy-Item kompozer\.env.prod.example installer\dist\.env
           Copy-Item installer\start.bat installer\dist\start.bat
           Copy-Item installer\stop.bat installer\dist\stop.bat
           Copy-Item installer\autostart.bat installer\dist\autostart.bat
