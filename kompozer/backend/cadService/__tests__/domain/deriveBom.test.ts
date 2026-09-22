@@ -70,7 +70,7 @@ describe('deriveBom', () => {
     expect(byType['TERMINALE']).toBe(6);
   });
 
-  it('KUBE: a segment that exactly matches one catalog upright behaves like every other system', () => {
+  it('KUBE: uses a single component per spine (no front+back pair)', () => {
     const cfg = buildConfiguration({
       status: 'DESIGN_IN_PROGRESS',
       category: 'KUBE',
@@ -82,9 +82,10 @@ describe('deriveBom', () => {
 
     const byType = sumByType(bom);
 
-    expect(byType['MONTANTE']).toBe(4);
-    expect(byType['PIEDINO']).toBe(4);
-    expect(byType['TERMINALE']).toBe(4);
+    // 2 spines (both endpoints of the single column) x 1 (no front/back pair) = 2.
+    expect(byType['MONTANTE']).toBe(2);
+    expect(byType['PIEDINO']).toBe(2);
+    expect(byType['TERMINALE']).toBe(2);
   });
 
   it('KUBE: a segment with no single catalog match is decomposed into stacked pieces (200+300=500)', () => {
@@ -108,9 +109,9 @@ describe('deriveBom', () => {
     const bom = deriveBom(cfg, kubeCatalogRules);
 
     const bySku = new Map(bom.map((item) => [item.sku, item.quantity]));
-    // 2 spines (both endpoints of the single column) x 2 (front+back) = 4 of each piece.
-    expect(bySku.get('MON-200')).toBe(4);
-    expect(bySku.get('MON-300')).toBe(4);
+    // 2 spines (both endpoints of the single column) x 1 (no front/back pair) = 2 of each piece.
+    expect(bySku.get('MON-200')).toBe(2);
+    expect(bySku.get('MON-300')).toBe(2);
     expect(bySku.has('MON-120')).toBe(false);
   });
 

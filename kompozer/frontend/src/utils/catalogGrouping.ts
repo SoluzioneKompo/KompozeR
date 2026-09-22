@@ -28,18 +28,20 @@ export function typeLabel(type: ComponentType): string {
   return i18n.global.t(`catalog.componentType.${type}`);
 }
 
-const HEIGHT_ONLY_TYPES: ComponentType[] = ['PIEDINO', 'MONTANTE', 'TERMINALE'];
-
+/** Shows only the dimensions that actually apply to this item (non-zero), instead of a fixed set per type. */
 export function dimensionLabel(item: CatalogItem): string {
   if (!item.dimensions) return item.name;
   const { widthMm, heightMm, depthMm } = item.dimensions;
-  const h = i18n.global.t('catalog.dimension.height');
-  if (HEIGHT_ONLY_TYPES.includes(item.Type)) {
-    return `${h}${heightMm} mm`;
-  }
   const w = i18n.global.t('catalog.dimension.width');
+  const h = i18n.global.t('catalog.dimension.height');
   const d = i18n.global.t('catalog.dimension.depth');
-  return `${w}${widthMm} × ${h}${heightMm} × ${d}${depthMm} mm`;
+
+  const parts: string[] = [];
+  if (widthMm) parts.push(`${w}${widthMm}`);
+  if (heightMm) parts.push(`${h}${heightMm}`);
+  if (depthMm) parts.push(`${d}${depthMm}`);
+
+  return parts.length > 0 ? `${parts.join(' × ')} mm` : item.name;
 }
 
 export function volume(item: CatalogItem): number {
